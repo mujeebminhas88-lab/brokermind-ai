@@ -428,19 +428,16 @@ function ScoringMatrix({ craCleared }: { craCleared: boolean }) {
                 Aggregate Risk Score
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-[44px] font-bold leading-none text-foreground">
-                  45
+                <span className="font-mono text-[44px] font-bold leading-none text-foreground transition-all duration-300">
+                  {score}
                 </span>
                 <span className="font-mono text-[13px] text-muted-foreground">/ 100</span>
               </div>
               <div
-                className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.12em]"
-                style={{
-                  background: "var(--warning-bg)",
-                  color: "var(--warning-fg)",
-                }}
+                className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.12em] transition-colors"
+                style={{ background: riskBg, color: riskFg }}
               >
-                <CircleDot className="h-2.5 w-2.5" /> Moderate Risk
+                <CircleDot className="h-2.5 w-2.5" /> {riskLabel}
               </div>
             </div>
             <div className="text-right text-[10px] text-muted-foreground">
