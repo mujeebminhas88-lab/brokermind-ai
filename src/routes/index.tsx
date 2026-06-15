@@ -44,6 +44,9 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
+  const [conditions, setConditions] = useState(initialConditions);
+  const craCleared = conditions[0].satisfied;
+
   return (
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
       <TopBar />
@@ -53,10 +56,10 @@ function Dashboard() {
           <DocumentLens />
         </section>
         <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden">
-          <ScoringMatrix />
+          <ScoringMatrix craCleared={craCleared} />
         </section>
         <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden">
-          <ConditionsPanel />
+          <ConditionsPanel conditions={conditions} setConditions={setConditions} />
         </section>
       </main>
     </div>
