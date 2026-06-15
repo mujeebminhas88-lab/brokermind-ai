@@ -482,15 +482,17 @@ function ScoringMatrix({ craCleared }: { craCleared: boolean }) {
         <div className="border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <span className="text-[11px] font-semibold tracking-tight">Triggered Risk Flags</span>
-            <span className="font-mono text-[10px] text-muted-foreground">2 ACTIVE</span>
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {craCleared ? "1 ACTIVE" : "2 ACTIVE"}
+            </span>
           </div>
           <div className="divide-y divide-border">
             <FlagRow
               code="TAX-CRA-ARREARS"
-              title="CRA balance owing detected"
-              severity="Elevated"
-              penalty="+15"
-              tone="warn"
+              title={craCleared ? "Cleared by condition INC-04" : "CRA balance owing detected"}
+              severity={craCleared ? "Cleared" : "Elevated"}
+              penalty={craCleared ? "—" : "+15"}
+              tone={craCleared ? "cleared" : "warn"}
               icon={<Receipt className="h-3.5 w-3.5" />}
             />
             <FlagRow
