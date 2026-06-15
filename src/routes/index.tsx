@@ -452,16 +452,16 @@ function ScoringMatrix({ craCleared }: { craCleared: boolean }) {
           <div className="mt-4">
             <div className="relative h-2 w-full bg-secondary">
               <div
-                className="absolute left-0 top-0 h-full"
+                className="absolute left-0 top-0 h-full transition-all duration-500"
                 style={{
-                  width: "45%",
+                  width: `${score}%`,
                   background:
                     "linear-gradient(90deg, var(--success), var(--warning))",
                 }}
               />
               <div
-                className="absolute top-[-3px] h-3 w-[2px]"
-                style={{ left: "45%", background: "var(--foreground)" }}
+                className="absolute top-[-3px] h-3 w-[2px] transition-all duration-500"
+                style={{ left: `${score}%`, background: "var(--foreground)" }}
               />
             </div>
             <div className="mt-1 flex justify-between font-mono text-[9.5px] text-muted-foreground">
