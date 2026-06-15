@@ -778,19 +778,29 @@ const initialConditions: Cond[] = [
 function ConditionsPanel({
   conditions,
   setConditions,
+  incomeOverride,
 }: {
   conditions: Cond[];
   setConditions: React.Dispatch<React.SetStateAction<Cond[]>>;
+  incomeOverride: IncomeOverride;
 }) {
   const [tab, setTab] = useState<"internal" | "broker" | "borrower">("internal");
+  const [activeId, setActiveId] = useState<string>("INC-04");
 
-  const top = conditions[0];
+  const top = conditions.find((c) => c.id === activeId) ?? conditions[0];
+  const drafts = conditionDrafts[top.id] ?? conditionDrafts["INC-04"];
 
   const toggleSatisfied = () => {
     setConditions((c) =>
-      c.map((x, i) => (i === 0 ? { ...x, satisfied: !x.satisfied } : x))
+      c.map((x) => (x.id === top.id ? { ...x, satisfied: !x.satisfied } : x))
     );
   };
+
+  const overrideLog = incomeOverride
+    ? `\n\n— — — IMMUTABLE LOG ENTRY — — —\n[${incomeOverride.appliedAt}] MANUAL INCOME RECONCILIATION APPLIED\nReconciled Income: ${incomeOverride.value}\nJustification (OSFI B-20): ${incomeOverride.note}\nLocked by: A. Khan · BMA-AUDIT-${Math.floor(Math.random() * 9000 + 1000)}`
+    : "";
+
+  const internalText = drafts.internal + overrideLog;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -835,9 +845,9 @@ function ConditionsPanel({
           </div>
 
           <div className="mt-3 grid grid-cols-3 gap-2 text-[10.5px]">
-            <Meta label="Doc Type" v="CRA NOA + Receipt" />
-            <Meta label="Due" v="48 hours" />
-            <Meta label="Source" v="Auto-flagged" />
+            <Meta label="Doc Type" v={drafts.meta.docType} />
+            <Meta label="Due" v={drafts.meta.due} />
+            <Meta label="Source" v={drafts.meta.source} />
           </div>
 
           {/* Tabs */}
@@ -872,9 +882,9 @@ function ConditionsPanel({
               </button>
             </div>
             <div className="max-h-44 overflow-auto whitespace-pre-wrap p-3 font-mono text-[11px] leading-relaxed text-foreground/85">
-              {tab === "internal" && DRAFT_INTERNAL}
-              {tab === "broker" && DRAFT_BROKER}
-              {tab === "borrower" && DRAFT_BORROWER}
+              {tab === "internal" && internalText}
+              {tab === "broker" && drafts.broker}
+              {tab === "borrower" && drafts.borrower}
             </div>
           </div>
 
@@ -897,25 +907,32 @@ function ConditionsPanel({
 
         {/* Other conditions */}
         <ul className="divide-y divide-border">
-          {conditions.slice(1).map((c) => (
-            <li
-              key={c.id}
-              className="flex items-center justify-between px-4 py-3 hover:bg-secondary/40"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <div className="min-w-0">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                    {c.id} · {c.category}
+          {conditions
+            .filter((c) => c.id !== top.id)
+            .map((c) => (
+              <li key={c.id}>
+                <button
+                  onClick={() => {
+                    setActiveId(c.id);
+                    setTab("internal");
+                  }}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-secondary/60 transition-colors"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                        {c.id} · {c.category}
+                      </div>
+                      <div className="truncate text-[12px] font-semibold tracking-tight">
+                        {c.title}
+                      </div>
+                    </div>
                   </div>
-                  <div className="truncate text-[12px] font-semibold tracking-tight">
-                    {c.title}
-                  </div>
-                </div>
-              </div>
-              <StatusBadge satisfied={c.satisfied} compact />
-            </li>
-          ))}
+                  <StatusBadge satisfied={c.satisfied} compact />
+                </button>
+              </li>
+            ))}
         </ul>
       </div>
     </div>
