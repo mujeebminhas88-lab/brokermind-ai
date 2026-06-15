@@ -585,19 +585,24 @@ function FlagRow({
   title: string;
   severity: string;
   penalty: string;
-  tone: "warn" | "ok";
+  tone: "warn" | "ok" | "cleared";
   icon: React.ReactNode;
 }) {
   const sev =
     tone === "warn"
       ? { background: "var(--warning-bg)", color: "var(--warning-fg)" }
-      : { background: "color-mix(in oklab, var(--success) 14%, transparent)", color: "var(--success)" };
+      : tone === "cleared"
+        ? { background: "color-mix(in oklab, var(--muted-foreground) 14%, transparent)", color: "var(--muted-foreground)" }
+        : { background: "color-mix(in oklab, var(--success) 14%, transparent)", color: "var(--success)" };
+  const dimmed = tone === "cleared" ? "opacity-50" : "";
   return (
-    <div className="flex items-center justify-between px-3 py-2.5">
+    <div className={`flex items-center justify-between px-3 py-2.5 transition-opacity ${dimmed}`}>
       <div className="flex min-w-0 items-start gap-2.5">
         <div className="mt-0.5 text-muted-foreground">{icon}</div>
         <div className="min-w-0">
-          <div className="font-mono text-[10.5px] font-bold tracking-wide">{code}</div>
+          <div className={`font-mono text-[10.5px] font-bold tracking-wide ${tone === "cleared" ? "line-through" : ""}`}>
+            {code}
+          </div>
           <div className="truncate text-[11.5px] text-foreground/80">{title}</div>
         </div>
       </div>
