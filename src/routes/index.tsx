@@ -647,8 +647,13 @@ const initialConditions: Cond[] = [
   { id: "INS-01", title: "Property insurance binder", category: "Insurance", satisfied: true },
 ];
 
-function ConditionsPanel() {
-  const [conditions, setConditions] = useState(initialConditions);
+function ConditionsPanel({
+  conditions,
+  setConditions,
+}: {
+  conditions: Cond[];
+  setConditions: React.Dispatch<React.SetStateAction<Cond[]>>;
+}) {
   const [tab, setTab] = useState<"internal" | "broker" | "borrower">("internal");
 
   const top = conditions[0];
