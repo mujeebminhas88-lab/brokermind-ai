@@ -22,7 +22,10 @@ import {
   User,
   Calendar,
   DollarSign,
+  X,
 } from "lucide-react";
+
+type IncomeOverride = { value: string; note: string; appliedAt: string } | null;
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -45,7 +48,8 @@ export const Route = createFileRoute("/")({
 
 function Dashboard() {
   const [conditions, setConditions] = useState(initialConditions);
-  const craCleared = conditions[0].satisfied;
+  const [incomeOverride, setIncomeOverride] = useState<IncomeOverride>(null);
+  const craCleared = conditions.find((c) => c.id === "INC-04")?.satisfied ?? false;
 
   return (
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
@@ -53,13 +57,17 @@ function Dashboard() {
       <SubHeader />
       <main className="grid grid-cols-12 gap-px bg-border" style={{ height: "calc(100vh - 96px)" }}>
         <section className="col-span-12 lg:col-span-5 bg-background overflow-hidden">
-          <DocumentLens />
+          <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
         </section>
         <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden">
           <ScoringMatrix craCleared={craCleared} />
         </section>
         <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden">
-          <ConditionsPanel conditions={conditions} setConditions={setConditions} />
+          <ConditionsPanel
+            conditions={conditions}
+            setConditions={setConditions}
+            incomeOverride={incomeOverride}
+          />
         </section>
       </main>
     </div>
@@ -161,7 +169,14 @@ function SubHeader() {
 
 /* ────────────────────── COLUMN 1: DOCUMENT LENS ────────────────────── */
 
-function DocumentLens() {
+function DocumentLens({
+  incomeOverride,
+  setIncomeOverride,
+}: {
+  incomeOverride: IncomeOverride;
+  setIncomeOverride: React.Dispatch<React.SetStateAction<IncomeOverride>>;
+}) {
+  const [modalOpen, setModalOpen] = useState(false);
   return (
     <div className="flex h-full flex-col">
       <PaneHeader
@@ -310,12 +325,118 @@ function DocumentLens() {
               <ReconRow doc="T5 — Dividends" val="$12,180.00" status="MATCH" />
               <ReconRow
                 doc="Stated Income (App)"
-                val="$96,000.00"
-                status="VARIANCE"
-                tone="warn"
-                delta="+1.6%"
+                val={incomeOverride ? incomeOverride.value : "$96,000.00"}
+                status={incomeOverride ? "RECONCILED" : "VARIANCE"}
+                tone={incomeOverride ? "ok" : "warn"}
+                delta={incomeOverride ? "OVERRIDE" : "+1.6%"}
+                onClick={incomeOverride ? undefined : () => setModalOpen(true)}
               />
             </div>
+          </div>
+        </div>
+      </div>
+      {modalOpen && (
+        <IncomeOverrideModal
+          onClose={() => setModalOpen(false)}
+          onApply={(value, note) => {
+            setIncomeOverride({
+              value,
+              note,
+              appliedAt: new Date().toLocaleString("en-CA", { hour12: false }),
+            });
+            setModalOpen(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function IncomeOverrideModal({
+  onClose,
+  onApply,
+}: {
+  onClose: () => void;
+  onApply: (value: string, note: string) => void;
+}) {
+  const [value, setValue] = useState("$94,500.00");
+  const [note, setNote] = useState(
+    "Stated income reconciled to CRA Line 15000 per OSFI B-20 §5.1.1. Variance within tolerance; T4 + T5 corroborated."
+  );
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md border border-border bg-card shadow-[0_20px_60px_-20px_rgba(15,42,30,0.45)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="flex items-center justify-between border-b border-border px-4 py-3"
+          style={{ background: "var(--emerald-deep)" }}
+        >
+          <div className="flex items-center gap-2 text-primary-foreground">
+            <ShieldCheck className="h-4 w-4" />
+            <h3 className="text-[13px] font-bold tracking-tight">Manual Income Reconciliation</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-primary-foreground/80 hover:text-primary-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4 p-4">
+          <div className="grid grid-cols-2 gap-2 border border-border bg-secondary/50 p-2 text-[10.5px]">
+            <div>
+              <div className="text-muted-foreground">Stated (App)</div>
+              <div className="font-mono font-bold">$96,000.00</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">CRA Line 15000</div>
+              <div className="font-mono font-bold">$94,500.00</div>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Underwriter Reconciled Income
+            </label>
+            <input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              className="h-9 w-full border border-border bg-background px-2.5 font-mono text-[12.5px] font-semibold focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              OSFI B-20 Compliance Justification Note
+            </label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={4}
+              className="w-full resize-none border border-border bg-background px-2.5 py-2 text-[11.5px] leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          <div className="flex items-center justify-between border-t border-border pt-3">
+            <button
+              onClick={onClose}
+              className="border border-border bg-card px-3 py-1.5 text-[11px] font-semibold tracking-tight hover:bg-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onApply(value, note)}
+              className="flex items-center gap-1.5 px-4 py-1.5 text-[11.5px] font-bold tracking-tight text-primary-foreground"
+              style={{ background: "var(--emerald-deep)" }}
+            >
+              Apply Override
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -371,19 +492,26 @@ function ReconRow({
   status,
   tone = "ok",
   delta,
+  onClick,
 }: {
   doc: string;
   val: string;
   status: string;
   tone?: "ok" | "warn";
   delta?: string;
+  onClick?: () => void;
 }) {
   const color =
     tone === "warn"
       ? { background: "var(--warning-bg)", color: "var(--warning-fg)" }
       : { background: "color-mix(in oklab, var(--success) 14%, transparent)", color: "var(--success)" };
   return (
-    <div className="flex items-center justify-between border-b border-border py-1.5 text-[11px] last:border-0">
+    <div
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      className={`flex items-center justify-between border-b border-border py-1.5 text-[11px] last:border-0 ${onClick ? "cursor-pointer hover:bg-secondary/60 px-1 -mx-1 transition-colors" : ""}`}
+    >
       <span className="truncate text-foreground">{doc}</span>
       <div className="flex items-center gap-2">
         <span className="font-mono text-muted-foreground">{val}</span>
@@ -650,19 +778,29 @@ const initialConditions: Cond[] = [
 function ConditionsPanel({
   conditions,
   setConditions,
+  incomeOverride,
 }: {
   conditions: Cond[];
   setConditions: React.Dispatch<React.SetStateAction<Cond[]>>;
+  incomeOverride: IncomeOverride;
 }) {
   const [tab, setTab] = useState<"internal" | "broker" | "borrower">("internal");
+  const [activeId, setActiveId] = useState<string>("INC-04");
 
-  const top = conditions[0];
+  const top = conditions.find((c) => c.id === activeId) ?? conditions[0];
+  const drafts = conditionDrafts[top.id] ?? conditionDrafts["INC-04"];
 
   const toggleSatisfied = () => {
     setConditions((c) =>
-      c.map((x, i) => (i === 0 ? { ...x, satisfied: !x.satisfied } : x))
+      c.map((x) => (x.id === top.id ? { ...x, satisfied: !x.satisfied } : x))
     );
   };
+
+  const overrideLog = incomeOverride
+    ? `\n\n— — — IMMUTABLE LOG ENTRY — — —\n[${incomeOverride.appliedAt}] MANUAL INCOME RECONCILIATION APPLIED\nReconciled Income: ${incomeOverride.value}\nJustification (OSFI B-20): ${incomeOverride.note}\nLocked by: A. Khan · BMA-AUDIT-${Math.floor(Math.random() * 9000 + 1000)}`
+    : "";
+
+  const internalText = drafts.internal + overrideLog;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -707,9 +845,9 @@ function ConditionsPanel({
           </div>
 
           <div className="mt-3 grid grid-cols-3 gap-2 text-[10.5px]">
-            <Meta label="Doc Type" v="CRA NOA + Receipt" />
-            <Meta label="Due" v="48 hours" />
-            <Meta label="Source" v="Auto-flagged" />
+            <Meta label="Doc Type" v={drafts.meta.docType} />
+            <Meta label="Due" v={drafts.meta.due} />
+            <Meta label="Source" v={drafts.meta.source} />
           </div>
 
           {/* Tabs */}
@@ -744,9 +882,9 @@ function ConditionsPanel({
               </button>
             </div>
             <div className="max-h-44 overflow-auto whitespace-pre-wrap p-3 font-mono text-[11px] leading-relaxed text-foreground/85">
-              {tab === "internal" && DRAFT_INTERNAL}
-              {tab === "broker" && DRAFT_BROKER}
-              {tab === "borrower" && DRAFT_BORROWER}
+              {tab === "internal" && internalText}
+              {tab === "broker" && drafts.broker}
+              {tab === "borrower" && drafts.borrower}
             </div>
           </div>
 
@@ -769,25 +907,32 @@ function ConditionsPanel({
 
         {/* Other conditions */}
         <ul className="divide-y divide-border">
-          {conditions.slice(1).map((c) => (
-            <li
-              key={c.id}
-              className="flex items-center justify-between px-4 py-3 hover:bg-secondary/40"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <div className="min-w-0">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                    {c.id} · {c.category}
+          {conditions
+            .filter((c) => c.id !== top.id)
+            .map((c) => (
+              <li key={c.id}>
+                <button
+                  onClick={() => {
+                    setActiveId(c.id);
+                    setTab("internal");
+                  }}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-secondary/60 transition-colors"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                        {c.id} · {c.category}
+                      </div>
+                      <div className="truncate text-[12px] font-semibold tracking-tight">
+                        {c.title}
+                      </div>
+                    </div>
                   </div>
-                  <div className="truncate text-[12px] font-semibold tracking-tight">
-                    {c.title}
-                  </div>
-                </div>
-              </div>
-              <StatusBadge satisfied={c.satisfied} compact />
-            </li>
-          ))}
+                  <StatusBadge satisfied={c.satisfied} compact />
+                </button>
+              </li>
+            ))}
         </ul>
       </div>
     </div>
@@ -869,7 +1014,17 @@ function PaneHeader({
 
 /* ────────────────────── DRAFT COPY ────────────────────── */
 
-const DRAFT_INTERNAL = `CREDIT NOTE — FILE #APP-2025-08842
+type DraftBundle = {
+  internal: string;
+  broker: string;
+  borrower: string;
+  meta: { docType: string; due: string; source: string };
+};
+
+const conditionDrafts: Record<string, DraftBundle> = {
+  "INC-04": {
+    meta: { docType: "CRA NOA + Receipt", due: "48 hours", source: "Auto-flagged" },
+    internal: `CREDIT NOTE — FILE #APP-2025-08842
 Applicant: Mujeeb Minhas
 Condition: INC-04 — Verify CRA Outstanding Balance
 
@@ -885,9 +1040,8 @@ full, or (b) executed CRA payment arrangement with two
 months of consecutive payment history. Re-score INC
 component upon receipt.
 
-UW: A. Khan · 2026-06-15 14:02 ET`;
-
-const DRAFT_BROKER = `Hi team,
+UW: A. Khan · 2026-06-15 14:02 ET`,
+    broker: `Hi team,
 
 We've completed initial adjudication on Mujeeb Minhas
 (File #APP-2025-08842) and require one outstanding item
@@ -903,9 +1057,8 @@ Once received, we'll re-run the risk model and target
 same-day commitment issuance. SLA clock: 48 hours.
 
 Thanks,
-BrokerMindAI Adjudication Desk`;
-
-const DRAFT_BORROWER = `Dear Mr. Minhas,
+BrokerMindAI Adjudication Desk`,
+    borrower: `Dear Mr. Minhas,
 
 Thank you for your mortgage application. As part of our
 standard review, we identified an outstanding balance of
@@ -924,4 +1077,163 @@ Documents can be uploaded securely through your broker's
 portal. Please contact us if you have any questions.
 
 Kind regards,
-Adjudication Team`;
+Adjudication Team`,
+  },
+
+  "EMP-02": {
+    meta: { docType: "Letter of Employment + 2 Paystubs", due: "Satisfied", source: "Standard pack" },
+    internal: `CREDIT NOTE — FILE #APP-2025-08842
+Condition: EMP-02 — Continuous Employment (24 mo.)
+
+OBSERVATION
+Letter of Employment on company letterhead dated
+2026-06-10 confirms applicant employed since 2023-09-04
+in a permanent full-time capacity. Two most recent
+paystubs (2026-05-31, 2026-06-14) corroborate base
+salary of $78,420 + variable.
+
+DETERMINATION
+Tenure threshold (24 mo.) satisfied. No probationary
+language present. Closing this condition.
+
+UW: A. Khan · 2026-06-15 14:08 ET`,
+    broker: `Hi team,
+
+EMP-02 is cleared on file #APP-2025-08842. LOE and the
+two paystubs you submitted on 2026-06-14 reconcile to
+employer T4 and our minimum tenure rule (24 months).
+
+No further action required on the employment file. We
+will keep you posted on remaining conditions.
+
+— BrokerMindAI Adjudication Desk`,
+    borrower: `Dear Mr. Minhas,
+
+We have received and verified your employment
+documentation. No further action is required from you on
+this item. We will reach out separately if any other
+conditions remain outstanding.
+
+Kind regards,
+Adjudication Team`,
+  },
+
+  "DWN-01": {
+    meta: { docType: "90-day bank statements", due: "72 hours", source: "AML mandate" },
+    internal: `CREDIT NOTE — FILE #APP-2025-08842
+Condition: DWN-01 — Source of Down Payment (90 day history)
+
+OBSERVATION
+Required to evidence the full down payment ($118,500)
+held or accumulated through traceable channels over the
+most recent 90 days. Large deposits (>$5,000) must be
+sourced individually under FINTRAC/AML guidance.
+
+OUTSTANDING
+Awaiting (a) 90 days of bank statements for all accounts
+holding deposit funds, and (b) explanation + supporting
+docs for any single deposit exceeding $5,000.
+
+UW: A. Khan · 2026-06-15`,
+    broker: `Hi team,
+
+Please collect for DWN-01 on file #APP-2025-08842:
+
+  • 90 days of statements for ALL accounts contributing
+    to the down payment.
+  • Source documentation for any single deposit greater
+    than $5,000 (gift letter, sale proceeds, bonus, etc.)
+
+Closing depends on satisfactory AML trace. Target
+turnaround: 72 hours.
+
+— BrokerMindAI Adjudication Desk`,
+    borrower: `Dear Mr. Minhas,
+
+To complete the down payment verification step required
+by Canadian anti-money-laundering rules, please provide:
+
+  1. 90 days of statements for every account that holds
+     funds being used toward your down payment.
+  2. A short note explaining any single deposit larger
+     than $5,000 (and supporting documents such as a
+     gift letter or sale receipt where applicable).
+
+Your broker can upload these securely on your behalf.
+
+Kind regards,
+Adjudication Team`,
+  },
+
+  "PROP-03": {
+    meta: { docType: "AACI Appraisal Report", due: "5 business days", source: "Lender mandate" },
+    internal: `CREDIT NOTE — FILE #APP-2025-08842
+Condition: PROP-03 — Independent AACI Appraisal
+
+OBSERVATION
+Subject property: detached, urban. Purchase price
+$540,000. Lender policy requires an independent AACI
+appraisal — automated valuation insufficient at this
+LTV band.
+
+OUTSTANDING
+Full narrative AACI report with three comparables within
+1 km and 90 days. Effective date within 30 days of
+funding.
+
+UW: A. Khan · 2026-06-15`,
+    broker: `Hi team,
+
+For PROP-03 on file #APP-2025-08842, please order an
+independent AACI appraisal from a panel-approved firm.
+Lender will not accept AVM or drive-by. Report should
+include three recent comparables and confirm effective
+value at or above the purchase price of $540,000.
+
+Target: 5 business days.
+
+— BrokerMindAI Adjudication Desk`,
+    borrower: `Dear Mr. Minhas,
+
+To finalize your mortgage, the lender has requested an
+independent professional appraisal of the property. Your
+broker will arrange access with the appraisal firm; you
+do not need to provide further documentation at this
+stage.
+
+Kind regards,
+Adjudication Team`,
+  },
+
+  "INS-01": {
+    meta: { docType: "Insurance binder", due: "Satisfied", source: "Closing pack" },
+    internal: `CREDIT NOTE — FILE #APP-2025-08842
+Condition: INS-01 — Property Insurance Binder
+
+OBSERVATION
+Binder received from Intact Insurance, policy
+#H-44820193, effective from closing date. Replacement
+cost $612,000; lender named as first loss payee with
+standard mortgage clause.
+
+DETERMINATION
+Coverage and mortgage clause meet lender requirement.
+Closing this condition.
+
+UW: A. Khan · 2026-06-15 14:11 ET`,
+    broker: `Hi team,
+
+INS-01 is cleared. The Intact binder you forwarded names
+the lender correctly and the replacement-cost amount is
+in line with the appraised value. No further action.
+
+— BrokerMindAI Adjudication Desk`,
+    borrower: `Dear Mr. Minhas,
+
+We have received your property insurance binder. No
+further action is required from you on this item.
+
+Kind regards,
+Adjudication Team`,
+  },
+};
