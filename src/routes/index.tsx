@@ -22,7 +22,10 @@ import {
   User,
   Calendar,
   DollarSign,
+  X,
 } from "lucide-react";
+
+type IncomeOverride = { value: string; note: string; appliedAt: string } | null;
 
 export const Route = createFileRoute("/")({
   head: () => ({
