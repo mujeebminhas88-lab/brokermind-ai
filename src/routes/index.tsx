@@ -398,7 +398,13 @@ function ReconRow({
 
 /* ────────────────────── COLUMN 2: SCORING MATRIX ────────────────────── */
 
-function ScoringMatrix() {
+function ScoringMatrix({ craCleared }: { craCleared: boolean }) {
+  const score = craCleared ? 30 : 45;
+  const riskLabel = craCleared ? "Low Risk" : "Moderate Risk";
+  const riskBg = craCleared
+    ? "color-mix(in oklab, var(--success) 16%, transparent)"
+    : "var(--warning-bg)";
+  const riskFg = craCleared ? "var(--success)" : "var(--warning-fg)";
   return (
     <div className="flex h-full flex-col overflow-auto">
       <PaneHeader
