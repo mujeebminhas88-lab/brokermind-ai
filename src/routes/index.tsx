@@ -48,7 +48,8 @@ export const Route = createFileRoute("/")({
 
 function Dashboard() {
   const [conditions, setConditions] = useState(initialConditions);
-  const craCleared = conditions[0].satisfied;
+  const [incomeOverride, setIncomeOverride] = useState<IncomeOverride>(null);
+  const craCleared = conditions.find((c) => c.id === "INC-04")?.satisfied ?? false;
 
   return (
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
@@ -56,13 +57,17 @@ function Dashboard() {
       <SubHeader />
       <main className="grid grid-cols-12 gap-px bg-border" style={{ height: "calc(100vh - 96px)" }}>
         <section className="col-span-12 lg:col-span-5 bg-background overflow-hidden">
-          <DocumentLens />
+          <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
         </section>
         <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden">
           <ScoringMatrix craCleared={craCleared} />
         </section>
         <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden">
-          <ConditionsPanel conditions={conditions} setConditions={setConditions} />
+          <ConditionsPanel
+            conditions={conditions}
+            setConditions={setConditions}
+            incomeOverride={incomeOverride}
+          />
         </section>
       </main>
     </div>
