@@ -44,6 +44,9 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
+  const [conditions, setConditions] = useState(initialConditions);
+  const craCleared = conditions[0].satisfied;
+
   return (
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
       <TopBar />
@@ -53,10 +56,10 @@ function Dashboard() {
           <DocumentLens />
         </section>
         <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden">
-          <ScoringMatrix />
+          <ScoringMatrix craCleared={craCleared} />
         </section>
         <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden">
-          <ConditionsPanel />
+          <ConditionsPanel conditions={conditions} setConditions={setConditions} />
         </section>
       </main>
     </div>
@@ -395,7 +398,13 @@ function ReconRow({
 
 /* ────────────────────── COLUMN 2: SCORING MATRIX ────────────────────── */
 
-function ScoringMatrix() {
+function ScoringMatrix({ craCleared }: { craCleared: boolean }) {
+  const score = craCleared ? 30 : 45;
+  const riskLabel = craCleared ? "Low Risk" : "Moderate Risk";
+  const riskBg = craCleared
+    ? "color-mix(in oklab, var(--success) 16%, transparent)"
+    : "var(--warning-bg)";
+  const riskFg = craCleared ? "var(--success)" : "var(--warning-fg)";
   return (
     <div className="flex h-full flex-col overflow-auto">
       <PaneHeader
@@ -419,19 +428,16 @@ function ScoringMatrix() {
                 Aggregate Risk Score
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-[44px] font-bold leading-none text-foreground">
-                  45
+                <span className="font-mono text-[44px] font-bold leading-none text-foreground transition-all duration-300">
+                  {score}
                 </span>
                 <span className="font-mono text-[13px] text-muted-foreground">/ 100</span>
               </div>
               <div
-                className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.12em]"
-                style={{
-                  background: "var(--warning-bg)",
-                  color: "var(--warning-fg)",
-                }}
+                className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.12em] transition-colors"
+                style={{ background: riskBg, color: riskFg }}
               >
-                <CircleDot className="h-2.5 w-2.5" /> Moderate Risk
+                <CircleDot className="h-2.5 w-2.5" /> {riskLabel}
               </div>
             </div>
             <div className="text-right text-[10px] text-muted-foreground">
@@ -446,16 +452,16 @@ function ScoringMatrix() {
           <div className="mt-4">
             <div className="relative h-2 w-full bg-secondary">
               <div
-                className="absolute left-0 top-0 h-full"
+                className="absolute left-0 top-0 h-full transition-all duration-500"
                 style={{
-                  width: "45%",
+                  width: `${score}%`,
                   background:
                     "linear-gradient(90deg, var(--success), var(--warning))",
                 }}
               />
               <div
-                className="absolute top-[-3px] h-3 w-[2px]"
-                style={{ left: "45%", background: "var(--foreground)" }}
+                className="absolute top-[-3px] h-3 w-[2px] transition-all duration-500"
+                style={{ left: `${score}%`, background: "var(--foreground)" }}
               />
             </div>
             <div className="mt-1 flex justify-between font-mono text-[9.5px] text-muted-foreground">
@@ -476,15 +482,17 @@ function ScoringMatrix() {
         <div className="border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <span className="text-[11px] font-semibold tracking-tight">Triggered Risk Flags</span>
-            <span className="font-mono text-[10px] text-muted-foreground">2 ACTIVE</span>
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {craCleared ? "1 ACTIVE" : "2 ACTIVE"}
+            </span>
           </div>
           <div className="divide-y divide-border">
             <FlagRow
               code="TAX-CRA-ARREARS"
-              title="CRA balance owing detected"
-              severity="Elevated"
-              penalty="+15"
-              tone="warn"
+              title={craCleared ? "Cleared by condition INC-04" : "CRA balance owing detected"}
+              severity={craCleared ? "Cleared" : "Elevated"}
+              penalty={craCleared ? "—" : "+15"}
+              tone={craCleared ? "cleared" : "warn"}
               icon={<Receipt className="h-3.5 w-3.5" />}
             />
             <FlagRow
@@ -577,19 +585,24 @@ function FlagRow({
   title: string;
   severity: string;
   penalty: string;
-  tone: "warn" | "ok";
+  tone: "warn" | "ok" | "cleared";
   icon: React.ReactNode;
 }) {
   const sev =
     tone === "warn"
       ? { background: "var(--warning-bg)", color: "var(--warning-fg)" }
-      : { background: "color-mix(in oklab, var(--success) 14%, transparent)", color: "var(--success)" };
+      : tone === "cleared"
+        ? { background: "color-mix(in oklab, var(--muted-foreground) 14%, transparent)", color: "var(--muted-foreground)" }
+        : { background: "color-mix(in oklab, var(--success) 14%, transparent)", color: "var(--success)" };
+  const dimmed = tone === "cleared" ? "opacity-50" : "";
   return (
-    <div className="flex items-center justify-between px-3 py-2.5">
+    <div className={`flex items-center justify-between px-3 py-2.5 transition-opacity ${dimmed}`}>
       <div className="flex min-w-0 items-start gap-2.5">
         <div className="mt-0.5 text-muted-foreground">{icon}</div>
         <div className="min-w-0">
-          <div className="font-mono text-[10.5px] font-bold tracking-wide">{code}</div>
+          <div className={`font-mono text-[10.5px] font-bold tracking-wide ${tone === "cleared" ? "line-through" : ""}`}>
+            {code}
+          </div>
           <div className="truncate text-[11.5px] text-foreground/80">{title}</div>
         </div>
       </div>
@@ -634,8 +647,13 @@ const initialConditions: Cond[] = [
   { id: "INS-01", title: "Property insurance binder", category: "Insurance", satisfied: true },
 ];
 
-function ConditionsPanel() {
-  const [conditions, setConditions] = useState(initialConditions);
+function ConditionsPanel({
+  conditions,
+  setConditions,
+}: {
+  conditions: Cond[];
+  setConditions: React.Dispatch<React.SetStateAction<Cond[]>>;
+}) {
   const [tab, setTab] = useState<"internal" | "broker" | "borrower">("internal");
 
   const top = conditions[0];
