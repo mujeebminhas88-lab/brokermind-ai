@@ -325,12 +325,118 @@ function DocumentLens({
               <ReconRow doc="T5 — Dividends" val="$12,180.00" status="MATCH" />
               <ReconRow
                 doc="Stated Income (App)"
-                val="$96,000.00"
-                status="VARIANCE"
-                tone="warn"
-                delta="+1.6%"
+                val={incomeOverride ? incomeOverride.value : "$96,000.00"}
+                status={incomeOverride ? "RECONCILED" : "VARIANCE"}
+                tone={incomeOverride ? "ok" : "warn"}
+                delta={incomeOverride ? "OVERRIDE" : "+1.6%"}
+                onClick={incomeOverride ? undefined : () => setModalOpen(true)}
               />
             </div>
+          </div>
+        </div>
+      </div>
+      {modalOpen && (
+        <IncomeOverrideModal
+          onClose={() => setModalOpen(false)}
+          onApply={(value, note) => {
+            setIncomeOverride({
+              value,
+              note,
+              appliedAt: new Date().toLocaleString("en-CA", { hour12: false }),
+            });
+            setModalOpen(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function IncomeOverrideModal({
+  onClose,
+  onApply,
+}: {
+  onClose: () => void;
+  onApply: (value: string, note: string) => void;
+}) {
+  const [value, setValue] = useState("$94,500.00");
+  const [note, setNote] = useState(
+    "Stated income reconciled to CRA Line 15000 per OSFI B-20 §5.1.1. Variance within tolerance; T4 + T5 corroborated."
+  );
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md border border-border bg-card shadow-[0_20px_60px_-20px_rgba(15,42,30,0.45)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="flex items-center justify-between border-b border-border px-4 py-3"
+          style={{ background: "var(--emerald-deep)" }}
+        >
+          <div className="flex items-center gap-2 text-primary-foreground">
+            <ShieldCheck className="h-4 w-4" />
+            <h3 className="text-[13px] font-bold tracking-tight">Manual Income Reconciliation</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-primary-foreground/80 hover:text-primary-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4 p-4">
+          <div className="grid grid-cols-2 gap-2 border border-border bg-secondary/50 p-2 text-[10.5px]">
+            <div>
+              <div className="text-muted-foreground">Stated (App)</div>
+              <div className="font-mono font-bold">$96,000.00</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">CRA Line 15000</div>
+              <div className="font-mono font-bold">$94,500.00</div>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Underwriter Reconciled Income
+            </label>
+            <input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              className="h-9 w-full border border-border bg-background px-2.5 font-mono text-[12.5px] font-semibold focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              OSFI B-20 Compliance Justification Note
+            </label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={4}
+              className="w-full resize-none border border-border bg-background px-2.5 py-2 text-[11.5px] leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          <div className="flex items-center justify-between border-t border-border pt-3">
+            <button
+              onClick={onClose}
+              className="border border-border bg-card px-3 py-1.5 text-[11px] font-semibold tracking-tight hover:bg-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onApply(value, note)}
+              className="flex items-center gap-1.5 px-4 py-1.5 text-[11.5px] font-bold tracking-tight text-primary-foreground"
+              style={{ background: "var(--emerald-deep)" }}
+            >
+              Apply Override
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </div>
