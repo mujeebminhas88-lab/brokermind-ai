@@ -169,7 +169,14 @@ function SubHeader() {
 
 /* ────────────────────── COLUMN 1: DOCUMENT LENS ────────────────────── */
 
-function DocumentLens() {
+function DocumentLens({
+  incomeOverride,
+  setIncomeOverride,
+}: {
+  incomeOverride: IncomeOverride;
+  setIncomeOverride: React.Dispatch<React.SetStateAction<IncomeOverride>>;
+}) {
+  const [modalOpen, setModalOpen] = useState(false);
   return (
     <div className="flex h-full flex-col">
       <PaneHeader
