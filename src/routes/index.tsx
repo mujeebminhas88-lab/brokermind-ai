@@ -1014,7 +1014,17 @@ function PaneHeader({
 
 /* ────────────────────── DRAFT COPY ────────────────────── */
 
-const DRAFT_INTERNAL = `CREDIT NOTE — FILE #APP-2025-08842
+type DraftBundle = {
+  internal: string;
+  broker: string;
+  borrower: string;
+  meta: { docType: string; due: string; source: string };
+};
+
+const conditionDrafts: Record<string, DraftBundle> = {
+  "INC-04": {
+    meta: { docType: "CRA NOA + Receipt", due: "48 hours", source: "Auto-flagged" },
+    internal: `CREDIT NOTE — FILE #APP-2025-08842
 Applicant: Mujeeb Minhas
 Condition: INC-04 — Verify CRA Outstanding Balance
 
@@ -1030,9 +1040,8 @@ full, or (b) executed CRA payment arrangement with two
 months of consecutive payment history. Re-score INC
 component upon receipt.
 
-UW: A. Khan · 2026-06-15 14:02 ET`;
-
-const DRAFT_BROKER = `Hi team,
+UW: A. Khan · 2026-06-15 14:02 ET`,
+    broker: `Hi team,
 
 We've completed initial adjudication on Mujeeb Minhas
 (File #APP-2025-08842) and require one outstanding item
@@ -1048,9 +1057,8 @@ Once received, we'll re-run the risk model and target
 same-day commitment issuance. SLA clock: 48 hours.
 
 Thanks,
-BrokerMindAI Adjudication Desk`;
-
-const DRAFT_BORROWER = `Dear Mr. Minhas,
+BrokerMindAI Adjudication Desk`,
+    borrower: `Dear Mr. Minhas,
 
 Thank you for your mortgage application. As part of our
 standard review, we identified an outstanding balance of
@@ -1069,4 +1077,163 @@ Documents can be uploaded securely through your broker's
 portal. Please contact us if you have any questions.
 
 Kind regards,
-Adjudication Team`;
+Adjudication Team`,
+  },
+
+  "EMP-02": {
+    meta: { docType: "Letter of Employment + 2 Paystubs", due: "Satisfied", source: "Standard pack" },
+    internal: `CREDIT NOTE — FILE #APP-2025-08842
+Condition: EMP-02 — Continuous Employment (24 mo.)
+
+OBSERVATION
+Letter of Employment on company letterhead dated
+2026-06-10 confirms applicant employed since 2023-09-04
+in a permanent full-time capacity. Two most recent
+paystubs (2026-05-31, 2026-06-14) corroborate base
+salary of $78,420 + variable.
+
+DETERMINATION
+Tenure threshold (24 mo.) satisfied. No probationary
+language present. Closing this condition.
+
+UW: A. Khan · 2026-06-15 14:08 ET`,
+    broker: `Hi team,
+
+EMP-02 is cleared on file #APP-2025-08842. LOE and the
+two paystubs you submitted on 2026-06-14 reconcile to
+employer T4 and our minimum tenure rule (24 months).
+
+No further action required on the employment file. We
+will keep you posted on remaining conditions.
+
+— BrokerMindAI Adjudication Desk`,
+    borrower: `Dear Mr. Minhas,
+
+We have received and verified your employment
+documentation. No further action is required from you on
+this item. We will reach out separately if any other
+conditions remain outstanding.
+
+Kind regards,
+Adjudication Team`,
+  },
+
+  "DWN-01": {
+    meta: { docType: "90-day bank statements", due: "72 hours", source: "AML mandate" },
+    internal: `CREDIT NOTE — FILE #APP-2025-08842
+Condition: DWN-01 — Source of Down Payment (90 day history)
+
+OBSERVATION
+Required to evidence the full down payment ($118,500)
+held or accumulated through traceable channels over the
+most recent 90 days. Large deposits (>$5,000) must be
+sourced individually under FINTRAC/AML guidance.
+
+OUTSTANDING
+Awaiting (a) 90 days of bank statements for all accounts
+holding deposit funds, and (b) explanation + supporting
+docs for any single deposit exceeding $5,000.
+
+UW: A. Khan · 2026-06-15`,
+    broker: `Hi team,
+
+Please collect for DWN-01 on file #APP-2025-08842:
+
+  • 90 days of statements for ALL accounts contributing
+    to the down payment.
+  • Source documentation for any single deposit greater
+    than $5,000 (gift letter, sale proceeds, bonus, etc.)
+
+Closing depends on satisfactory AML trace. Target
+turnaround: 72 hours.
+
+— BrokerMindAI Adjudication Desk`,
+    borrower: `Dear Mr. Minhas,
+
+To complete the down payment verification step required
+by Canadian anti-money-laundering rules, please provide:
+
+  1. 90 days of statements for every account that holds
+     funds being used toward your down payment.
+  2. A short note explaining any single deposit larger
+     than $5,000 (and supporting documents such as a
+     gift letter or sale receipt where applicable).
+
+Your broker can upload these securely on your behalf.
+
+Kind regards,
+Adjudication Team`,
+  },
+
+  "PROP-03": {
+    meta: { docType: "AACI Appraisal Report", due: "5 business days", source: "Lender mandate" },
+    internal: `CREDIT NOTE — FILE #APP-2025-08842
+Condition: PROP-03 — Independent AACI Appraisal
+
+OBSERVATION
+Subject property: detached, urban. Purchase price
+$540,000. Lender policy requires an independent AACI
+appraisal — automated valuation insufficient at this
+LTV band.
+
+OUTSTANDING
+Full narrative AACI report with three comparables within
+1 km and 90 days. Effective date within 30 days of
+funding.
+
+UW: A. Khan · 2026-06-15`,
+    broker: `Hi team,
+
+For PROP-03 on file #APP-2025-08842, please order an
+independent AACI appraisal from a panel-approved firm.
+Lender will not accept AVM or drive-by. Report should
+include three recent comparables and confirm effective
+value at or above the purchase price of $540,000.
+
+Target: 5 business days.
+
+— BrokerMindAI Adjudication Desk`,
+    borrower: `Dear Mr. Minhas,
+
+To finalize your mortgage, the lender has requested an
+independent professional appraisal of the property. Your
+broker will arrange access with the appraisal firm; you
+do not need to provide further documentation at this
+stage.
+
+Kind regards,
+Adjudication Team`,
+  },
+
+  "INS-01": {
+    meta: { docType: "Insurance binder", due: "Satisfied", source: "Closing pack" },
+    internal: `CREDIT NOTE — FILE #APP-2025-08842
+Condition: INS-01 — Property Insurance Binder
+
+OBSERVATION
+Binder received from Intact Insurance, policy
+#H-44820193, effective from closing date. Replacement
+cost $612,000; lender named as first loss payee with
+standard mortgage clause.
+
+DETERMINATION
+Coverage and mortgage clause meet lender requirement.
+Closing this condition.
+
+UW: A. Khan · 2026-06-15 14:11 ET`,
+    broker: `Hi team,
+
+INS-01 is cleared. The Intact binder you forwarded names
+the lender correctly and the replacement-cost amount is
+in line with the appraised value. No further action.
+
+— BrokerMindAI Adjudication Desk`,
+    borrower: `Dear Mr. Minhas,
+
+We have received your property insurance binder. No
+further action is required from you on this item.
+
+Kind regards,
+Adjudication Team`,
+  },
+};
