@@ -492,19 +492,26 @@ function ReconRow({
   status,
   tone = "ok",
   delta,
+  onClick,
 }: {
   doc: string;
   val: string;
   status: string;
   tone?: "ok" | "warn";
   delta?: string;
+  onClick?: () => void;
 }) {
   const color =
     tone === "warn"
       ? { background: "var(--warning-bg)", color: "var(--warning-fg)" }
       : { background: "color-mix(in oklab, var(--success) 14%, transparent)", color: "var(--success)" };
   return (
-    <div className="flex items-center justify-between border-b border-border py-1.5 text-[11px] last:border-0">
+    <div
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      className={`flex items-center justify-between border-b border-border py-1.5 text-[11px] last:border-0 ${onClick ? "cursor-pointer hover:bg-secondary/60 px-1 -mx-1 transition-colors" : ""}`}
+    >
       <span className="truncate text-foreground">{doc}</span>
       <div className="flex items-center gap-2">
         <span className="font-mono text-muted-foreground">{val}</span>
