@@ -883,6 +883,14 @@ function ConditionsPanel({
                 <span className="font-bold text-foreground">{top.id}</span>
                 <span className="text-border">|</span>
                 <span>{top.category}</span>
+                {isGenerated && (
+                  <span
+                    className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold tracking-[0.12em] text-primary-foreground"
+                    style={{ background: "var(--emerald-deep)" }}
+                  >
+                    <Sparkles className="h-2.5 w-2.5" /> NOA-DERIVED
+                  </span>
+                )}
               </div>
               <h3 className="mt-1 text-[14.5px] font-bold leading-snug tracking-tight">
                 {top.title}
