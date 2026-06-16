@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FileText,
   AlertTriangle,
@@ -23,7 +23,10 @@ import {
   Calendar,
   DollarSign,
   X,
+  Sparkles,
 } from "lucide-react";
+import { NoaUploader } from "@/components/NoaUploader";
+import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
 
 type IncomeOverride = { value: string; note: string; appliedAt: string } | null;
 
