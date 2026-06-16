@@ -539,7 +539,7 @@ function ReconRow({
 
 /* ────────────────────── COLUMN 2: SCORING MATRIX ────────────────────── */
 
-function ScoringMatrix({ craCleared }: { craCleared: boolean }) {
+function ScoringMatrix({ craCleared, analysis }: { craCleared: boolean; analysis: NoaAnalysis | null }) {
   const score = craCleared ? 30 : 45;
   const riskLabel = craCleared ? "Low Risk" : "Moderate Risk";
   const riskBg = craCleared
