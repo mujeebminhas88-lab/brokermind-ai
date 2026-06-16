@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FileText,
   AlertTriangle,
@@ -23,7 +23,10 @@ import {
   Calendar,
   DollarSign,
   X,
+  Sparkles,
 } from "lucide-react";
+import { NoaUploader } from "@/components/NoaUploader";
+import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
 
 type IncomeOverride = { value: string; note: string; appliedAt: string } | null;
 
@@ -49,24 +52,34 @@ export const Route = createFileRoute("/")({
 function Dashboard() {
   const [conditions, setConditions] = useState(initialConditions);
   const [incomeOverride, setIncomeOverride] = useState<IncomeOverride>(null);
+  const [analysis, setAnalysis] = useState<NoaAnalysis | null>(null);
   const craCleared = conditions.find((c) => c.id === "INC-04")?.satisfied ?? false;
 
   return (
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
       <TopBar />
       <SubHeader />
-      <main className="grid grid-cols-12 gap-px bg-border" style={{ height: "calc(100vh - 96px)" }}>
+      <NoaUploader
+        analysis={analysis}
+        onAnalyzed={setAnalysis}
+        onClear={() => setAnalysis(null)}
+      />
+      <main
+        className="grid grid-cols-12 gap-px bg-border"
+        style={{ minHeight: "calc(100vh - 168px)" }}
+      >
         <section className="col-span-12 lg:col-span-5 bg-background overflow-hidden">
           <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
         </section>
         <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden">
-          <ScoringMatrix craCleared={craCleared} />
+          <ScoringMatrix craCleared={craCleared} analysis={analysis} />
         </section>
         <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden">
           <ConditionsPanel
             conditions={conditions}
             setConditions={setConditions}
             incomeOverride={incomeOverride}
+            analysis={analysis}
           />
         </section>
       </main>
@@ -526,7 +539,7 @@ function ReconRow({
 
 /* ────────────────────── COLUMN 2: SCORING MATRIX ────────────────────── */
 
-function ScoringMatrix({ craCleared }: { craCleared: boolean }) {
+function ScoringMatrix({ craCleared, analysis }: { craCleared: boolean; analysis: NoaAnalysis | null }) {
   const score = craCleared ? 30 : 45;
   const riskLabel = craCleared ? "Low Risk" : "Moderate Risk";
   const riskBg = craCleared
@@ -633,6 +646,9 @@ function ScoringMatrix({ craCleared }: { craCleared: boolean }) {
             />
           </div>
         </div>
+
+        {analysis && <NoaAnalysisCard analysis={analysis} />}
+
 
         {/* Calculation Trace */}
         <div className="border border-border bg-secondary/40 p-3">
@@ -758,6 +774,111 @@ function Trace({ l, r, sub }: { l: string; r: string; sub?: boolean }) {
   );
 }
 
+function NoaAnalysisCard({ analysis }: { analysis: NoaAnalysis }) {
+  const { payload, flags, aggregatePenalty } = analysis;
+  const tone =
+    aggregatePenalty >= 25 ? "warn" : aggregatePenalty > 0 ? "elevated" : "ok";
+  const accent =
+    tone === "warn"
+      ? { background: "var(--warning-bg)", color: "var(--warning-fg)" }
+      : tone === "elevated"
+        ? { background: "color-mix(in oklab, var(--warning) 14%, transparent)", color: "var(--warning-fg)" }
+        : { background: "color-mix(in oklab, var(--success) 14%, transparent)", color: "var(--success)" };
+
+  return (
+    <div className="border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-3 py-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--emerald)" }} />
+          <span className="text-[11px] font-semibold tracking-tight">
+            NOA Analysis · {payload.tax_year}
+          </span>
+        </div>
+        <span
+          className="px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.12em]"
+          style={accent}
+        >
+          {aggregatePenalty > 0 ? `+${aggregatePenalty} PTS` : "CLEAN"}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-px border-b border-border bg-border text-[10.5px]">
+        <AnalysisStat label="Line 15000" value={fmtCAD(payload.line_15000_total_income)} />
+        <AnalysisStat label="Line 23600" value={fmtCAD(payload.line_23600_net_income)} />
+        <AnalysisStat
+          label="Balance Owing"
+          value={fmtCAD(payload.balance_owing_at_assessment)}
+          warn={payload.balance_owing_at_assessment > 0}
+        />
+      </div>
+
+      {flags.length === 0 ? (
+        <div className="px-3 py-3 text-[11px] text-muted-foreground">
+          No risk anomalies detected. NOA conforms to OSFI B-20 income contract.
+        </div>
+      ) : (
+        <ul className="divide-y divide-border">
+          {flags.map((f) => (
+            <NoaFlagRow key={f.code} flag={f} />
+          ))}
+        </ul>
+      )}
+
+      <div className="border-t border-border bg-secondary/40 px-3 py-1.5 font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted-foreground">
+        Evaluated {analysis.evaluatedAt} · BMA-NOA v1.0
+      </div>
+    </div>
+  );
+}
+
+function AnalysisStat({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div className="bg-card px-2.5 py-2">
+      <div className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
+      <div
+        className="font-mono text-[11.5px] font-bold"
+        style={warn ? { color: "var(--warning-fg)" } : undefined}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function NoaFlagRow({ flag }: { flag: RiskFlag }) {
+  const sev =
+    flag.severity === "High"
+      ? { background: "var(--warning-bg)", color: "var(--warning-fg)" }
+      : flag.severity === "Elevated"
+        ? { background: "color-mix(in oklab, var(--warning) 14%, transparent)", color: "var(--warning-fg)" }
+        : { background: "color-mix(in oklab, var(--success) 14%, transparent)", color: "var(--success)" };
+  return (
+    <li className="flex items-start justify-between gap-2 px-3 py-2.5">
+      <div className="min-w-0">
+        <div className="font-mono text-[10.5px] font-bold tracking-wide">{flag.code}</div>
+        <div className="text-[11.5px] font-semibold text-foreground/85">{flag.title}</div>
+        <div className="mt-0.5 text-[10.5px] leading-snug text-muted-foreground">
+          {flag.detail}
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <span className="px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.12em]" style={sev}>
+          {flag.severity}
+        </span>
+        <span className="font-mono text-[10.5px] font-bold">+{flag.penalty}</span>
+      </div>
+    </li>
+  );
+}
+
+function fmtCAD(n: number) {
+  return n.toLocaleString("en-CA", {
+    style: "currency",
+    currency: "CAD",
+    minimumFractionDigits: 2,
+  });
+}
+
 /* ────────────────────── COLUMN 3: CONDITIONS PANEL ────────────────────── */
 
 type Cond = {
@@ -779,18 +900,52 @@ function ConditionsPanel({
   conditions,
   setConditions,
   incomeOverride,
+  analysis,
 }: {
   conditions: Cond[];
   setConditions: React.Dispatch<React.SetStateAction<Cond[]>>;
   incomeOverride: IncomeOverride;
+  analysis: NoaAnalysis | null;
 }) {
   const [tab, setTab] = useState<"internal" | "broker" | "borrower">("internal");
   const [activeId, setActiveId] = useState<string>("INC-04");
 
-  const top = conditions.find((c) => c.id === activeId) ?? conditions[0];
-  const drafts = conditionDrafts[top.id] ?? conditionDrafts["INC-04"];
+  // Merge the NOA-generated condition (if any) into the visible list.
+  const generated: Cond | null = analysis?.draftedCondition
+    ? {
+        id: analysis.draftedCondition.id,
+        title: analysis.draftedCondition.title,
+        category: analysis.draftedCondition.category,
+        satisfied: false,
+      }
+    : null;
+  const mergedConditions: Cond[] = generated ? [generated, ...conditions] : conditions;
+
+  // When a fresh NOA analysis arrives, focus the generated condition.
+  useEffect(() => {
+    if (analysis?.generatedConditionId) {
+      setActiveId(analysis.generatedConditionId);
+      setTab("internal");
+    }
+  }, [analysis?.generatedConditionId, analysis?.evaluatedAt]);
+
+  const top = mergedConditions.find((c) => c.id === activeId) ?? mergedConditions[0];
+  const isGenerated = generated && top.id === generated.id;
+  const drafts: DraftBundle = isGenerated && analysis?.draftedCondition
+    ? {
+        meta: {
+          docType: "NOA-derived",
+          due: "48 hours",
+          source: `Auto · ${analysis.evaluatedAt}`,
+        },
+        internal: analysis.draftedCondition.internal,
+        broker: analysis.draftedCondition.broker,
+        borrower: analysis.draftedCondition.borrower,
+      }
+    : (conditionDrafts[top.id] ?? conditionDrafts["INC-04"]);
 
   const toggleSatisfied = () => {
+    if (isGenerated) return; // generated condition is read-only until accepted into workflow
     setConditions((c) =>
       c.map((x) => (x.id === top.id ? { ...x, satisfied: !x.satisfied } : x))
     );
@@ -817,8 +972,8 @@ function ConditionsPanel({
             Conditions
           </span>
           <span className="font-mono font-bold">
-            {conditions.filter((c) => c.satisfied).length}
-            <span className="text-muted-foreground">/{conditions.length}</span>
+            {mergedConditions.filter((c) => c.satisfied).length}
+            <span className="text-muted-foreground">/{mergedConditions.length}</span>
           </span>
         </div>
         <button className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground hover:text-foreground">
@@ -836,6 +991,14 @@ function ConditionsPanel({
                 <span className="font-bold text-foreground">{top.id}</span>
                 <span className="text-border">|</span>
                 <span>{top.category}</span>
+                {isGenerated && (
+                  <span
+                    className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold tracking-[0.12em] text-primary-foreground"
+                    style={{ background: "var(--emerald-deep)" }}
+                  >
+                    <Sparkles className="h-2.5 w-2.5" /> NOA-DERIVED
+                  </span>
+                )}
               </div>
               <h3 className="mt-1 text-[14.5px] font-bold leading-snug tracking-tight">
                 {top.title}
@@ -907,7 +1070,7 @@ function ConditionsPanel({
 
         {/* Other conditions */}
         <ul className="divide-y divide-border">
-          {conditions
+          {mergedConditions
             .filter((c) => c.id !== top.id)
             .map((c) => (
               <li key={c.id}>
