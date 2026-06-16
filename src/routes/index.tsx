@@ -53,6 +53,7 @@ function Dashboard() {
   const [conditions, setConditions] = useState(initialConditions);
   const [incomeOverride, setIncomeOverride] = useState<IncomeOverride>(null);
   const [analysis, setAnalysis] = useState<NoaAnalysis | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
   const craCleared = conditions.find((c) => c.id === "INC-04")?.satisfied ?? false;
 
   return (
@@ -61,7 +62,9 @@ function Dashboard() {
       <SubHeader />
       <NoaUploader
         analysis={analysis}
+        analyzing={analyzing}
         onAnalyzed={setAnalysis}
+        onAnalyzingChange={setAnalyzing}
         onClear={() => setAnalysis(null)}
       />
       <main
@@ -71,21 +74,50 @@ function Dashboard() {
         <section className="col-span-12 lg:col-span-5 bg-background overflow-hidden">
           <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
         </section>
-        <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden">
+        <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden relative">
           <ScoringMatrix craCleared={craCleared} analysis={analysis} />
+          {analyzing && <AnalyzingOverlay label="Scoring matrix recalculating" />}
         </section>
-        <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden">
+        <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden relative">
           <ConditionsPanel
             conditions={conditions}
             setConditions={setConditions}
             incomeOverride={incomeOverride}
             analysis={analysis}
           />
+          {analyzing && <AnalyzingOverlay label="Drafting conditions" />}
         </section>
       </main>
     </div>
   );
 }
+
+function AnalyzingOverlay({ label }: { label: string }) {
+  return (
+    <div
+      className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 backdrop-blur-[2px]"
+      style={{ background: "color-mix(in oklab, var(--background) 78%, transparent)" }}
+    >
+      <div className="flex items-center gap-2.5">
+        <span
+          className="h-2 w-2 animate-pulse"
+          style={{ background: "var(--emerald)" }}
+        />
+        <span className="font-mono text-[10px] font-bold tracking-[0.22em]" style={{ color: "var(--emerald-deep)" }}>
+          AI ANALYZING DOCUMENT
+        </span>
+      </div>
+      <div className="font-mono text-[10.5px] text-muted-foreground">{label}…</div>
+      <div className="mt-1 h-[2px] w-40 overflow-hidden bg-border">
+        <div
+          className="h-full w-1/2 animate-[shimmer_1.4s_ease-in-out_infinite]"
+          style={{ background: "var(--emerald)" }}
+        />
+      </div>
+    </div>
+  );
+}
+
 
 /* ────────────────────────── TOP BAR ────────────────────────── */
 
