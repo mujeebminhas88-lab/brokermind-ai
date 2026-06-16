@@ -864,8 +864,8 @@ function ConditionsPanel({
             Conditions
           </span>
           <span className="font-mono font-bold">
-            {conditions.filter((c) => c.satisfied).length}
-            <span className="text-muted-foreground">/{conditions.length}</span>
+            {mergedConditions.filter((c) => c.satisfied).length}
+            <span className="text-muted-foreground">/{mergedConditions.length}</span>
           </span>
         </div>
         <button className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground hover:text-foreground">
