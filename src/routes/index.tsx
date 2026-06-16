@@ -110,7 +110,7 @@ function AnalyzingOverlay({ label }: { label: string }) {
       <div className="font-mono text-[10.5px] text-muted-foreground">{label}…</div>
       <div className="mt-1 h-[2px] w-40 overflow-hidden bg-border">
         <div
-          className="h-full w-1/2 animate-[shimmer_1.4s_ease-in-out_infinite]"
+          className="h-full w-1/2 animate-pulse"
           style={{ background: "var(--emerald)" }}
         />
       </div>
