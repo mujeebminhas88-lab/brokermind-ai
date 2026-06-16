@@ -962,7 +962,7 @@ function ConditionsPanel({
 
         {/* Other conditions */}
         <ul className="divide-y divide-border">
-          {conditions
+          {mergedConditions
             .filter((c) => c.id !== top.id)
             .map((c) => (
               <li key={c.id}>
