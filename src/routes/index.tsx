@@ -792,18 +792,52 @@ function ConditionsPanel({
   conditions,
   setConditions,
   incomeOverride,
+  analysis,
 }: {
   conditions: Cond[];
   setConditions: React.Dispatch<React.SetStateAction<Cond[]>>;
   incomeOverride: IncomeOverride;
+  analysis: NoaAnalysis | null;
 }) {
   const [tab, setTab] = useState<"internal" | "broker" | "borrower">("internal");
   const [activeId, setActiveId] = useState<string>("INC-04");
 
-  const top = conditions.find((c) => c.id === activeId) ?? conditions[0];
-  const drafts = conditionDrafts[top.id] ?? conditionDrafts["INC-04"];
+  // Merge the NOA-generated condition (if any) into the visible list.
+  const generated: Cond | null = analysis?.draftedCondition
+    ? {
+        id: analysis.draftedCondition.id,
+        title: analysis.draftedCondition.title,
+        category: analysis.draftedCondition.category,
+        satisfied: false,
+      }
+    : null;
+  const mergedConditions: Cond[] = generated ? [generated, ...conditions] : conditions;
+
+  // When a fresh NOA analysis arrives, focus the generated condition.
+  useEffect(() => {
+    if (analysis?.generatedConditionId) {
+      setActiveId(analysis.generatedConditionId);
+      setTab("internal");
+    }
+  }, [analysis?.generatedConditionId, analysis?.evaluatedAt]);
+
+  const top = mergedConditions.find((c) => c.id === activeId) ?? mergedConditions[0];
+  const isGenerated = generated && top.id === generated.id;
+  const drafts: DraftBundle = isGenerated && analysis?.draftedCondition
+    ? {
+        meta: {
+          docType: "NOA-derived",
+          due: "48 hours",
+          source: `Auto · ${analysis.evaluatedAt}`,
+        },
+        internal: analysis.draftedCondition.internal,
+        broker: analysis.draftedCondition.broker,
+        borrower: analysis.draftedCondition.borrower,
+      }
+    : (conditionDrafts[top.id] ?? conditionDrafts["INC-04"]);
 
   const toggleSatisfied = () => {
+    if (isGenerated) return; // generated condition is read-only until accepted into workflow
     setConditions((c) =>
       c.map((x) => (x.id === top.id ? { ...x, satisfied: !x.satisfied } : x))
     );
