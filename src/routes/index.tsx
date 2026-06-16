@@ -52,24 +52,34 @@ export const Route = createFileRoute("/")({
 function Dashboard() {
   const [conditions, setConditions] = useState(initialConditions);
   const [incomeOverride, setIncomeOverride] = useState<IncomeOverride>(null);
+  const [analysis, setAnalysis] = useState<NoaAnalysis | null>(null);
   const craCleared = conditions.find((c) => c.id === "INC-04")?.satisfied ?? false;
 
   return (
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
       <TopBar />
       <SubHeader />
-      <main className="grid grid-cols-12 gap-px bg-border" style={{ height: "calc(100vh - 96px)" }}>
+      <NoaUploader
+        analysis={analysis}
+        onAnalyzed={setAnalysis}
+        onClear={() => setAnalysis(null)}
+      />
+      <main
+        className="grid grid-cols-12 gap-px bg-border"
+        style={{ minHeight: "calc(100vh - 168px)" }}
+      >
         <section className="col-span-12 lg:col-span-5 bg-background overflow-hidden">
           <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
         </section>
         <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden">
-          <ScoringMatrix craCleared={craCleared} />
+          <ScoringMatrix craCleared={craCleared} analysis={analysis} />
         </section>
         <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden">
           <ConditionsPanel
             conditions={conditions}
             setConditions={setConditions}
             incomeOverride={incomeOverride}
+            analysis={analysis}
           />
         </section>
       </main>
