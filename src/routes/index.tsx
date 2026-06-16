@@ -647,6 +647,9 @@ function ScoringMatrix({ craCleared, analysis }: { craCleared: boolean; analysis
           </div>
         </div>
 
+        {analysis && <NoaAnalysisCard analysis={analysis} />}
+
+
         {/* Calculation Trace */}
         <div className="border border-border bg-secondary/40 p-3">
           <div className="mb-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
