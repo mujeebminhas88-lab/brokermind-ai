@@ -28,6 +28,7 @@ import {
 import { NoaUploader } from "@/components/NoaUploader";
 import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
 import { PipelineLedger, SaveApplicationButton } from "@/components/PipelineLedger";
+import { ExportAuditSheetButton } from "@/components/ExportAuditSheet";
 import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
 
 const DEFAULT_APP_NUMBER = "APP-2025-08842";
@@ -76,7 +77,15 @@ function Dashboard() {
         <div className="flex-1">
           <SandboxToggleBar enabled={sandbox} onToggle={(v) => { setSandbox(v); if (!v) setAnalysis(null); }} />
         </div>
-        <div className="border-l border-border px-4 py-2.5">
+        <div className="flex items-center gap-2 border-l border-border px-4 py-2.5">
+          <ExportAuditSheetButton
+            analysis={analysis}
+            applicationNumber={applicationNumber}
+            taxpayerName={taxpayerName}
+            gds={STATIC_GDS}
+            tds={STATIC_TDS}
+            aggregateRiskScore={aggregateRiskScore}
+          />
           <SaveApplicationButton
             analysis={analysis}
             applicationNumber={applicationNumber}
