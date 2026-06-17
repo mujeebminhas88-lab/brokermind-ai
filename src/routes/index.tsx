@@ -26,6 +26,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { NoaUploader } from "@/components/NoaUploader";
+import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
 import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
 
 type IncomeOverride = { value: string; note: string; appliedAt: string } | null;
