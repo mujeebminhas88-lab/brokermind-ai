@@ -26,6 +26,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { NoaUploader } from "@/components/NoaUploader";
+import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
 import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
 
 type IncomeOverride = { value: string; note: string; appliedAt: string } | null;
@@ -54,19 +55,25 @@ function Dashboard() {
   const [incomeOverride, setIncomeOverride] = useState<IncomeOverride>(null);
   const [analysis, setAnalysis] = useState<NoaAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [sandbox, setSandbox] = useState(false);
   const craCleared = conditions.find((c) => c.id === "INC-04")?.satisfied ?? false;
 
   return (
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
       <TopBar />
       <SubHeader />
-      <NoaUploader
-        analysis={analysis}
-        analyzing={analyzing}
-        onAnalyzed={setAnalysis}
-        onAnalyzingChange={setAnalyzing}
-        onClear={() => setAnalysis(null)}
-      />
+      <SandboxToggleBar enabled={sandbox} onToggle={(v) => { setSandbox(v); if (!v) setAnalysis(null); }} />
+      {sandbox ? (
+        <SandboxPanel onAnalyzed={setAnalysis} onClear={() => setAnalysis(null)} />
+      ) : (
+        <NoaUploader
+          analysis={analysis}
+          analyzing={analyzing}
+          onAnalyzed={setAnalysis}
+          onAnalyzingChange={setAnalyzing}
+          onClear={() => setAnalysis(null)}
+        />
+      )}
       <main
         className="grid grid-cols-12 gap-px bg-border"
         style={{ minHeight: "calc(100vh - 168px)" }}
