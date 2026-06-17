@@ -27,7 +27,13 @@ import {
 } from "lucide-react";
 import { NoaUploader } from "@/components/NoaUploader";
 import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
+import { PipelineLedger, SaveApplicationButton } from "@/components/PipelineLedger";
 import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
+
+const DEFAULT_APP_NUMBER = "APP-2025-08842";
+const DEFAULT_TAXPAYER = "Mujeeb Minhas";
+const STATIC_GDS = 34.2;
+const STATIC_TDS = 41.5;
 
 type IncomeOverride = { value: string; note: string; appliedAt: string } | null;
 
