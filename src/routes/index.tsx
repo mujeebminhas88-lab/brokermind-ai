@@ -27,7 +27,13 @@ import {
 } from "lucide-react";
 import { NoaUploader } from "@/components/NoaUploader";
 import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
+import { PipelineLedger, SaveApplicationButton } from "@/components/PipelineLedger";
 import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
+
+const DEFAULT_APP_NUMBER = "APP-2025-08842";
+const DEFAULT_TAXPAYER = "Mujeeb Minhas";
+const STATIC_GDS = 34.2;
+const STATIC_TDS = 41.5;
 
 type IncomeOverride = { value: string; note: string; appliedAt: string } | null;
 
@@ -56,13 +62,30 @@ function Dashboard() {
   const [analysis, setAnalysis] = useState<NoaAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [sandbox, setSandbox] = useState(false);
+  const [applicationNumber, setApplicationNumber] = useState(DEFAULT_APP_NUMBER);
   const craCleared = conditions.find((c) => c.id === "INC-04")?.satisfied ?? false;
+  const baseScore = craCleared ? 30 : 45;
+  const aggregateRiskScore = analysis ? analysis.aggregatePenalty : baseScore;
+  const taxpayerName = analysis?.payload.taxpayer_name ?? DEFAULT_TAXPAYER;
 
   return (
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
       <TopBar />
-      <SubHeader />
-      <SandboxToggleBar enabled={sandbox} onToggle={(v) => { setSandbox(v); if (!v) setAnalysis(null); }} />
+      <SubHeader applicationNumber={applicationNumber} taxpayerName={taxpayerName} />
+      <div className="flex items-center justify-between border-b border-border bg-card">
+        <div className="flex-1">
+          <SandboxToggleBar enabled={sandbox} onToggle={(v) => { setSandbox(v); if (!v) setAnalysis(null); }} />
+        </div>
+        <div className="border-l border-border px-4 py-2.5">
+          <SaveApplicationButton
+            analysis={analysis}
+            applicationNumber={applicationNumber}
+            gds={STATIC_GDS}
+            tds={STATIC_TDS}
+            aggregateRiskScore={aggregateRiskScore}
+          />
+        </div>
+      </div>
       {sandbox ? (
         <SandboxPanel onAnalyzed={setAnalysis} onClear={() => setAnalysis(null)} />
       ) : (
@@ -95,6 +118,15 @@ function Dashboard() {
           {analyzing && <AnalyzingOverlay label="Drafting conditions" />}
         </section>
       </main>
+      <PipelineLedger
+        onLoadRecord={({ analysis: a, applicationNumber: appNum }) => {
+          setApplicationNumber(appNum);
+          setAnalysis(a);
+          if (typeof window !== "undefined") {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        }}
+      />
     </div>
   );
 }
@@ -188,15 +220,21 @@ function TopBar() {
   );
 }
 
-function SubHeader() {
+function SubHeader({
+  applicationNumber = "APP-2025-08842",
+  taxpayerName = "Mujeeb Minhas",
+}: {
+  applicationNumber?: string;
+  taxpayerName?: string;
+}) {
   return (
     <div className="flex h-10 items-center justify-between border-b border-border bg-secondary/60 px-6 text-[11.5px]">
       <div className="flex items-center gap-4">
         <span className="font-mono text-muted-foreground">FILE</span>
-        <span className="font-mono font-semibold tracking-wide">#APP-2025-08842</span>
+        <span className="font-mono font-semibold tracking-wide">#{applicationNumber}</span>
         <span className="text-border">│</span>
         <span className="text-muted-foreground">Applicant</span>
-        <span className="font-semibold">Mujeeb Minhas</span>
+        <span className="font-semibold">{taxpayerName}</span>
         <span className="text-border">│</span>
         <span className="text-muted-foreground">Lender</span>
         <span className="font-semibold">First National A-Lender</span>

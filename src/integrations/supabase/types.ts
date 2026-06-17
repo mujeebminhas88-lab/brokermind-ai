@@ -14,7 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      underwriting_applications: {
+        Row: {
+          aggregate_risk_score: number
+          application_number: string
+          balance_owing: number
+          created_at: string
+          gds: number
+          has_arrears: boolean
+          id: string
+          line_15000_total_income: number
+          line_23600_net_income: number
+          tax_year: number
+          taxpayer_name: string
+          tds: number
+          updated_at: string
+        }
+        Insert: {
+          aggregate_risk_score?: number
+          application_number: string
+          balance_owing?: number
+          created_at?: string
+          gds?: number
+          has_arrears?: boolean
+          id?: string
+          line_15000_total_income?: number
+          line_23600_net_income?: number
+          tax_year: number
+          taxpayer_name: string
+          tds?: number
+          updated_at?: string
+        }
+        Update: {
+          aggregate_risk_score?: number
+          application_number?: string
+          balance_owing?: number
+          created_at?: string
+          gds?: number
+          has_arrears?: boolean
+          id?: string
+          line_15000_total_income?: number
+          line_23600_net_income?: number
+          tax_year?: number
+          taxpayer_name?: string
+          tds?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
