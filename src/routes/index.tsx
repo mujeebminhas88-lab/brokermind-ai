@@ -220,15 +220,21 @@ function TopBar() {
   );
 }
 
-function SubHeader() {
+function SubHeader({
+  applicationNumber = "APP-2025-08842",
+  taxpayerName = "Mujeeb Minhas",
+}: {
+  applicationNumber?: string;
+  taxpayerName?: string;
+}) {
   return (
     <div className="flex h-10 items-center justify-between border-b border-border bg-secondary/60 px-6 text-[11.5px]">
       <div className="flex items-center gap-4">
         <span className="font-mono text-muted-foreground">FILE</span>
-        <span className="font-mono font-semibold tracking-wide">#APP-2025-08842</span>
+        <span className="font-mono font-semibold tracking-wide">#{applicationNumber}</span>
         <span className="text-border">│</span>
         <span className="text-muted-foreground">Applicant</span>
-        <span className="font-semibold">Mujeeb Minhas</span>
+        <span className="font-semibold">{taxpayerName}</span>
         <span className="text-border">│</span>
         <span className="text-muted-foreground">Lender</span>
         <span className="font-semibold">First National A-Lender</span>
