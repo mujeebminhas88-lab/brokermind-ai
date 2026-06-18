@@ -29,12 +29,13 @@ import { NoaUploader } from "@/components/NoaUploader";
 import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
 import { PipelineLedger, SaveApplicationButton } from "@/components/PipelineLedger";
 import { ExportAuditSheetButton } from "@/components/ExportAuditSheet";
+import { LiabilitiesPanel, DEFAULT_LIABILITIES, type LiabilityInputs } from "@/components/LiabilitiesPanel";
+import { calculateDebtService } from "@/utils/debtService";
 import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
 
 const DEFAULT_APP_NUMBER = "APP-2025-08842";
 const DEFAULT_TAXPAYER = "Mujeeb Minhas";
-const STATIC_GDS = 34.2;
-const STATIC_TDS = 41.5;
+const DEFAULT_QUALIFYING_INCOME = 94500;
 
 type IncomeOverride = { value: string; note: string; appliedAt: string } | null;
 
@@ -64,9 +65,18 @@ function Dashboard() {
   const [analyzing, setAnalyzing] = useState(false);
   const [sandbox, setSandbox] = useState(false);
   const [applicationNumber, setApplicationNumber] = useState(DEFAULT_APP_NUMBER);
+  const [liabilities, setLiabilities] = useState<LiabilityInputs>(DEFAULT_LIABILITIES);
+
+  const qualifyingIncome =
+    analysis?.payload.line_15000_total_income ?? DEFAULT_QUALIFYING_INCOME;
+  const debtService = calculateDebtService(qualifyingIncome, liabilities);
+
   const craCleared = conditions.find((c) => c.id === "INC-04")?.satisfied ?? false;
   const baseScore = craCleared ? 30 : 45;
-  const aggregateRiskScore = analysis ? analysis.aggregatePenalty : baseScore;
+  const debtServicePenalty =
+    (debtService.gdsExceeded ? 18 : 0) + (debtService.tdsExceeded ? 22 : 0);
+  const aggregateRiskScore =
+    (analysis ? analysis.aggregatePenalty : baseScore) + debtServicePenalty;
   const taxpayerName = analysis?.payload.taxpayer_name ?? DEFAULT_TAXPAYER;
 
   return (
@@ -82,15 +92,15 @@ function Dashboard() {
             analysis={analysis}
             applicationNumber={applicationNumber}
             taxpayerName={taxpayerName}
-            gds={STATIC_GDS}
-            tds={STATIC_TDS}
+            gds={debtService.gds}
+            tds={debtService.tds}
             aggregateRiskScore={aggregateRiskScore}
           />
           <SaveApplicationButton
             analysis={analysis}
             applicationNumber={applicationNumber}
-            gds={STATIC_GDS}
-            tds={STATIC_TDS}
+            gds={debtService.gds}
+            tds={debtService.tds}
             aggregateRiskScore={aggregateRiskScore}
           />
         </div>
@@ -106,6 +116,11 @@ function Dashboard() {
           onClear={() => setAnalysis(null)}
         />
       )}
+      <LiabilitiesPanel
+        liabilities={liabilities}
+        setLiabilities={setLiabilities}
+        result={debtService}
+      />
       <main
         className="grid grid-cols-12 gap-px bg-border"
         style={{ minHeight: "calc(100vh - 168px)" }}
@@ -114,7 +129,7 @@ function Dashboard() {
           <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
         </section>
         <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden relative">
-          <ScoringMatrix craCleared={craCleared} analysis={analysis} />
+          <ScoringMatrix craCleared={craCleared} analysis={analysis} debtService={debtService} />
           {analyzing && <AnalyzingOverlay label="Scoring matrix recalculating" />}
         </section>
         <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden relative">
@@ -625,7 +640,15 @@ function ReconRow({
 
 /* ────────────────────── COLUMN 2: SCORING MATRIX ────────────────────── */
 
-function ScoringMatrix({ craCleared, analysis }: { craCleared: boolean; analysis: NoaAnalysis | null }) {
+function ScoringMatrix({
+  craCleared,
+  analysis,
+  debtService,
+}: {
+  craCleared: boolean;
+  analysis: NoaAnalysis | null;
+  debtService: import("@/utils/debtService").DebtServiceResult;
+}) {
   const score = craCleared ? 30 : 45;
   const riskLabel = craCleared ? "Low Risk" : "Moderate Risk";
   const riskBg = craCleared
@@ -642,8 +665,18 @@ function ScoringMatrix({ craCleared, analysis }: { craCleared: boolean; analysis
       />
       <div className="space-y-3 p-4">
         <div className="grid grid-cols-3 gap-2">
-          <RatioCard label="Stress-Tested GDS" value="34.2" cap="39.0%" tone="good" />
-          <RatioCard label="Stress-Tested TDS" value="41.5" cap="44.0%" tone="good" />
+          <DebtRatioCard
+            label="Stress-Tested GDS"
+            value={debtService.gds}
+            cap={debtService.gdsCap}
+            exceeded={debtService.gdsExceeded}
+          />
+          <DebtRatioCard
+            label="Stress-Tested TDS"
+            value={debtService.tds}
+            cap={debtService.tdsCap}
+            exceeded={debtService.tdsExceeded}
+          />
           <RatioCard label="LTV Ratio" value="78.0" cap="Insured" tone="info" />
         </div>
 
@@ -710,7 +743,12 @@ function ScoringMatrix({ craCleared, analysis }: { craCleared: boolean; analysis
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <span className="text-[11px] font-semibold tracking-tight">Triggered Risk Flags</span>
             <span className="font-mono text-[10px] text-muted-foreground">
-              {craCleared ? "1 ACTIVE" : "2 ACTIVE"}
+              {(() => {
+                const base = craCleared ? 1 : 2;
+                const extra =
+                  (debtService.gdsExceeded || debtService.tdsExceeded) ? 1 : 0;
+                return `${base + extra} ACTIVE`;
+              })()}
             </span>
           </div>
           <div className="divide-y divide-border">
@@ -730,6 +768,16 @@ function ScoringMatrix({ craCleared, analysis }: { craCleared: boolean; analysis
               tone="ok"
               icon={<TrendingDown className="h-3.5 w-3.5" />}
             />
+            {(debtService.gdsExceeded || debtService.tdsExceeded) && (
+              <FlagRow
+                code="COMPLIANCE-B20-DEBT-RATIO"
+                title="Debt service ratios exceed standard OSFI B-20 qualification limits."
+                severity="High"
+                penalty={`+${(debtService.gdsExceeded ? 18 : 0) + (debtService.tdsExceeded ? 22 : 0)}`}
+                tone="warn"
+                icon={<AlertTriangle className="h-3.5 w-3.5" />}
+              />
+            )}
           </div>
         </div>
 
@@ -743,15 +791,70 @@ function ScoringMatrix({ craCleared, analysis }: { craCleared: boolean; analysis
             <span>Qualifying Rate · 7.04%</span>
           </div>
           <div className="space-y-1 font-mono text-[11px]">
-            <Trace l="Gross Annual Income" r="$94,500.00" />
-            <Trace l="Monthly Income" r="$7,875.00" />
-            <Trace l="P+I (Stressed)" r="$2,231.18" />
-            <Trace l="Property Tax + Heat" r="$465.00" />
-            <Trace l="GDS Numerator" r="$2,696.18" sub />
-            <Trace l="Other Debt Servicing" r="$571.40" />
-            <Trace l="TDS Numerator" r="$3,267.58" sub />
+            <Trace l="Monthly Qualifying Income" r={fmtMoney(debtService.monthlyIncome)} />
+            <Trace l="GDS Numerator" r={fmtMoney(debtService.gdsNumerator)} sub />
+            <Trace l="TDS Numerator" r={fmtMoney(debtService.tdsNumerator)} sub />
+            <Trace l="GDS Ratio" r={`${debtService.gds.toFixed(2)}%`} />
+            <Trace l="TDS Ratio" r={`${debtService.tds.toFixed(2)}%`} />
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function fmtMoney(n: number) {
+  return n.toLocaleString("en-CA", {
+    style: "currency",
+    currency: "CAD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function DebtRatioCard({
+  label,
+  value,
+  cap,
+  exceeded,
+}: {
+  label: string;
+  value: number;
+  cap: number;
+  exceeded: boolean;
+}) {
+  const color = exceeded ? "var(--destructive)" : "var(--success)";
+  const pct = Math.min(100, Math.max(0, (value / cap) * 100));
+  return (
+    <div
+      className="border bg-card p-3 transition-colors"
+      style={{
+        borderColor: exceeded ? "var(--destructive)" : "var(--border)",
+      }}
+    >
+      <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1.5 flex items-baseline gap-1">
+        <span
+          className="font-mono text-[22px] font-bold leading-none tabular-nums transition-colors"
+          style={exceeded ? { color: "var(--destructive)" } : undefined}
+        >
+          {value.toFixed(1)}
+        </span>
+        <span className="text-[11px] text-muted-foreground">%</span>
+      </div>
+      <div className="mt-2 h-1 w-full bg-secondary">
+        <div
+          className="h-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: color }}
+        />
+      </div>
+      <div className="mt-1.5 flex items-center justify-between font-mono text-[9.5px]">
+        <span style={{ color }}>
+          ● {exceeded ? "Exceeds" : "Within"}
+        </span>
+        <span className="text-muted-foreground">Cap {cap.toFixed(1)}%</span>
       </div>
     </div>
   );
