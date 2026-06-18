@@ -640,7 +640,15 @@ function ReconRow({
 
 /* ────────────────────── COLUMN 2: SCORING MATRIX ────────────────────── */
 
-function ScoringMatrix({ craCleared, analysis }: { craCleared: boolean; analysis: NoaAnalysis | null }) {
+function ScoringMatrix({
+  craCleared,
+  analysis,
+  debtService,
+}: {
+  craCleared: boolean;
+  analysis: NoaAnalysis | null;
+  debtService: import("@/utils/debtService").DebtServiceResult;
+}) {
   const score = craCleared ? 30 : 45;
   const riskLabel = craCleared ? "Low Risk" : "Moderate Risk";
   const riskBg = craCleared
