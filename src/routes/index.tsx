@@ -29,12 +29,13 @@ import { NoaUploader } from "@/components/NoaUploader";
 import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
 import { PipelineLedger, SaveApplicationButton } from "@/components/PipelineLedger";
 import { ExportAuditSheetButton } from "@/components/ExportAuditSheet";
+import { LiabilitiesPanel, DEFAULT_LIABILITIES, type LiabilityInputs } from "@/components/LiabilitiesPanel";
+import { calculateDebtService } from "@/utils/debtService";
 import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
 
 const DEFAULT_APP_NUMBER = "APP-2025-08842";
 const DEFAULT_TAXPAYER = "Mujeeb Minhas";
-const STATIC_GDS = 34.2;
-const STATIC_TDS = 41.5;
+const DEFAULT_QUALIFYING_INCOME = 94500;
 
 type IncomeOverride = { value: string; note: string; appliedAt: string } | null;
 
