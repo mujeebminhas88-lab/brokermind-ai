@@ -665,8 +665,18 @@ function ScoringMatrix({
       />
       <div className="space-y-3 p-4">
         <div className="grid grid-cols-3 gap-2">
-          <RatioCard label="Stress-Tested GDS" value="34.2" cap="39.0%" tone="good" />
-          <RatioCard label="Stress-Tested TDS" value="41.5" cap="44.0%" tone="good" />
+          <DebtRatioCard
+            label="Stress-Tested GDS"
+            value={debtService.gds}
+            cap={debtService.gdsCap}
+            exceeded={debtService.gdsExceeded}
+          />
+          <DebtRatioCard
+            label="Stress-Tested TDS"
+            value={debtService.tds}
+            cap={debtService.tdsCap}
+            exceeded={debtService.tdsExceeded}
+          />
           <RatioCard label="LTV Ratio" value="78.0" cap="Insured" tone="info" />
         </div>
 
