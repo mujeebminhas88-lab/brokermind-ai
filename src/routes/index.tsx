@@ -65,9 +65,18 @@ function Dashboard() {
   const [analyzing, setAnalyzing] = useState(false);
   const [sandbox, setSandbox] = useState(false);
   const [applicationNumber, setApplicationNumber] = useState(DEFAULT_APP_NUMBER);
+  const [liabilities, setLiabilities] = useState<LiabilityInputs>(DEFAULT_LIABILITIES);
+
+  const qualifyingIncome =
+    analysis?.payload.line_15000_total_income ?? DEFAULT_QUALIFYING_INCOME;
+  const debtService = calculateDebtService(qualifyingIncome, liabilities);
+
   const craCleared = conditions.find((c) => c.id === "INC-04")?.satisfied ?? false;
   const baseScore = craCleared ? 30 : 45;
-  const aggregateRiskScore = analysis ? analysis.aggregatePenalty : baseScore;
+  const debtServicePenalty =
+    (debtService.gdsExceeded ? 18 : 0) + (debtService.tdsExceeded ? 22 : 0);
+  const aggregateRiskScore =
+    (analysis ? analysis.aggregatePenalty : baseScore) + debtServicePenalty;
   const taxpayerName = analysis?.payload.taxpayer_name ?? DEFAULT_TAXPAYER;
 
   return (
