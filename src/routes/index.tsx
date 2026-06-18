@@ -92,15 +92,15 @@ function Dashboard() {
             analysis={analysis}
             applicationNumber={applicationNumber}
             taxpayerName={taxpayerName}
-            gds={STATIC_GDS}
-            tds={STATIC_TDS}
+            gds={debtService.gds}
+            tds={debtService.tds}
             aggregateRiskScore={aggregateRiskScore}
           />
           <SaveApplicationButton
             analysis={analysis}
             applicationNumber={applicationNumber}
-            gds={STATIC_GDS}
-            tds={STATIC_TDS}
+            gds={debtService.gds}
+            tds={debtService.tds}
             aggregateRiskScore={aggregateRiskScore}
           />
         </div>
@@ -116,6 +116,11 @@ function Dashboard() {
           onClear={() => setAnalysis(null)}
         />
       )}
+      <LiabilitiesPanel
+        liabilities={liabilities}
+        setLiabilities={setLiabilities}
+        result={debtService}
+      />
       <main
         className="grid grid-cols-12 gap-px bg-border"
         style={{ minHeight: "calc(100vh - 168px)" }}
