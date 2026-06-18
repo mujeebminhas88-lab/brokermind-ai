@@ -129,7 +129,7 @@ function Dashboard() {
           <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
         </section>
         <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden relative">
-          <ScoringMatrix craCleared={craCleared} analysis={analysis} />
+          <ScoringMatrix craCleared={craCleared} analysis={analysis} debtService={debtService} />
           {analyzing && <AnalyzingOverlay label="Scoring matrix recalculating" />}
         </section>
         <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden relative">
