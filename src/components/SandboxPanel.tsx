@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FlaskConical, Zap, RotateCcw, Banknote, Landmark } from "lucide-react";
+import { FlaskConical, Zap, RotateCcw, Banknote, Landmark, FileText, Briefcase, Wallet } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
   analyzeNoticeOfAssessment,
@@ -9,15 +9,31 @@ import {
 } from "@/utils/noaParser";
 
 export type UnderwritingStream = "standard" | "bfs";
+type StandardTab = "t4" | "t1" | "t4a";
 
 export type SandboxFields = {
   taxpayer_name: string;
   tax_year: number;
+  // NOA reconciliation anchor
   line_15000_total_income: number;
   prior_year_line_15000: number;
   line_23600_net_income: number;
   balance_owing_at_assessment: number;
   has_unarranged_arrears: boolean;
+};
+
+export type SlipFields = {
+  // T4
+  t4_employer_name: string;
+  t4_box14_employment_income: number;
+  t4_box22_tax_deducted: number;
+  // T1 General
+  t1_line13500_business_gross: number;
+  t1_line13500_business_net: number;
+  t776_net_rental_income: number;
+  // T4A / T4P
+  t4a_box20_commissions: number;
+  t4p_box16_pension: number;
 };
 
 export type BfsFields = {
@@ -35,6 +51,17 @@ const DEFAULTS: SandboxFields = {
   line_23600_net_income: 88940.12,
   balance_owing_at_assessment: 4250.31,
   has_unarranged_arrears: true,
+};
+
+const SLIP_DEFAULTS: SlipFields = {
+  t4_employer_name: "Northbridge Financial Corp.",
+  t4_box14_employment_income: 78420,
+  t4_box22_tax_deducted: 16765.28,
+  t1_line13500_business_gross: 0,
+  t1_line13500_business_net: 0,
+  t776_net_rental_income: 0,
+  t4a_box20_commissions: 12180,
+  t4p_box16_pension: 3900,
 };
 
 const BFS_DEFAULTS: BfsFields = {
@@ -116,32 +143,54 @@ export function SandboxPanel({
   onClear: () => void;
 }) {
   const [stream, setStream] = useState<UnderwritingStream>("standard");
+  const [tab, setTab] = useState<StandardTab>("t4");
   const [fields, setFields] = useState<SandboxFields>(DEFAULTS);
+  const [slips, setSlips] = useState<SlipFields>(SLIP_DEFAULTS);
   const [bfs, setBfs] = useState<BfsFields>(BFS_DEFAULTS);
 
+  /* ── Standard stream: total qualifying income across slips ── */
+  const slipBreakdown = useMemo(() => {
+    const t4 = Math.max(0, slips.t4_box14_employment_income);
+    const t1Biz = Math.max(0, slips.t1_line13500_business_net);
+    const t776 = Math.max(0, slips.t776_net_rental_income);
+    const t4a = Math.max(0, slips.t4a_box20_commissions);
+    const t4p = Math.max(0, slips.t4p_box16_pension);
+    const total = t4 + t1Biz + t776 + t4a + t4p;
+    // Variance check only against direct CRA-issued slips
+    const slipOnlyForVariance = t4 + t4a + t4p;
+    return { t4, t1Biz, t776, t4a, t4p, total, slipOnlyForVariance };
+  }, [slips]);
+
+  const variance = useMemo(() => {
+    const diff = slipBreakdown.slipOnlyForVariance - fields.line_15000_total_income;
+    return {
+      diff,
+      abs: Math.abs(diff),
+      breached: Math.abs(diff) > 1000,
+    };
+  }, [slipBreakdown, fields.line_15000_total_income]);
+
+  /* ── BFS stream: stated add-back income ── */
   const statedAddBackIncome = useMemo(() => {
     const gross = Math.max(0, bfs.gross_business_deposits);
     const inj = Math.max(0, bfs.non_business_injections);
     const ratio = Math.min(0.8, Math.max(0.1, bfs.expense_ratio_pct / 100));
     const net = Math.max(0, gross - inj);
-    // Normalize to annual: 24-mo programs average over 2 years.
     const annualized = bfs.statement_months === 24 ? net / 2 : net;
     return annualized * (1 - ratio);
   }, [bfs]);
 
-  // Reactive recompute on any field change
   useEffect(() => {
     try {
       const isBfs = stream === "bfs";
       const qualifyingIncome = isBfs
         ? Math.max(0, statedAddBackIncome)
-        : Math.max(0, fields.line_15000_total_income);
+        : Math.max(0, slipBreakdown.total);
 
       const payload: NoaPayload = {
         taxpayer_name: fields.taxpayer_name || "Unnamed Applicant",
         tax_year: fields.tax_year,
         line_15000_total_income: qualifyingIncome,
-        // In BFS, suppress YoY comparison by mirroring prior year.
         prior_year_line_15000: isBfs ? qualifyingIncome : Math.max(0, fields.prior_year_line_15000),
         line_23600_net_income: isBfs
           ? qualifyingIncome * 0.92
@@ -154,31 +203,51 @@ export function SandboxPanel({
       };
 
       const result = analyzeNoticeOfAssessment(payload);
+      const extra: RiskFlag[] = [];
 
-      // Inject forensic AML flag when BFS and non-business injections present.
       if (isBfs && bfs.non_business_injections > 0) {
-        const amlFlag: RiskFlag = {
+        extra.push({
           code: "FORENSIC-AML-INJECTION",
           title: "Unidentified large cash deposit detected",
           detail:
             "Source verification required for 90-day anti-money laundering compliance. Obtain bank trace and declaration of origin for the flagged transfer(s).",
           penalty: 12,
           severity: "Elevated",
-        };
-        const flags = [...result.flags, amlFlag];
+        });
+      }
+
+      if (!isBfs && variance.breached) {
+        extra.push({
+          code: "FORENSIC-VARIANCE-UNRECONCILED",
+          title: "Slip vs NOA income discrepancy",
+          detail: `Income discrepancy detected between CRA Notice of Assessment (Line 15000 = ${fmtCAD(
+            fields.line_15000_total_income
+          )}) and submitted tax slips (T4/T4A/T1 = ${fmtCAD(
+            slipBreakdown.slipOnlyForVariance
+          )}). Δ ${fmtCAD(variance.abs)}. Audit required.`,
+          penalty: 14,
+          severity: "Elevated",
+        });
+      }
+
+      if (extra.length === 0) {
+        onAnalyzed(result);
+      } else {
+        const flags = [...result.flags, ...extra];
         const aggregatePenalty = flags.reduce((s, f) => s + f.penalty, 0);
         onAnalyzed({ ...result, flags, aggregatePenalty });
-      } else {
-        onAnalyzed(result);
       }
     } catch {
-      // ignore transient invalid states (e.g. NaN while typing)
+      // ignore transient invalid states
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fields, bfs, stream, statedAddBackIncome]);
+  }, [fields, slips, bfs, stream, statedAddBackIncome, slipBreakdown, variance]);
 
   function update<K extends keyof SandboxFields>(key: K, val: SandboxFields[K]) {
     setFields((f) => ({ ...f, [key]: val }));
+  }
+  function updateSlip<K extends keyof SlipFields>(key: K, val: SlipFields[K]) {
+    setSlips((f) => ({ ...f, [key]: val }));
   }
   function updateBfs<K extends keyof BfsFields>(key: K, val: BfsFields[K]) {
     setBfs((f) => ({ ...f, [key]: val }));
@@ -186,6 +255,7 @@ export function SandboxPanel({
 
   function reset() {
     setFields(DEFAULTS);
+    setSlips(SLIP_DEFAULTS);
     setBfs(BFS_DEFAULTS);
   }
 
@@ -199,7 +269,6 @@ export function SandboxPanel({
           "linear-gradient(180deg, color-mix(in oklab, var(--emerald) 4%, var(--card)) 0%, var(--card) 100%)",
       }}
     >
-      {/* Top utility bar */}
       <div className="grid grid-cols-12 gap-px bg-border">
         <div className="col-span-12 bg-card px-6 py-2 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-4">
@@ -225,31 +294,31 @@ export function SandboxPanel({
         </div>
       </div>
 
-      {/* Standard NOA fields — always rendered as core identity payload */}
-      <div className="grid grid-cols-2 gap-px bg-border lg:grid-cols-4">
-        <SandboxText
-          label="Taxpayer Name"
-          value={fields.taxpayer_name}
-          onChange={(v) => update("taxpayer_name", v)}
-        />
-        <SandboxSelect
-          label="Tax Year"
-          value={fields.tax_year}
-          options={years}
-          onChange={(v) => update("tax_year", v)}
-        />
-        {stream === "standard" ? (
-          <>
+      {/* Identity / NOA anchor row — always rendered for the standard stream */}
+      {stream === "standard" ? (
+        <>
+          <div className="grid grid-cols-2 gap-px bg-border lg:grid-cols-4">
+            <SandboxText
+              label="Taxpayer Name"
+              value={fields.taxpayer_name}
+              onChange={(v) => update("taxpayer_name", v)}
+            />
+            <SandboxSelect
+              label="Tax Year"
+              value={fields.tax_year}
+              options={years}
+              onChange={(v) => update("tax_year", v)}
+            />
             <SandboxCurrency
-              label="Line 15000 · Total Income"
+              label="NOA · Line 15000 (Anchor)"
               value={fields.line_15000_total_income}
               onChange={(v) => update("line_15000_total_income", v)}
+              hint="Reconciled against slip aggregate"
             />
             <SandboxCurrency
               label="Prior Year Line 15000"
               value={fields.prior_year_line_15000}
               onChange={(v) => update("prior_year_line_15000", v)}
-              hint="Drop current below this to trigger TAX-DROP-YOY"
             />
             <SandboxCurrency
               label="Line 23600 · Net Income"
@@ -260,7 +329,7 @@ export function SandboxPanel({
               label="Balance Owing at Assessment"
               value={fields.balance_owing_at_assessment}
               onChange={(v) => update("balance_owing_at_assessment", v)}
-              hint="> $0 triggers TAX-CRA-ARREARS (+25 pts)"
+              hint="> $0 triggers TAX-CRA-ARREARS"
             />
             <SandboxCheckbox
               label="Has Unarranged Arrears"
@@ -279,29 +348,46 @@ export function SandboxPanel({
                 Streaming to scoring engine
               </div>
             </div>
-          </>
-        ) : (
-          <div className="col-span-2 lg:col-span-2 bg-card px-3 py-2.5 flex items-center gap-2">
-            <Landmark className="h-3.5 w-3.5" style={{ color: "var(--emerald-deep)" }} />
-            <div className="leading-tight">
-              <div className="font-mono text-[9.5px] font-bold tracking-[0.16em] text-muted-foreground">
-                ALTERNATIVE / PRIVATE BFS STREAM
-              </div>
-              <div className="text-[11px] font-semibold">
-                NOA fields suppressed · qualifying income derived from bank statement add-backs
+          </div>
+
+          <SlipTabs
+            tab={tab}
+            onTabChange={setTab}
+            slips={slips}
+            update={updateSlip}
+            breakdown={slipBreakdown}
+            variance={variance}
+            noaLine15000={fields.line_15000_total_income}
+          />
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-px bg-border lg:grid-cols-4">
+            <SandboxText
+              label="Taxpayer Name"
+              value={fields.taxpayer_name}
+              onChange={(v) => update("taxpayer_name", v)}
+            />
+            <SandboxSelect
+              label="Tax Year"
+              value={fields.tax_year}
+              options={years}
+              onChange={(v) => update("tax_year", v)}
+            />
+            <div className="col-span-2 bg-card px-3 py-2.5 flex items-center gap-2">
+              <Landmark className="h-3.5 w-3.5" style={{ color: "var(--emerald-deep)" }} />
+              <div className="leading-tight">
+                <div className="font-mono text-[9.5px] font-bold tracking-[0.16em] text-muted-foreground">
+                  ALTERNATIVE / PRIVATE BFS STREAM
+                </div>
+                <div className="text-[11px] font-semibold">
+                  NOA fields suppressed · qualifying income derived from bank statement add-backs
+                </div>
               </div>
             </div>
           </div>
-        )}
-      </div>
-
-      {/* BFS extended controls */}
-      {stream === "bfs" && (
-        <BfsControls
-          bfs={bfs}
-          update={updateBfs}
-          statedAddBackIncome={statedAddBackIncome}
-        />
+          <BfsControls bfs={bfs} update={updateBfs} statedAddBackIncome={statedAddBackIncome} />
+        </>
       )}
     </div>
   );
@@ -331,10 +417,7 @@ function StreamTabs({
             className="flex items-center gap-2 px-2.5 py-1 text-[10.5px] font-semibold tracking-tight"
             style={
               active
-                ? {
-                    background: "var(--emerald-deep)",
-                    color: "var(--primary-foreground)",
-                  }
+                ? { background: "var(--emerald-deep)", color: "var(--primary-foreground)" }
                 : { color: "var(--muted-foreground)" }
             }
           >
@@ -346,6 +429,133 @@ function StreamTabs({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/* ─────────────────────────── Slip tabs ─────────────────────────── */
+
+function SlipTabs({
+  tab,
+  onTabChange,
+  slips,
+  update,
+  breakdown,
+  variance,
+  noaLine15000,
+}: {
+  tab: StandardTab;
+  onTabChange: (t: StandardTab) => void;
+  slips: SlipFields;
+  update: <K extends keyof SlipFields>(k: K, v: SlipFields[K]) => void;
+  breakdown: { t4: number; t1Biz: number; t776: number; t4a: number; t4p: number; total: number; slipOnlyForVariance: number };
+  variance: { diff: number; abs: number; breached: boolean };
+  noaLine15000: number;
+}) {
+  const tabs: { id: StandardTab; label: string; icon: React.ReactNode }[] = [
+    { id: "t4", label: "T4 — Employment", icon: <FileText className="h-3 w-3" /> },
+    { id: "t1", label: "T1 General — Self-Employed", icon: <Briefcase className="h-3 w-3" /> },
+    { id: "t4a", label: "T4A / T4P — Commissions & Pension", icon: <Wallet className="h-3 w-3" /> },
+  ];
+
+  return (
+    <div className="border-t border-border" style={{ background: "color-mix(in oklab, var(--emerald) 4%, var(--card))" }}>
+      <div className="px-6 py-2 flex items-center gap-2 flex-wrap">
+        <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-muted-foreground">
+          CRA SLIPS · CROSS-DOCUMENT RECONCILIATION
+        </span>
+        <div className="ml-2 flex items-center gap-0.5 border border-border bg-secondary p-0.5">
+          {tabs.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => onTabChange(t.id)}
+                className="flex items-center gap-1.5 px-2 py-1 text-[10.5px] font-semibold"
+                style={
+                  active
+                    ? { background: "var(--emerald-deep)", color: "var(--primary-foreground)" }
+                    : { color: "var(--muted-foreground)" }
+                }
+              >
+                {t.icon}
+                <span>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-px bg-border lg:grid-cols-4">
+        {tab === "t4" && (
+          <>
+            <SandboxText
+              label="T4 · Employer Name"
+              value={slips.t4_employer_name}
+              onChange={(v) => update("t4_employer_name", v)}
+            />
+            <SandboxCurrency
+              label="T4 Box 14 · Employment Income"
+              value={slips.t4_box14_employment_income}
+              onChange={(v) => update("t4_box14_employment_income", v)}
+            />
+            <SandboxCurrency
+              label="T4 Box 22 · Income Tax Deducted"
+              value={slips.t4_box22_tax_deducted}
+              onChange={(v) => update("t4_box22_tax_deducted", v)}
+            />
+          </>
+        )}
+        {tab === "t1" && (
+          <>
+            <SandboxCurrency
+              label="T1 Line 13500 · Business Income (Gross)"
+              value={slips.t1_line13500_business_gross}
+              onChange={(v) => update("t1_line13500_business_gross", v)}
+            />
+            <SandboxCurrency
+              label="T1 Line 13500 · Business Income (Net)"
+              value={slips.t1_line13500_business_net}
+              onChange={(v) => update("t1_line13500_business_net", v)}
+              hint="Net flows into qualifying pool"
+            />
+            <SandboxCurrency
+              label="T776 · Net Rental Income"
+              value={slips.t776_net_rental_income}
+              onChange={(v) => update("t776_net_rental_income", v)}
+            />
+          </>
+        )}
+        {tab === "t4a" && (
+          <>
+            <SandboxCurrency
+              label="T4A Box 20 · Self-Employed Commissions"
+              value={slips.t4a_box20_commissions}
+              onChange={(v) => update("t4a_box20_commissions", v)}
+            />
+            <SandboxCurrency
+              label="T4P Box 16 · Pension / OAS Income"
+              value={slips.t4p_box16_pension}
+              onChange={(v) => update("t4p_box16_pension", v)}
+            />
+          </>
+        )}
+      </div>
+
+      {/* Reconciliation ledger */}
+      <div className="grid grid-cols-2 gap-px bg-border md:grid-cols-6">
+        <Stat label="T4 Box 14" value={fmtCAD(breakdown.t4)} />
+        <Stat label="T1 Net + T776" value={fmtCAD(breakdown.t1Biz + breakdown.t776)} />
+        <Stat label="T4A + T4P" value={fmtCAD(breakdown.t4a + breakdown.t4p)} />
+        <Stat label="Σ Qualifying Income" value={fmtCAD(breakdown.total)} highlight />
+        <Stat label="NOA Line 15000" value={fmtCAD(noaLine15000)} />
+        <Stat
+          label={`Variance Δ ${variance.diff >= 0 ? "+" : "−"}${fmtCAD(variance.abs).replace(/^-/, "")}`}
+          value={variance.breached ? "UNRECONCILED" : "RECONCILED"}
+          warn={variance.breached}
+          highlight={!variance.breached}
+        />
+      </div>
     </div>
   );
 }
@@ -422,15 +632,10 @@ function BfsControls({
         </FieldShell>
       </div>
 
-      {/* Live computation strip */}
       <div className="grid grid-cols-2 gap-px bg-border md:grid-cols-4">
         <Stat label="Annualized Net Deposits" value={fmtCAD(annualized)} />
         <Stat label="Expense Write-Off" value={`${bfs.expense_ratio_pct}%`} />
-        <Stat
-          label="Stated Add-Back Income"
-          value={fmtCAD(statedAddBackIncome)}
-          highlight
-        />
+        <Stat label="Stated Add-Back Income" value={fmtCAD(statedAddBackIncome)} highlight />
         <Stat
           label="Forensic AML Flag"
           value={bfs.non_business_injections > 0 ? "TRIGGERED" : "CLEAR"}
