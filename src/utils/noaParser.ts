@@ -25,7 +25,8 @@ export type RiskFlagCode =
   | "TAX-DROP-YOY"
   | "TAX-CRA-ARREARS"
   | "DOC-REASSESSMENT"
-  | "FORENSIC-AML-INJECTION";
+  | "FORENSIC-AML-INJECTION"
+  | "FORENSIC-VARIANCE-UNRECONCILED";
 
 export type RiskFlag = {
   code: RiskFlagCode;
