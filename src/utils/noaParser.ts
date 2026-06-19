@@ -21,7 +21,11 @@ export type NoaPayload = z.infer<typeof NoaPayloadSchema>;
  * Risk taxonomy
  * ────────────────────────────────────────────────────────────── */
 
-export type RiskFlagCode = "TAX-DROP-YOY" | "TAX-CRA-ARREARS" | "DOC-REASSESSMENT";
+export type RiskFlagCode =
+  | "TAX-DROP-YOY"
+  | "TAX-CRA-ARREARS"
+  | "DOC-REASSESSMENT"
+  | "FORENSIC-AML-INJECTION";
 
 export type RiskFlag = {
   code: RiskFlagCode;
