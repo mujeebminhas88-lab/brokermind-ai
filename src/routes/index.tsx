@@ -787,9 +787,8 @@ function ScoringMatrix({
             <span className="font-mono text-[10px] text-muted-foreground">
               {(() => {
                 const base = craCleared ? 1 : 2;
-                const extra =
-                  (debtService.gdsExceeded || debtService.tdsExceeded) ? 1 : 0;
-                return `${base + extra} ACTIVE`;
+                const debt = debtService.gdsExceeded || debtService.tdsExceeded ? 1 : 0;
+                return `${base + debt + extraFlags.length} ACTIVE`;
               })()}
             </span>
           </div>
@@ -820,10 +819,23 @@ function ScoringMatrix({
                 icon={<AlertTriangle className="h-3.5 w-3.5" />}
               />
             )}
+            {extraFlags.map((f) => (
+              <FlagRow
+                key={f.code}
+                code={f.code}
+                title={f.title}
+                severity={f.severity}
+                penalty={`+${f.penalty}`}
+                tone="warn"
+                icon={<AlertTriangle className="h-3.5 w-3.5" />}
+              />
+            ))}
           </div>
         </div>
 
         {analysis && <NoaAnalysisCard analysis={analysis} />}
+
+
 
 
         {/* Calculation Trace */}
