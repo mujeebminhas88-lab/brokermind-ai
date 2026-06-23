@@ -30,8 +30,11 @@ import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
 import { PipelineLedger, SaveApplicationButton } from "@/components/PipelineLedger";
 import { ExportAuditSheetButton } from "@/components/ExportAuditSheet";
 import { LiabilitiesPanel, DEFAULT_LIABILITIES, type LiabilityInputs } from "@/components/LiabilitiesPanel";
+import { CollateralPanel, DEFAULT_COLLATERAL, computeLtv, type CollateralState } from "@/components/CollateralPanel";
+import { EmploymentIntakePanel, DEFAULT_EMPLOYMENT, type EmploymentState } from "@/components/EmploymentIntakePanel";
 import { calculateDebtService } from "@/utils/debtService";
 import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
+
 
 const DEFAULT_APP_NUMBER = "APP-2025-08842";
 const DEFAULT_TAXPAYER = "Mujeeb Minhas";
