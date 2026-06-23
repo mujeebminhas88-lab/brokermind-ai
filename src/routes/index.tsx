@@ -673,14 +673,21 @@ function ScoringMatrix({
   craCleared,
   analysis,
   debtService,
+  extraFlags = [],
+  ltv,
+  highRatio,
 }: {
   craCleared: boolean;
   analysis: NoaAnalysis | null;
   debtService: import("@/utils/debtService").DebtServiceResult;
+  extraFlags?: RiskFlag[];
+  ltv: number;
+  highRatio: boolean;
 }) {
   const score = craCleared ? 30 : 45;
   const riskLabel = craCleared ? "Low Risk" : "Moderate Risk";
   const riskBg = craCleared
+
     ? "color-mix(in oklab, var(--success) 16%, transparent)"
     : "var(--warning-bg)";
   const riskFg = craCleared ? "var(--success)" : "var(--warning-fg)";
