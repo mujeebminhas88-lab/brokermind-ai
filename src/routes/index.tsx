@@ -69,23 +69,36 @@ function Dashboard() {
   const [sandbox, setSandbox] = useState(false);
   const [applicationNumber, setApplicationNumber] = useState(DEFAULT_APP_NUMBER);
   const [liabilities, setLiabilities] = useState<LiabilityInputs>(DEFAULT_LIABILITIES);
+  const [collateral, setCollateral] = useState<CollateralState>(DEFAULT_COLLATERAL);
+  const [employment, setEmployment] = useState<EmploymentState>(DEFAULT_EMPLOYMENT);
+  const [collateralFlags, setCollateralFlags] = useState<RiskFlag[]>([]);
+  const [employmentFlags, setEmploymentFlags] = useState<RiskFlag[]>([]);
 
   const qualifyingIncome =
     analysis?.payload.line_15000_total_income ?? DEFAULT_QUALIFYING_INCOME;
   const debtService = calculateDebtService(qualifyingIncome, liabilities);
+  const ltvCalc = computeLtv(collateral);
+
+  const extraFlags = [...collateralFlags, ...employmentFlags];
+  const extraPenalty = extraFlags.reduce((s, f) => s + f.penalty, 0);
 
   const craCleared = conditions.find((c) => c.id === "INC-04")?.satisfied ?? false;
   const baseScore = craCleared ? 30 : 45;
   const debtServicePenalty =
     (debtService.gdsExceeded ? 18 : 0) + (debtService.tdsExceeded ? 22 : 0);
   const aggregateRiskScore =
-    (analysis ? analysis.aggregatePenalty : baseScore) + debtServicePenalty;
+    (analysis ? analysis.aggregatePenalty : baseScore) + debtServicePenalty + extraPenalty;
   const taxpayerName = analysis?.payload.taxpayer_name ?? DEFAULT_TAXPAYER;
 
   return (
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
       <TopBar />
       <SubHeader applicationNumber={applicationNumber} taxpayerName={taxpayerName} />
+      <CollateralPanel
+        state={collateral}
+        setState={setCollateral}
+        onFlagsChange={setCollateralFlags}
+      />
       <div className="flex items-center justify-between border-b border-border bg-card">
         <div className="flex-1">
           <SandboxToggleBar enabled={sandbox} onToggle={(v) => { setSandbox(v); if (!v) setAnalysis(null); }} />
@@ -124,6 +137,11 @@ function Dashboard() {
         setLiabilities={setLiabilities}
         result={debtService}
       />
+      <EmploymentIntakePanel
+        state={employment}
+        setState={setEmployment}
+        onFlagsChange={setEmploymentFlags}
+      />
       <main
         className="grid grid-cols-12 gap-px bg-border"
         style={{ minHeight: "calc(100vh - 168px)" }}
@@ -132,7 +150,14 @@ function Dashboard() {
           <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
         </section>
         <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden relative">
-          <ScoringMatrix craCleared={craCleared} analysis={analysis} debtService={debtService} />
+          <ScoringMatrix
+            craCleared={craCleared}
+            analysis={analysis}
+            debtService={debtService}
+            extraFlags={extraFlags}
+            ltv={ltvCalc.ltv}
+            highRatio={ltvCalc.highRatio}
+          />
           {analyzing && <AnalyzingOverlay label="Scoring matrix recalculating" />}
         </section>
         <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden relative">
@@ -157,6 +182,7 @@ function Dashboard() {
     </div>
   );
 }
+
 
 function AnalyzingOverlay({ label }: { label: string }) {
   return (
