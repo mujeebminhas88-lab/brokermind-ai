@@ -30,8 +30,11 @@ import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
 import { PipelineLedger, SaveApplicationButton } from "@/components/PipelineLedger";
 import { ExportAuditSheetButton } from "@/components/ExportAuditSheet";
 import { LiabilitiesPanel, DEFAULT_LIABILITIES, type LiabilityInputs } from "@/components/LiabilitiesPanel";
+import { CollateralPanel, DEFAULT_COLLATERAL, computeLtv, type CollateralState } from "@/components/CollateralPanel";
+import { EmploymentIntakePanel, DEFAULT_EMPLOYMENT, type EmploymentState } from "@/components/EmploymentIntakePanel";
 import { calculateDebtService } from "@/utils/debtService";
 import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
+
 
 const DEFAULT_APP_NUMBER = "APP-2025-08842";
 const DEFAULT_TAXPAYER = "Mujeeb Minhas";
@@ -66,23 +69,36 @@ function Dashboard() {
   const [sandbox, setSandbox] = useState(false);
   const [applicationNumber, setApplicationNumber] = useState(DEFAULT_APP_NUMBER);
   const [liabilities, setLiabilities] = useState<LiabilityInputs>(DEFAULT_LIABILITIES);
+  const [collateral, setCollateral] = useState<CollateralState>(DEFAULT_COLLATERAL);
+  const [employment, setEmployment] = useState<EmploymentState>(DEFAULT_EMPLOYMENT);
+  const [collateralFlags, setCollateralFlags] = useState<RiskFlag[]>([]);
+  const [employmentFlags, setEmploymentFlags] = useState<RiskFlag[]>([]);
 
   const qualifyingIncome =
     analysis?.payload.line_15000_total_income ?? DEFAULT_QUALIFYING_INCOME;
   const debtService = calculateDebtService(qualifyingIncome, liabilities);
+  const ltvCalc = computeLtv(collateral);
+
+  const extraFlags = [...collateralFlags, ...employmentFlags];
+  const extraPenalty = extraFlags.reduce((s, f) => s + f.penalty, 0);
 
   const craCleared = conditions.find((c) => c.id === "INC-04")?.satisfied ?? false;
   const baseScore = craCleared ? 30 : 45;
   const debtServicePenalty =
     (debtService.gdsExceeded ? 18 : 0) + (debtService.tdsExceeded ? 22 : 0);
   const aggregateRiskScore =
-    (analysis ? analysis.aggregatePenalty : baseScore) + debtServicePenalty;
+    (analysis ? analysis.aggregatePenalty : baseScore) + debtServicePenalty + extraPenalty;
   const taxpayerName = analysis?.payload.taxpayer_name ?? DEFAULT_TAXPAYER;
 
   return (
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
       <TopBar />
       <SubHeader applicationNumber={applicationNumber} taxpayerName={taxpayerName} />
+      <CollateralPanel
+        state={collateral}
+        setState={setCollateral}
+        onFlagsChange={setCollateralFlags}
+      />
       <div className="flex items-center justify-between border-b border-border bg-card">
         <div className="flex-1">
           <SandboxToggleBar enabled={sandbox} onToggle={(v) => { setSandbox(v); if (!v) setAnalysis(null); }} />
@@ -121,6 +137,11 @@ function Dashboard() {
         setLiabilities={setLiabilities}
         result={debtService}
       />
+      <EmploymentIntakePanel
+        state={employment}
+        setState={setEmployment}
+        onFlagsChange={setEmploymentFlags}
+      />
       <main
         className="grid grid-cols-12 gap-px bg-border"
         style={{ minHeight: "calc(100vh - 168px)" }}
@@ -129,7 +150,14 @@ function Dashboard() {
           <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
         </section>
         <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden relative">
-          <ScoringMatrix craCleared={craCleared} analysis={analysis} debtService={debtService} />
+          <ScoringMatrix
+            craCleared={craCleared}
+            analysis={analysis}
+            debtService={debtService}
+            extraFlags={extraFlags}
+            ltv={ltvCalc.ltv}
+            highRatio={ltvCalc.highRatio}
+          />
           {analyzing && <AnalyzingOverlay label="Scoring matrix recalculating" />}
         </section>
         <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden relative">
@@ -154,6 +182,7 @@ function Dashboard() {
     </div>
   );
 }
+
 
 function AnalyzingOverlay({ label }: { label: string }) {
   return (
@@ -644,14 +673,21 @@ function ScoringMatrix({
   craCleared,
   analysis,
   debtService,
+  extraFlags = [],
+  ltv,
+  highRatio,
 }: {
   craCleared: boolean;
   analysis: NoaAnalysis | null;
   debtService: import("@/utils/debtService").DebtServiceResult;
+  extraFlags?: RiskFlag[];
+  ltv: number;
+  highRatio: boolean;
 }) {
   const score = craCleared ? 30 : 45;
   const riskLabel = craCleared ? "Low Risk" : "Moderate Risk";
   const riskBg = craCleared
+
     ? "color-mix(in oklab, var(--success) 16%, transparent)"
     : "var(--warning-bg)";
   const riskFg = craCleared ? "var(--success)" : "var(--warning-fg)";
@@ -677,7 +713,13 @@ function ScoringMatrix({
             cap={debtService.tdsCap}
             exceeded={debtService.tdsExceeded}
           />
-          <RatioCard label="LTV Ratio" value="78.0" cap="Insured" tone="info" />
+          <RatioCard
+            label="LTV Ratio"
+            value={ltv.toFixed(1)}
+            cap={highRatio ? "Insured" : "Conv."}
+            tone={highRatio ? "bad" : "good"}
+          />
+
         </div>
 
         {/* Aggregate Risk Score */}
@@ -745,9 +787,8 @@ function ScoringMatrix({
             <span className="font-mono text-[10px] text-muted-foreground">
               {(() => {
                 const base = craCleared ? 1 : 2;
-                const extra =
-                  (debtService.gdsExceeded || debtService.tdsExceeded) ? 1 : 0;
-                return `${base + extra} ACTIVE`;
+                const debt = debtService.gdsExceeded || debtService.tdsExceeded ? 1 : 0;
+                return `${base + debt + extraFlags.length} ACTIVE`;
               })()}
             </span>
           </div>
@@ -778,10 +819,23 @@ function ScoringMatrix({
                 icon={<AlertTriangle className="h-3.5 w-3.5" />}
               />
             )}
+            {extraFlags.map((f) => (
+              <FlagRow
+                key={f.code}
+                code={f.code}
+                title={f.title}
+                severity={f.severity}
+                penalty={`+${f.penalty}`}
+                tone="warn"
+                icon={<AlertTriangle className="h-3.5 w-3.5" />}
+              />
+            ))}
           </div>
         </div>
 
         {analysis && <NoaAnalysisCard analysis={analysis} />}
+
+
 
 
         {/* Calculation Trace */}
