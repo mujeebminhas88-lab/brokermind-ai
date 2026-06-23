@@ -713,7 +713,13 @@ function ScoringMatrix({
             cap={debtService.tdsCap}
             exceeded={debtService.tdsExceeded}
           />
-          <RatioCard label="LTV Ratio" value="78.0" cap="Insured" tone="info" />
+          <RatioCard
+            label="LTV Ratio"
+            value={ltv.toFixed(1)}
+            cap={highRatio ? "Insured" : "Conv."}
+            tone={highRatio ? "bad" : "good"}
+          />
+
         </div>
 
         {/* Aggregate Risk Score */}
