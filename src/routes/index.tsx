@@ -21,6 +21,7 @@ import {
   Receipt,
   Hash,
   User,
+  Users,
   Calendar,
   DollarSign,
   X,
@@ -31,7 +32,7 @@ import {
   Trash2,
   Sliders,
   Save,
-  RotateCcw
+  FilePlus
 } from "lucide-react";
 import { NoaUploader } from "@/components/NoaUploader";
 import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
@@ -63,6 +64,15 @@ interface AdditionalProperty {
   rentalInclusionPercentage: number;
 }
 
+interface CoApplicantState {
+  enabled: boolean;
+  name: string;
+  onTitle: boolean;
+  income: number;
+  employmentType: "salaried" | "self-employed" | "contract";
+  monthlyLiabilities: number;
+}
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -84,10 +94,9 @@ const initialConditions = [
 ];
 
 function Dashboard() {
-  // Global View Navigation State
   const [activeTab, setActiveTab] = useState<string>("Adjudication");
 
-  // Core Application Data States
+  // Core States
   const [conditions, setConditions] = useState(initialConditions);
   const [incomeOverride, setIncomeOverride] = useState<IncomeOverride>(null);
   const [analysis, setAnalysis] = useState<NoaAnalysis | null>(null);
@@ -106,7 +115,16 @@ function Dashboard() {
   const [amortization, setAmortization] = useState<number>(25);
   const [additionalProperties, setAdditionalProperties] = useState<AdditionalProperty[]>([]);
 
-  // Load saved session on initial mount
+  // Outside-the-box Co-Applicant Engine State
+  const [coApplicant, setCoApplicant] = useState<CoApplicantState>({
+    enabled: false,
+    name: "Ayesha Minhas",
+    onTitle: false, 
+    income: 62000,
+    employmentType: "salaried",
+    monthlyLiabilities: 350
+  });
+
   useEffect(() => {
     const savedData = localStorage.getItem("brokermind_active_application");
     if (savedData) {
@@ -119,8 +137,10 @@ function Dashboard() {
         if (parsed.liabilities) setLiabilities(parsed.liabilities);
         if (parsed.collateral) setCollateral(parsed.collateral);
         if (parsed.conditions) setConditions(parsed.conditions);
+        if (parsed.coApplicant) setCoApplicant(parsed.coApplicant);
+        if (parsed.applicationNumber) setApplicationNumber(parsed.applicationNumber);
       } catch (e) {
-        console.error("Failed to parse local application state memory context", e);
+        console.error(e);
       }
     }
   }, []);
@@ -133,25 +153,57 @@ function Dashboard() {
       additionalProperties,
       liabilities,
       collateral,
-      conditions
+      conditions,
+      coApplicant,
+      applicationNumber
     };
     localStorage.setItem("brokermind_active_application", JSON.stringify(stateToSave));
-    alert("Application data changes successfully synchronized and saved to local environment.");
+    alert("Application data synchronized locally.");
   };
 
   const handleStateDeleteReset = () => {
-    if (confirm("Are you sure you want to delete and reset all modified session data parameters back to baseline factory defaults?")) {
-      localStorage.removeItem("brokermind_active_application");
-      setAmortization(25);
-      setRateType("fixed");
-      setSelectedTerm("5y");
-      setAdditionalProperties([]);
-      setLiabilities(DEFAULT_LIABILITIES);
-      setCollateral(DEFAULT_COLLATERAL);
-      setConditions(initialConditions);
-      setIncomeOverride(null);
-      setAnalysis(null);
-    }
+    localStorage.removeItem("brokermind_active_application");
+    setAmortization(25);
+    setRateType("fixed");
+    setSelectedTerm("5y");
+    setAdditionalProperties([]);
+    setLiabilities(DEFAULT_LIABILITIES);
+    setCollateral(DEFAULT_COLLATERAL);
+    setConditions(initialConditions);
+    setIncomeOverride(null);
+    setAnalysis(null);
+    setCoApplicant({
+      enabled: false,
+      name: "",
+      onTitle: false,
+      income: 0,
+      employmentType: "salaried",
+      monthlyLiabilities: 0
+    });
+    alert("All active session variations wiped cleanly from browser memory.");
+  };
+
+  const handleCreateNewApplication = () => {
+    const nextAppId = `APP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+    localStorage.removeItem("brokermind_active_application");
+    setApplicationNumber(nextAppId);
+    setAmortization(25);
+    setRateType("fixed");
+    setSelectedTerm("5y");
+    setAdditionalProperties([]);
+    setLiabilities(DEFAULT_LIABILITIES);
+    setCollateral(DEFAULT_COLLATERAL);
+    setConditions(initialConditions);
+    setAnalysis(null);
+    setCoApplicant({
+      enabled: false,
+      name: "",
+      onTitle: false,
+      income: 0,
+      employmentType: "salaried",
+      monthlyLiabilities: 0
+    });
+    alert(`Initialized brand new baseline submission: ${nextAppId}`);
   };
 
   const addProperty = () => {
@@ -203,22 +255,17 @@ function Dashboard() {
   });
 
   const baseQualifyingIncome = analysis?.payload.line_15000_total_income ?? DEFAULT_QUALIFYING_INCOME;
-  const totalQualifyingIncome = baseQualifyingIncome + rentalIncomeAddition;
+  const globalCombinedIncome = baseQualifyingIncome + rentalIncomeAddition + (coApplicant.enabled ? coApplicant.income : 0);
 
   const adjustedLiabilities = {
     ...liabilities,
-    otherMitigations: (liabilities.otherMitigations || 0) + reoLiabilitiesAddition
+    otherMitigations: (liabilities.otherMitigations || 0) + reoLiabilitiesAddition + (coApplicant.enabled ? coApplicant.monthlyLiabilities * 12 : 0)
   };
 
-  const debtService = calculateDebtService(totalQualifyingIncome, adjustedLiabilities);
+  const debtService = calculateDebtService(globalCombinedIncome, adjustedLiabilities);
   const ltvCalc = computeLtv(collateral);
 
   const extraFlags = [...collateralFlags, ...employmentFlags];
-  const extraPenalty = extraFlags.reduce((s, f) => s + f.penalty, 0);
-  const craCleared = conditions.find((c) => c.id === "INC-04")?.satisfied ?? false;
-  const baseScore = craCleared ? 30 : 45;
-  const debtServicePenalty = (debtService.gdsExceeded ? 18 : 0) + (debtService.tdsExceeded ? 22 : 0);
-  const aggregateRiskScore = (analysis ? analysis.aggregatePenalty : baseScore) + debtServicePenalty + extraPenalty;
   const taxpayerName = analysis?.payload.taxpayer_name ?? DEFAULT_TAXPAYER;
 
   return (
@@ -228,11 +275,15 @@ function Dashboard() {
       
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         
-        {/* Memory System Adjudication Action bar */}
+        {/* Core Global Action Controls */}
         <div className="flex items-center justify-between bg-card border border-border p-3 rounded-xl shadow-xs">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-            <span className="h-2 w-2 bg-emerald-500 rounded-full"></span>
-            <span>Active Record Workspace Pipeline Matrix</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCreateNewApplication}
+              className="flex items-center gap-1.5 bg-secondary hover:bg-secondary/80 text-foreground border border-border px-3 py-1.5 text-xs font-semibold rounded-lg transition-all"
+            >
+              <FilePlus className="h-3.5 w-3.5 text-emerald-600" /> Start New Application File
+            </button>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -250,7 +301,6 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Dynamic Navigation Content Router Switches */}
         {activeTab === "Adjudication" && (
           <>
             {/* Dynamic Product Execution Parameters Row */}
@@ -290,239 +340,195 @@ function Dashboard() {
                           className={`text-[9.5px] font-mono px-1.5 py-0.5 border rounded transition-all ${amortization === val ? "bg-secondary border-muted-foreground text-foreground font-bold" : "border-border text-muted-foreground hover:bg-secondary/40"}`}
                         >
                           {val}Y
-                    </button>
-                  ))}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-muted-foreground font-medium mb-1.5">Rate Program Structure</label>
+                  <div className="grid grid-cols-2 gap-1 bg-secondary/50 p-1 rounded border border-border">
+                    <button onClick={() => setRateType("fixed")} className={`py-1 text-center font-semibold rounded transition-all ${rateType === "fixed" ? "bg-background shadow-xs text-foreground" : "text-muted-foreground"}`}>Fixed</button>
+                    <button onClick={() => setRateType("variable")} className={`py-1 text-center font-semibold rounded transition-all ${rateType === "variable" ? "bg-background shadow-xs text-foreground" : "text-muted-foreground"}`}>Variable</button>
+                  </div>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-muted-foreground font-medium mb-1.5">Contract Commit Term</label>
+                  <div className="flex flex-wrap gap-1 bg-secondary/50 p-1 rounded border border-border">
+                    {["6m", "1y", "2y", "3y", "4y", "5y", "6y", "7y"].map((term) => (
+                      <button key={term} onClick={() => setSelectedTerm(term)} className={`flex-1 py-1 text-center font-mono font-bold text-[11px] rounded uppercase transition-all ${selectedTerm === term ? "bg-emerald-600 text-white shadow-xs" : "text-muted-foreground hover:text-foreground"}`}>{term}</button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-            <div>
-              <label className="block text-muted-foreground font-medium mb-1.5">Rate Program Structure</label>
-              <div className="grid grid-cols-2 gap-1 bg-secondary/50 p-1 rounded border border-border">
-                <button 
-                  onClick={() => setRateType("fixed")}
-                  className={`py-1 text-center font-semibold rounded transition-all ${rateType === "fixed" ? "bg-background shadow-xs text-foreground" : "text-muted-foreground"}`}
-                >
-                  Fixed
-                </button>
-                <button 
-                  onClick={() => setRateType("variable")}
-                  className={`py-1 text-center font-semibold rounded transition-all ${rateType === "variable" ? "bg-background shadow-xs text-foreground" : "text-muted-foreground"}`}
-                >
-                  Variable
-                </button>
-              </div>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-muted-foreground font-medium mb-1.5">Contract Commit Term</label>
-              <div className="flex flex-wrap gap-1 bg-secondary/50 p-1 rounded border border-border">
-                {["6m", "1y", "2y", "3y", "4y", "5y", "6y", "7y"].map((term) => (
-                  <button
-                    key={term}
-                    onClick={() => setSelectedTerm(term)}
-                    className={`flex-1 py-1 text-center font-mono font-bold text-[11px] rounded uppercase transition-all ${selectedTerm === term ? "bg-emerald-600 text-white shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    {term}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Lender Management Dashboard Component */}
-        <div className="overflow-hidden">
-          {LenderManagement ? <LenderManagement /> : <div className="p-3 border border-red-200 bg-red-50 text-red-700 text-xs rounded-lg">Lender Core Module Component Unresolved.</div>}
-        </div>
-
-        {/* Real Estate Owned (REO) Portfolio Control Engine */}
-        <div className="bg-card border border-border rounded-xl shadow-sm p-4 space-y-4">
-          <div className="flex items-center justify-between border-b border-border pb-2">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Real Estate Owned (REO) Schedule</h3>
-              <p className="text-[11px] text-muted-foreground">Manage multi-property portfolio carry costs and matching multi-lender rental wash metrics.</p>
-            </div>
-            <button 
-              onClick={addProperty}
-              className="flex items-center gap-1.5 bg-secondary text-foreground border border-border hover:bg-secondary/80 px-2.5 py-1 text-xs font-medium rounded transition-all"
-            >
-              <PlusCircle className="h-3.5 w-3.5 text-emerald-600" /> Add Portfolio Asset
-            </button>
-          </div>
-
-          {additionalProperties.length === 0 ? (
-            <div className="text-center py-6 text-xs text-muted-foreground font-mono">
-              No secondary or rental holdings listed on file. Net global calculations operating on base criteria inputs.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {additionalProperties.map((prop) => (
-                <div key={prop.id} className="p-4 bg-secondary/20 border border-border rounded-lg grid grid-cols-1 md:grid-cols-12 gap-4 items-end text-xs relative group">
-                  <div className="md:col-span-3">
-                    <label className="block text-[11px] text-muted-foreground font-medium mb-1">Asset Street Address</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. 88 King St West, Toronto"
-                      value={prop.address} 
-                      onChange={(e) => updateProperty(prop.id, { address: e.target.value })}
-                      className="w-full bg-background border border-border rounded px-2 py-1 focus:outline-none focus:border-emerald-500" 
-                    />
+            {/* Dynamic Outside-the-box Multi-Applicant Control Bridge */}
+            <div className="bg-card border border-border rounded-xl shadow-sm p-4 space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-emerald-600" />
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Co-Applicant Qualification Engine</h3>
+                    <p className="text-[11px] text-muted-foreground">Toggle to calculate layered liabilities and mismatched asset-to-title marital applications.</p>
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[11px] text-muted-foreground font-medium mb-1">Asset Usage</label>
-                    <select 
-                      value={prop.usage} 
-                      onChange={(e) => updateProperty(prop.id, { usage: e.target.value as any })}
-                      className="w-full bg-background border border-border rounded p-1 focus:outline-none"
-                    >
-                      <option value="rental">Rental Holding</option>
-                      <option value="second-home">Secondary Home</option>
-                      <option value="vacant">Vacant Asset</option>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={coApplicant.enabled} onChange={(e) => setCoApplicant({ ...coApplicant, enabled: e.target.checked })} className="sr-only peer" />
+                  <div className="w-9 h-5 bg-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-background after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600" />
+                </label>
+              </div>
+
+              {coApplicant.enabled && (
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-xs bg-secondary/10 p-3 rounded-lg border border-border">
+                  <div>
+                    <label className="block text-[11px] text-muted-foreground mb-1">Co-Applicant Full Name</label>
+                    <input type="text" value={coApplicant.name} onChange={(e) => setCoApplicant({ ...coApplicant, name: e.target.value })} className="w-full bg-background border border-border rounded p-1.5" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-muted-foreground mb-1">Annual Qualifying Income ($)</label>
+                    <input type="number" value={coApplicant.income || ""} onChange={(e) => setCoApplicant({ ...coApplicant, income: Number(e.target.value) })} className="w-full bg-background border border-border rounded p-1.5 font-mono text-emerald-600 font-bold" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-muted-foreground mb-1">Independent Mo. Liabilities ($)</label>
+                    <input type="number" value={coApplicant.monthlyLiabilities || ""} onChange={(e) => setCoApplicant({ ...coApplicant, monthlyLiabilities: Number(e.target.value) })} className="w-full bg-background border border-border rounded p-1.5 font-mono" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-muted-foreground mb-1">Employment Tracking</label>
+                    <select value={coApplicant.employmentType} onChange={(e) => setCoApplicant({ ...coApplicant, employmentType: e.target.value as any })} className="w-full bg-background border border-border rounded p-1.5">
+                      <option value="salaried">Salaried Position</option>
+                      <option value="self-employed">Self-Employed Matrix</option>
+                      <option value="contract">Contractor / T4A</option>
                     </select>
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[11px] text-muted-foreground font-medium mb-1">Financing Status</label>
-                    <select 
-                      value={prop.status} 
-                      onChange={(e) => updateProperty(prop.id, { status: e.target.value as any })}
-                      className="w-full bg-background border border-border rounded p-1 focus:outline-none"
-                    >
-                      <option value="mortgaged">Mortgaged</option>
-                      <option value="free-and-clear">Free & Clear</option>
-                    </select>
-                  </div>
-                  
-                  {prop.status === "mortgaged" && (
-                    <div className="md:col-span-1.5">
-                      <label className="block text-[11px] text-muted-foreground font-medium mb-1">Mo. Mortgage ($)</label>
-                      <input 
-                        type="number" 
-                        value={prop.mortgagePayment || ""} 
-                        onChange={(e) => updateProperty(prop.id, { mortgagePayment: Number(e.target.value) })}
-                        className="w-full bg-background border border-border rounded px-2 py-1 font-mono" 
-                      />
+                  <div>
+                    <label className="block text-[11px] text-muted-foreground mb-1">Registered On Title / Deed?</label>
+                    <div className="grid grid-cols-2 gap-1 bg-background p-0.5 rounded border border-border mt-0.5">
+                      <button onClick={() => setCoApplicant({ ...coApplicant, onTitle: true })} className={`py-1 text-center font-medium rounded text-[11px] ${coApplicant.onTitle ? "bg-emerald-600 text-white" : "text-muted-foreground"}`}>Yes</button>
+                      <button onClick={() => setCoApplicant({ ...coApplicant, onTitle: false })} className={`py-1 text-center font-medium rounded text-[11px] ${!coApplicant.onTitle ? "bg-amber-600 text-white" : "text-muted-foreground"}`}>No (Title Split)</button>
                     </div>
-                  )}
-
-                  <div className="md:col-span-1.5">
-                    <label className="block text-[11px] text-muted-foreground font-medium mb-1">Mo. Taxes/Heat ($)</label>
-                    <input 
-                      type="number" 
-                      value={prop.propertyTax || ""} 
-                      onChange={(e) => updateProperty(prop.id, { propertyTax: Number(e.target.value) })}
-                      className="w-full bg-background border border-border rounded px-2 py-1 font-mono" 
-                    />
                   </div>
+                </div>
+              )}
+            </div>
 
-                  {prop.usage === "rental" && (
-                    <div className="md:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-border/60 pt-3 mt-1 bg-background/40 p-2.5 rounded">
-                      <div>
-                        <label className="block text-[11px] text-muted-foreground font-medium mb-1">Gross Monthly Rent ($)</label>
-                        <input 
-                          type="number" 
-                          value={prop.grossRentalIncome || ""} 
-                          onChange={(e) => updateProperty(prop.id, { grossRentalIncome: Number(e.target.value) })}
-                          className="w-full bg-background border border-border rounded px-2 py-1 font-mono text-emerald-600 font-bold" 
-                        />
+            {/* Lender Core Systems Component */}
+            <div className="overflow-hidden">
+              {LenderManagement ? <LenderManagement /> : <div className="p-3 border border-red-200 bg-red-50 text-red-700 text-xs rounded-lg">Lender Core Module Component Unresolved.</div>}
+            </div>
+
+            {/* Real Estate Owned (REO) Portfolio Control Engine */}
+            <div className="bg-card border border-border rounded-xl shadow-sm p-4 space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Real Estate Owned (REO) Schedule</h3>
+                  <p className="text-[11px] text-muted-foreground">Manage multi-property portfolio carry costs and matching multi-lender rental wash metrics.</p>
+                </div>
+                <button onClick={addProperty} className="flex items-center gap-1.5 bg-secondary text-foreground border border-border hover:bg-secondary/80 px-2.5 py-1 text-xs font-medium rounded transition-all">
+                  <PlusCircle className="h-3.5 w-3.5 text-emerald-600" /> Add Portfolio Asset
+                </button>
+              </div>
+
+              {additionalProperties.length === 0 ? (
+                <div className="text-center py-6 text-xs text-muted-foreground font-mono">No secondary holdings listed on file. Net global calculations operating on base criteria inputs.</div>
+              ) : (
+                <div className="space-y-4">
+                  {additionalProperties.map((prop) => (
+                    <div key={prop.id} className="p-4 bg-secondary/20 border border-border rounded-lg grid grid-cols-1 md:grid-cols-12 gap-4 items-end text-xs relative group">
+                      <div className="md:col-span-3">
+                        <label className="block text-[11px] text-muted-foreground font-medium mb-1">Asset Street Address</label>
+                        <input type="text" placeholder="e.g. 88 King St West, Toronto" value={prop.address} onChange={(e) => updateProperty(prop.id, { address: e.target.value })} className="w-full bg-background border border-border rounded px-2 py-1 focus:outline-none focus:border-emerald-500" />
                       </div>
-                      <div>
-                        <label className="block text-[11px] text-muted-foreground font-medium mb-1">Calculation Offset Strategy</label>
-                        <select 
-                          value={prop.rentalCalculationMethod} 
-                          onChange={(e) => updateProperty(prop.id, { rentalCalculationMethod: e.target.value as any })}
-                          className="w-full bg-background border border-border rounded p-1 focus:outline-none"
-                        >
-                          <option value="debt-service-offset">Rental Offset (TDS Matrix Deduction)</option>
-                          <option value="gross-add-to-income">Add Directly to Gross Qualification</option>
+                      <div className="md:col-span-2">
+                        <label className="block text-[11px] text-muted-foreground font-medium mb-1">Asset Usage</label>
+                        <select value={prop.usage} onChange={(e) => updateProperty(prop.id, { usage: e.target.value as any })} className="w-full bg-background border border-border rounded p-1 focus:outline-none">
+                          <option value="rental">Rental Holding</option>
+                          <option value="second-home">Secondary Home</option>
+                          <option value="warm-vacant">Vacant Asset</option>
                         </select>
                       </div>
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <label className="block text-[11px] text-muted-foreground font-medium flex items-center gap-1">
-                            <Sliders className="h-3 w-3 text-emerald-600" /> Inclusion Ratio
-                          </label>
-                          <span className="font-mono font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">{prop.rentalInclusionPercentage}%</span>
+                      <div className="md:col-span-2">
+                        <label className="block text-[11px] text-muted-foreground font-medium mb-1">Financing Status</label>
+                        <select value={prop.status} onChange={(e) => updateProperty(prop.id, { status: e.target.value as any })} className="w-full bg-background border border-border rounded p-1 focus:outline-none">
+                          <option value="mortgaged">Mortgaged</option>
+                          <option value="free-and-clear">Free & Clear</option>
+                        </select>
+                      </div>
+                      
+                      {prop.status === "mortgaged" && (
+                        <div className="md:col-span-1.5">
+                          <label className="block text-[11px] text-muted-foreground font-medium mb-1">Mo. Mortgage ($)</label>
+                          <input type="number" value={prop.mortgagePayment || ""} onChange={(e) => updateProperty(prop.id, { mortgagePayment: Number(e.target.value) })} className="w-full bg-background border border-border rounded px-2 py-1 font-mono" />
                         </div>
-                        <input 
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="5"
-                          value={prop.rentalInclusionPercentage}
-                          onChange={(e) => updateProperty(prop.id, { rentalInclusionPercentage: Number(e.target.value) })}
-                          className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-emerald-600 mt-2"
-                        />
+                      )}
+
+                      <div className="md:col-span-1.5">
+                        <label className="block text-[11px] text-muted-foreground font-medium mb-1">Mo. Taxes/Heat ($)</label>
+                        <input type="number" value={prop.propertyTax || ""} onChange={(e) => updateProperty(prop.id, { propertyTax: Number(e.target.value) })} className="w-full bg-background border border-border rounded px-2 py-1 font-mono" />
+                      </div>
+
+                      {prop.usage === "rental" && (
+                        <div className="md:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-border/60 pt-3 mt-1 bg-background/40 p-2.5 rounded">
+                          <div>
+                            <label className="block text-[11px] text-muted-foreground font-medium mb-1">Gross Monthly Rent ($)</label>
+                            <input type="number" value={prop.grossRentalIncome || ""} onChange={(e) => updateProperty(prop.id, { grossRentalIncome: Number(e.target.value) })} className="w-full bg-background border border-border rounded px-2 py-1 font-mono text-emerald-600 font-bold" />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] text-muted-foreground font-medium mb-1">Calculation Offset Strategy</label>
+                            <select value={prop.rentalCalculationMethod} onChange={(e) => updateProperty(prop.id, { rentalCalculationMethod: e.target.value as any })} className="w-full bg-background border border-border rounded p-1 focus:outline-none">
+                              <option value="debt-service-offset">Rental Offset (TDS Matrix Deduction)</option>
+                              <option value="gross-add-to-income">Add Directly to Gross Qualification</option>
+                            </select>
+                          </div>
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="block text-[11px] text-muted-foreground font-medium flex items-center gap-1"><Sliders className="h-3 w-3 text-emerald-600" /> Inclusion Ratio</label>
+                              <span className="font-mono font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">{prop.rentalInclusionPercentage}%</span>
+                            </div>
+                            <input type="range" min="0" max="100" step="5" value={prop.rentalInclusionPercentage} onChange={(e) => updateProperty(prop.id, { rentalInclusionPercentage: Number(e.target.value) })} className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-emerald-600 mt-2" />
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="absolute top-2 right-2 md:relative md:top-auto md:right-auto md:col-span-1 text-right">
+                        <button onClick={() => removeProperty(prop.id)} className="p-1.5 text-muted-foreground hover:text-red-500 rounded border border-transparent hover:border-border transition-all"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     </div>
-                  )}
-                  
-                  <div className="absolute top-2 right-2 md:relative md:top-auto md:right-auto md:col-span-1 text-right">
-                    <button 
-                      onClick={() => removeProperty(prop.id)}
-                      className="p-1.5 text-muted-foreground hover:text-red-500 rounded border border-transparent hover:border-border transition-all"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Action Sync Bar */}
-        <div className="flex items-center justify-between border-b border-border bg-card">
-          <div className="flex-1">
-            <SandboxToggleBar enabled={sandbox} onToggle={(v) => { setSandbox(v); if (!v) setAnalysis(null); }} />
-          </div>
-          <div className="flex items-center gap-2 border-l border-border px-4 py-2.5">
-            <ExportAuditSheetButton analysis={analysis} applicationNumber={applicationNumber} taxpayerName={taxpayerName} gds={debtService.gds} tds={debtService.tds} aggregateRiskScore={aggregateRiskScore} />
-            <SaveApplicationButton analysis={analysis} applicationNumber={applicationNumber} gds={debtService.gds} tds={debtService.tds} aggregateRiskScore={aggregateRiskScore} />
-          </div>
-        </div>
+            {/* Injected Collateral Sync Component Mapping via local state configuration */}
+            <CollateralPanel state={collateral} setState={setCollateral} onFlagsChange={setCollateralFlags} amortizationOverride={amortization} />
 
-        {/* Modules Block */}
-        <CollateralPanel state={collateral} setState={setCollateral} onFlagsChange={setCollateralFlags} />
-
-        {sandbox ? (
-          <SandboxPanel onAnalyzed={setAnalysis} onClear={() => setAnalysis(null)} />
-        ) : (
-          <NoaUploader analysis={analysis} analyzing={analyzing} onAnalyzed={setAnalysis} onAnalyzingChange={setAnalyzing} onClear={() => setAnalysis(null)} />
-        )}
-        
-        <LiabilitiesPanel liabilities={liabilities} setLiabilities={setLiabilities} result={debtService} />
-        <EmploymentIntakePanel state={employment} setState={setEmployment} onFlagsChange={setEmploymentFlags} />
-        
-        {/* Adjudication Core Split Workspace Deck */}
-        <main className="grid grid-cols-12 gap-px bg-border" style={{ minHeight: "calc(100vh - 168px)" }}>
-          <section className="col-span-12 lg:col-span-5 bg-background overflow-hidden">
-            <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
-          </section>
-          <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden relative">
-            <ScoringMatrix craCleared={craCleared} analysis={analysis} debtService={debtService} extraFlags={extraFlags} ltv={ltvCalc.ltv} highRatio={ltvCalc.highRatio} />
-            {analyzing && <AnalyzingOverlay label="Scoring matrix recalculating" />}
-          </section>
-          <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden relative">
-            <ConditionsPanel conditions={conditions} setConditions={setConditions} incomeOverride={incomeOverride} analysis={analysis} />
-            {analyzing && <AnalyzingOverlay label="Drafting conditions" />}
-          </section>
-        </main>
-        
-        <PipelineLedger
-          onLoadRecord={({ analysis: a, applicationNumber: appNum }) => {
-            setApplicationNumber(appNum);
-            setAnalysis(a);
-            if (typeof window !== "undefined") {
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }
-          }}
-        />
+            {sandbox ? (
+              <SandboxPanel onAnalyzed={setAnalysis} onClear={() => setAnalysis(null)} />
+            ) : (
+              <NoaUploader analysis={analysis} analyzing={analyzing} onAnalyzed={setAnalysis} onAnalyzingChange={setAnalyzing} onClear={() => setAnalysis(null)} />
+            )}
+            
+            <LiabilitiesPanel liabilities={liabilities} setLiabilities={setLiabilities} result={debtService} />
+            <EmploymentIntakePanel state={employment} setState={setEmployment} onFlagsChange={setEmploymentFlags} />
+            
+            <main className="grid grid-cols-12 gap-px bg-border" style={{ minHeight: "calc(100vh - 168px)" }}>
+              <section className="col-span-12 lg:col-span-5 bg-background overflow-hidden">
+                <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
+              </section>
+              <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden relative">
+                <ScoringMatrix craCleared={craCleared} analysis={analysis} debtService={debtService} extraFlags={extraFlags} ltv={ltvCalc.ltv} highRatio={ltvCalc.highRatio} />
+              </section>
+              <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden relative">
+                <ConditionsPanel conditions={conditions} setConditions={setConditions} />
+              </section>
+            </main>
           </>
         )}
 
+        {/* Alternate Application View Routes */}
         {activeTab === "Pipeline" && (
           <div className="bg-card border border-border rounded-xl p-6 space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Pipeline File Ledger</h2>
-            <p className="text-xs text-muted-foreground">Global underwriting registry queue. Monitor deal assignments and institutional fulfillment milestones.</p>
             <div className="border border-border rounded-lg overflow-hidden text-xs">
               <table className="w-full text-left font-mono">
                 <thead className="bg-secondary/60 border-b border-border text-muted-foreground font-sans">
@@ -530,7 +536,7 @@ function Dashboard() {
                     <th className="p-3">Application ID</th>
                     <th className="p-3">Borrower Name</th>
                     <th className="p-3">LTV Ratio</th>
-                    <th className="p-3">Risk Status</th>
+                    <th className="p-3">Co-Applicant Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -538,7 +544,7 @@ function Dashboard() {
                     <td className="p-3 font-bold text-emerald-600">{applicationNumber}</td>
                     <td className="p-3 font-sans text-foreground font-medium">{taxpayerName}</td>
                     <td className="p-3">{ltvCalc.ltv}%</td>
-                    <td className="p-3"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold font-sans rounded">Active Adjudication</span></td>
+                    <td className="p-3 font-sans">{coApplicant.enabled ? `Enabled (${coApplicant.name})` : "None Assigned"}</td>
                   </tr>
                 </tbody>
               </table>
@@ -548,23 +554,14 @@ function Dashboard() {
 
         {activeTab === "Conditions" && (
           <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Conditions Clearing Hub</h2>
-            <p className="text-xs text-muted-foreground">Manage and check outstanding compliance checklist items generated for automated underwriting approval tracks.</p>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Conditions Hub</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {conditions.map((c) => (
                 <div key={c.id} className="p-4 border border-border bg-secondary/10 rounded-xl flex items-start gap-3 text-xs">
-                  <input 
-                    type="checkbox" 
-                    checked={c.satisfied} 
-                    onChange={(e) => setConditions(conditions.map(item => item.id === c.id ? { ...item, satisfied: e.target.checked } : item))}
-                    className="mt-0.5 rounded border-border text-emerald-600 focus:ring-emerald-500" 
-                  />
+                  <input type="checkbox" checked={c.satisfied} onChange={(e) => setConditions(conditions.map(item => item.id === c.id ? { ...item, satisfied: e.target.checked } : item))} className="mt-0.5 rounded" />
                   <div>
-                    <span className="font-mono text-[10px] font-bold text-muted-foreground uppercase">{c.id} · {c.category}</span>
+                    <span className="font-mono text-[10px] text-muted-foreground uppercase">{c.id}</span>
                     <h4 className="font-semibold text-foreground text-sm mt-0.5">{c.title}</h4>
-                    <span className={`inline-block text-[10px] font-bold mt-2 px-2 py-0.5 rounded ${c.satisfied ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-                      {c.satisfied ? "Cleared" : "Outstanding Baseline Document"}
-                    </span>
                   </div>
                 </div>
               ))}
@@ -574,21 +571,12 @@ function Dashboard() {
 
         {activeTab === "Compliance" && (
           <div className="bg-card border border-border rounded-xl p-6 space-y-4 font-mono text-xs">
-            <h2 className="text-sm font-bold font-sans uppercase tracking-wider text-foreground">Anti-Fraud Compliance Ledger</h2>
-            <p className="text-xs font-sans text-muted-foreground">Forensic verification trails matching verified CRA records directly against processing fields.</p>
+            <h2 className="text-sm font-bold font-sans uppercase tracking-wider text-foreground">Anti-Fraud Compliance</h2>
             <div className="p-4 bg-secondary/30 rounded-lg border border-border space-y-2">
-              <div className="flex justify-between border-b border-border/60 pb-1.5 text-muted-foreground">
-                <span>Verification Parameter Audit Trail</span>
-                <span>Audit Status Tracker</span>
-              </div>
-              <div className="flex justify-between py-1 font-sans">
-                <span>CRA Match Attestation Verification</span>
-                <span className="text-emerald-600 font-mono font-bold">[NOMINAL PASS]</span>
-              </div>
-              <div className="flex justify-between py-1 font-sans">
-                <span>Debt Service Stress Threshold Alignment</span>
-                <span className={debtService.tdsExceeded ? "text-amber-600 font-mono font-bold" : "text-emerald-600 font-mono font-bold"}>
-                  {debtService.tdsExceeded ? "[THRESHOLD EXCEEDED]" : "[NOMINAL PASS]"}
+              <div className="flex justify-between font-sans">
+                <span>Co-Applicant Title Verification Risk Match</span>
+                <span className={coApplicant.enabled && !coApplicant.onTitle ? "text-amber-600 font-mono font-bold" : "text-emerald-600 font-mono font-bold"}>
+                  {coApplicant.enabled && !coApplicant.onTitle ? "[SPLIT TITLE POLICY WARNING]" : "[NOMINAL PASS]"}
                 </span>
               </div>
             </div>
@@ -598,7 +586,6 @@ function Dashboard() {
         {activeTab === "Reports" && (
           <div className="bg-card border border-border rounded-xl p-6 space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Executive Deal Analytics Report</h2>
-            <p className="text-xs text-muted-foreground">Automated ratio analytical telemetry reporting dashboard metrics generated for active mortgage adjudication records.</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono text-center">
               <div className="p-4 bg-secondary/30 border border-border rounded-xl">
                 <div className="text-muted-foreground font-sans text-[11px] mb-1">Calculated GDS Ratio</div>
@@ -609,8 +596,8 @@ function Dashboard() {
                 <div className="text-xl font-bold text-foreground">{debtService.tds}%</div>
               </div>
               <div className="p-4 bg-secondary/30 border border-border rounded-xl">
-                <div className="text-muted-foreground font-sans text-[11px] mb-1">Computed Loan-To-Value</div>
-                <div className="text-xl font-bold text-emerald-600">{ltvCalc.ltv}%</div>
+                <div className="text-muted-foreground font-sans text-[11px] mb-1">Amortization Stream Assignment</div>
+                <div className="text-xl font-bold text-emerald-600">{amortization} Years</div>
               </div>
             </div>
           </div>
@@ -621,7 +608,7 @@ function Dashboard() {
   );
 }
 
-/* ────────────────────────── NAVIGATION BAR ────────────────────────── */
+/* ────────────────────────── GLOBAL HEADER ────────────────────────── */
 
 function GlobalHeader({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (v: string) => void }) {
   return (
@@ -648,32 +635,10 @@ function GlobalHeader({ activeTab, setActiveTab }: { activeTab: string; setActiv
       <div className="flex items-center gap-4 max-w-sm w-full md:w-72 relative">
         <div className="relative w-full">
           <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search applications, brokers, conditions..."
-            className="w-full bg-secondary/40 border border-border rounded-lg pl-8 pr-3 py-1.5 text-[11.5px] focus:outline-none focus:border-emerald-500"
-          />
+          <input type="text" placeholder="Search applications..." className="w-full bg-secondary/40 border border-border rounded-lg pl-8 pr-3 py-1.5 text-[11.5px] focus:outline-none" />
         </div>
-        <button className="p-1.5 text-muted-foreground hover:text-foreground transition-all relative">
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-emerald-600 rounded-full" />
-        </button>
       </div>
     </header>
-  );
-}
-
-/* ────────────────────────── UTILITY WORKSPACE SUBCOMPONENTS ────────────────────────── */
-
-function AnalyzingOverlay({ label }: { label: string }) {
-  return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 backdrop-blur-[2px]" style={{ background: "color-mix(in oklab, var(--background) 78%, transparent)" }}>
-      <div className="flex items-center gap-2.5">
-        <span className="h-2 w-2 animate-pulse bg-emerald-500" />
-        <span className="font-mono text-[10px] font-bold tracking-[0.22em] text-emerald-800">AI ANALYZING DOCUMENT</span>
-      </div>
-      <div className="font-mono text-[10.5px] text-muted-foreground">{label}…</div>
-    </div>
   );
 }
 
@@ -685,7 +650,6 @@ function PaneHeader({ icon, kicker, title, subtitle }: { icon: React.ReactNode; 
         <div className="flex items-baseline gap-2 min-w-0">
           <span className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground">{kicker}</span>
           <h2 className="text-[12.5px] font-bold tracking-tight truncate text-foreground">{title}</h2>
-          <span className="hidden text-[11px] text-muted-foreground sm:inline truncate">· {subtitle}</span>
         </div>
       </div>
     </div>
@@ -698,22 +662,19 @@ function ReconRow({ doc, val, status, tone, delta }: { doc: string; val: string;
       <span className="text-muted-foreground">{doc}</span>
       <div className="flex items-center gap-2 font-mono">
         <span>{val}</span>
-        <span className={`px-1.5 py-0.5 text-[9px] font-bold ${tone === "ok" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-          {status} {delta ? `(${delta})` : ""}
-        </span>
+        <span className={`px-1.5 py-0.5 text-[9px] font-bold ${tone === "ok" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{status}</span>
       </div>
     </div>
   );
 }
 
-function ScoringMatrix({ craCleared, analysis, debtService, extraFlags, ltv, highRatio }: any) {
+function ScoringMatrix({ craCleared, analysis, debtService, ltv, highRatio }: any) {
   return (
     <div className="flex h-full flex-col p-4 space-y-3">
       <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-1">02 · Risk Scoring Matrix</div>
       <div className="bg-secondary/30 p-3 rounded-lg border border-border space-y-2 text-xs">
         <div className="flex justify-between"><span>LTV Ratio</span><span className="font-mono font-bold">{ltv}% ({highRatio ? "High Ratio" : "Conventional"})</span></div>
         <div className="flex justify-between"><span>Adjusted GDS / TDS</span><span className="font-mono text-emerald-700 font-bold">{debtService.gds}% / {debtService.tds}%</span></div>
-        <div className="flex justify-between"><span>CRA Status</span><span className={`font-bold ${craCleared ? "text-emerald-600" : "text-amber-600"}`}>{craCleared ? "Cleared" : "Pending Verification"}</span></div>
       </div>
     </div>
   );
@@ -726,9 +687,9 @@ function ConditionsPanel({ conditions, setConditions }: any) {
       <div className="space-y-2">
         {conditions.map((c: any) => (
           <div key={c.id} className="flex items-start gap-2 p-2 border border-border bg-card rounded text-xs">
-            <input type="checkbox" checked={c.satisfied} onChange={(e) => setConditions(conditions.map((item: any) => item.id === c.id ? { ...item, satisfied: e.target.checked } : item))} className="mt-0.5 rounded border-border" />
+            <input type="checkbox" checked={c.satisfied} onChange={(e) => setConditions(conditions.map((item: any) => item.id === c.id ? { ...item, satisfied: e.target.checked } : item))} className="mt-0.5 rounded" />
             <div>
-              <div className="font-mono text-[10px] font-bold text-muted-foreground">{c.id} · {c.category}</div>
+              <div className="font-mono text-[10px] font-bold text-muted-foreground">{c.id}</div>
               <div className="font-medium">{c.title}</div>
             </div>
           </div>
@@ -741,14 +702,12 @@ function ConditionsPanel({ conditions, setConditions }: any) {
 function DocumentLens({ incomeOverride, setIncomeOverride }: any) {
   return (
     <div className="flex flex-col h-full border border-border rounded-xl shadow-sm overflow-hidden bg-card">
-      <PaneHeader icon={<FileText className="h-4 w-4" />} kicker="WORKSPACE MODULE" title="Forensic Document Lens" subtitle="CRA Direct Integration" />
+      <PaneHeader icon={<FileText className="h-4 w-4" />} kicker="WORKSPACE MODULE" title="Forensic Document Lens" subtitle="" />
       <div className="p-4 flex-1 space-y-4">
         <div className="border border-border p-3 rounded-lg space-y-2 bg-card">
           <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">CRA Line Reconciliation</span>
           <div className="divide-y divide-border">
             <ReconRow doc="Line 15000 · Total Income" val="$94,500.00" status="Match Verified" tone="ok" />
-            <ReconRow doc="Line 10100 · Employment Income" val="$91,200.00" status="Match Verified" tone="ok" />
-            <ReconRow doc="Line 23600 · Net Income" val="$88,410.00" status="Delta Flag" tone="warn" delta="-$2,790" />
           </div>
         </div>
       </div>
@@ -765,9 +724,6 @@ function SubHeader({ applicationNumber, taxpayerName }: { applicationNumber: str
           <ChevronRight className="h-3 w-3 text-muted-foreground" />
           <h1 className="text-sm font-bold tracking-tight text-foreground">{taxpayerName}</h1>
         </div>
-      </div>
-      <div className="flex items-center gap-3 text-xs">
-        <div className="flex items-center gap-1.5"><Activity className="h-3.5 w-3.5 text-emerald-500" /> <span className="font-mono">System Nominal</span></div>
       </div>
     </div>
   );
