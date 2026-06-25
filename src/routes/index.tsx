@@ -126,8 +126,8 @@ function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("Adjudication");
 
   // Multi-file Management Pipeline State
-  const [applications, setApplications] = useState<ApplicationRecord[]>(DEFAULT_RECORDS);
-  const [activeAppId, setActiveAppId] = useState<string>(DEFAULT_APP_NUMBER);
+  const [applications, setApplications] = useState<ApplicationRecord[]>([]);
+  const [activeAppId, setActiveAppId] = useState<string>("");
   const [selectedAppIdsForDeletion, setSelectedAppIdsForDeletion] = useState<string[]>([]);
 
   // Active Context Sub-states
@@ -156,10 +156,30 @@ function Dashboard() {
     monthlyLiabilities: 350
   });
 
-  // Automated AML Flag Generation Model
   const [amlFlags, setAmlFlags] = useState<Array<{ id: string; metric: string; risk: "high" | "medium"; description: string }>>([]);
 
-  // Load persistence database layer on initial render
+  // Sync structural edits directly back to active pipeline instance to avoid desyncs or dropouts on view toggles
+  useEffect(() => {
+    if (!activeAppId) return;
+    setApplications(prev => prev.map(app => {
+      if (app.id === activeAppId) {
+        return {
+          ...app,
+          amortization,
+          rateType,
+          selectedTerm,
+          additionalProperties,
+          liabilities,
+          collateral: { ...collateral, amortization },
+          conditions,
+          coApplicant
+        };
+      }
+      return app;
+    }));
+  }, [amortization, rateType, selectedTerm, additionalProperties, liabilities, collateral, conditions, coApplicant, activeAppId]);
+
+  // Handle local storage hydration on setup cleanly
   useEffect(() => {
     const savedList = localStorage.getItem("brokermind_applications_pipeline");
     if (savedList) {
@@ -169,13 +189,15 @@ function Dashboard() {
           setApplications(parsedList);
           setActiveAppId(parsedList[0].id);
           loadApplicationIntoContext(parsedList[0]);
+          return;
         }
       } catch (e) {
         console.error("Failed to re-initialize file storage track pipeline ledger", e);
       }
-    } else {
-      localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(DEFAULT_RECORDS));
     }
+    setApplications(DEFAULT_RECORDS);
+    setActiveAppId(DEFAULT_APP_NUMBER);
+    loadApplicationIntoContext(DEFAULT_RECORDS[0]);
   }, []);
 
   const loadApplicationIntoContext = (app: ApplicationRecord) => {
@@ -189,14 +211,15 @@ function Dashboard() {
     setCoApplicant(app.coApplicant);
   };
 
-  useEffect(() => {
-    const currentApp = applications.find(a => a.id === activeAppId);
-    if (currentApp) {
-      loadApplicationIntoContext(currentApp);
+  // Switch context safely only when active user selection forces changes
+  const handleAppSwitch = (id: string) => {
+    const targetApp = applications.find(a => a.id === id);
+    if (targetApp) {
+      setActiveAppId(id);
+      loadApplicationIntoContext(targetApp);
     }
-  }, [activeAppId]);
+  };
 
-  // Dynamically cascade upper-level parameters back down into collateral object structure to avoid desync
   useEffect(() => {
     setCollateral(prev => ({
       ...prev,
@@ -204,7 +227,6 @@ function Dashboard() {
     }));
   }, [amortization]);
 
-  // Compute AML verification states adaptively
   useEffect(() => {
     const flags = [];
     if (coApplicant.enabled && !coApplicant.onTitle && coApplicant.income > 100000) {
@@ -227,26 +249,8 @@ function Dashboard() {
   }, [coApplicant, additionalProperties]);
 
   const handleManualSave = () => {
-    const updatedList = applications.map(app => {
-      if (app.id === activeAppId) {
-        return {
-          ...app,
-          amortization,
-          rateType,
-          selectedTerm,
-          additionalProperties,
-          liabilities,
-          collateral: { ...collateral, amortization },
-          conditions,
-          coApplicant
-        };
-      }
-      return app;
-    });
-
-    setApplications(updatedList);
-    localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(updatedList));
-    alert("Application files successfully updated and compiled inside registry pipeline memory.");
+    localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(applications));
+    alert("Application pipeline state successfully synchronized to persistent browser storage.");
   };
 
   const handleBatchDeleteSelected = () => {
@@ -255,24 +259,23 @@ function Dashboard() {
       return;
     }
 
-    if (confirm(`Acknowledge definitive hard deletion request of ${selectedAppIdsForDeletion.length} processing file records? This action purges all associated underwriting document layers.`)) {
+    if (confirm(`Acknowledge hard deletion request of ${selectedAppIdsForDeletion.length} processing records?`)) {
       const remainingList = applications.filter(app => !selectedAppIdsForDeletion.includes(app.id));
       
       if (remainingList.length === 0) {
-        setApplications(DEFAULT_RECORDS);
         localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(DEFAULT_RECORDS));
+        setApplications(DEFAULT_RECORDS);
         setActiveAppId(DEFAULT_APP_NUMBER);
         loadApplicationIntoContext(DEFAULT_RECORDS[0]);
       } else {
-        setApplications(remainingList);
         localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(remainingList));
+        setApplications(remainingList);
         if (selectedAppIdsForDeletion.includes(activeAppId)) {
           setActiveAppId(remainingList[0].id);
           loadApplicationIntoContext(remainingList[0]);
         }
       }
       setSelectedAppIdsForDeletion([]);
-      alert("Targeted application registries and document buffers permanently deleted from the system.");
     }
   };
 
@@ -280,22 +283,26 @@ function Dashboard() {
     const generatedId = `APP-2026-${Math.floor(10000 + Math.random() * 90000)}`;
     const newRecord: ApplicationRecord = {
       id: generatedId,
-      taxpayerName: "Unassigned Submission File",
+      taxpayerName: "New Primary Applicant",
       amortization: 25,
       rateType: "fixed",
       selectedTerm: "5y",
       additionalProperties: [],
       liabilities: DEFAULT_LIABILITIES,
       collateral: DEFAULT_COLLATERAL,
-      conditions: initialConditions,
+      conditions: [...initialConditions],
       coApplicant: { enabled: false, name: "", onTitle: false, income: 0, employmentType: "salaried", monthlyLiabilities: 0 }
     };
 
-    const expandedPipeline = [newRecord, ...applications];
-    setApplications(expandedPipeline);
-    localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(expandedPipeline));
+    const updatedPipeline = [...applications, newRecord];
+    setApplications(updatedPipeline);
+    localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(updatedPipeline));
     setActiveAppId(generatedId);
-    alert(`Generated completely clear application submission matrix under structural reference token: ${generatedId}`);
+    loadApplicationIntoContext(newRecord);
+  };
+
+  const updateActiveBorrowerName = (newName: string) => {
+    setApplications(prev => prev.map(app => app.id === activeAppId ? { ...app, taxpayerName: newName } : app));
   };
 
   const addProperty = () => {
@@ -356,12 +363,11 @@ function Dashboard() {
 
   const debtService = calculateDebtService(globalCombinedIncome, adjustedLiabilities);
   
-  // Re-compute LTV with updated internal amortization reference tracking
   const currentSyncedCollateral = { ...collateral, amortization };
   const ltvCalc = computeLtv(currentSyncedCollateral);
   
-  const staticTaxpayerName = analysis?.payload.taxpayer_name ?? DEFAULT_TAXPAYER;
-  const activeTaxpayerName = applications.find(a => a.id === activeAppId)?.taxpayerName || staticTaxpayerName;
+  const activeAppInstance = applications.find(a => a.id === activeAppId);
+  const displayTaxpayerName = activeAppInstance ? activeAppInstance.taxpayerName : DEFAULT_TAXPAYER;
 
   const toggleAppSelectionForDeletion = (id: string) => {
     if (selectedAppIdsForDeletion.includes(id)) {
@@ -374,11 +380,15 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
       <GlobalHeader activeTab={activeTab} setActiveTab={setActiveTab} />
-      <SubHeader applicationNumber={activeAppId} taxpayerName={activeTaxpayerName} />
+      <SubHeader 
+        applicationNumber={activeAppId} 
+        taxpayerName={displayTaxpayerName} 
+        onNameChange={updateActiveBorrowerName} 
+      />
       
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         
-        {/* Core Global Action Controls */}
+        {/* Workspace Management Controls */}
         <div className="flex items-center justify-between bg-card border border-border p-3 rounded-xl shadow-xs">
           <div className="flex items-center gap-2">
             <button
@@ -408,7 +418,7 @@ function Dashboard() {
 
         {activeTab === "Adjudication" && (
           <>
-            {/* Dynamic Product Execution Parameters Row */}
+            {/* Underwriting Product Parameters */}
             <div className="bg-card border border-border p-4 rounded-xl shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -468,14 +478,14 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* Dynamic Multi-Applicant Control Bridge */}
+            {/* Co-Applicant Panel */}
             <div className="bg-card border border-border rounded-xl shadow-sm p-4 space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-emerald-600" />
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Co-Applicant Qualification Engine</h3>
-                    <p className="text-[11px] text-muted-foreground">Toggle to calculate layered liabilities and mismatched asset-to-title marital applications.</p>
+                    <p className="text-[11px] text-muted-foreground">Toggle to calculate layered liabilities and co-borrower criteria additions.</p>
                   </div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -521,12 +531,12 @@ function Dashboard() {
               {LenderManagement ? <LenderManagement /> : <div className="p-3 border border-red-200 bg-red-50 text-red-700 text-xs rounded-lg">Lender Core Module Component Unresolved.</div>}
             </div>
 
-            {/* Real Estate Owned (REO) Portfolio Control Engine */}
+            {/* REO Schedule */}
             <div className="bg-card border border-border rounded-xl shadow-sm p-4 space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Real Estate Owned (REO) Schedule</h3>
-                  <p className="text-[11px] text-muted-foreground">Manage multi-property portfolio carry costs and matching multi-lender rental wash metrics.</p>
+                  <p className="text-[11px] text-muted-foreground">Manage secondary holdings carry costs and matching multi-lender rental wash metrics.</p>
                 </div>
                 <button onClick={addProperty} className="flex items-center gap-1.5 bg-secondary text-foreground border border-border hover:bg-secondary/80 px-2.5 py-1 text-xs font-medium rounded transition-all">
                   <PlusCircle className="h-3.5 w-3.5 text-emerald-600" /> Add Portfolio Asset
@@ -603,7 +613,6 @@ function Dashboard() {
               )}
             </div>
 
-            {/* Syndermaster synchronization bridge attached here */}
             <CollateralPanel state={currentSyncedCollateral} setState={setCollateral} onFlagsChange={setCollateralFlags} amortizationOverride={amortization} />
 
             {sandbox ? (
@@ -659,13 +668,13 @@ function Dashboard() {
                       </td>
                       <td 
                         className="p-3 font-bold text-emerald-600 cursor-pointer underline decoration-dotted"
-                        onClick={() => setActiveAppId(app.id)}
+                        onClick={() => handleAppSwitch(app.id)}
                       >
                         {app.id}
                       </td>
-                      <td className="p-3 font-sans text-foreground font-medium">{app.id === DEFAULT_APP_NUMBER ? activeTaxpayerName : app.taxpayerName}</td>
+                      <td className="p-3 font-sans text-foreground font-medium">{app.taxpayerName}</td>
                       <td className="p-3">{app.id === activeAppId ? amortization : app.amortization} Years</td>
-                      <td className="p-3 font-sans">{(app.id === activeAppId ? coApplicant.enabled : app.coApplicant.enabled) ? "Assigned Spouse" : "None Assigned"}</td>
+                      <td className="p-3 font-sans">{app.coApplicant.enabled ? "Assigned Spouse" : "None Assigned"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -694,7 +703,7 @@ function Dashboard() {
         {activeTab === "Compliance" && (
           <div className="bg-card border border-border rounded-xl p-6 space-y-4 font-mono text-xs">
             <h2 className="text-sm font-bold font-sans uppercase tracking-wider text-foreground">Anti-Fraud & AML Compliance Risk Ledger</h2>
-            <p className="text-xs font-sans text-muted-foreground">Real-time threat monitoring checks scanning documentation feeds for structured deployment profiles or asset misalignments.</p>
+            <p className="text-xs font-sans text-muted-foreground">Real-time threat monitoring checks scanning documentation feeds.</p>
             
             {amlFlags.length === 0 ? (
               <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg font-sans">
@@ -718,15 +727,6 @@ function Dashboard() {
                 ))}
               </div>
             )}
-
-            <div className="p-4 bg-secondary/30 rounded-lg border border-border space-y-2 mt-4">
-              <div className="flex justify-between font-sans">
-                <span>Co-Applicant Marital Title Asset Risk Match</span>
-                <span className={coApplicant.enabled && !coApplicant.onTitle ? "text-amber-600 font-mono font-bold" : "text-emerald-600 font-mono font-bold"}>
-                  {coApplicant.enabled && !coApplicant.onTitle ? "[SPLIT TITLE WARNING FLAG]" : "[NOMINAL PASS]"}
-                </span>
-              </div>
-            </div>
           </div>
         )}
 
@@ -846,6 +846,35 @@ function ConditionsPanel({ conditions, setConditions }: any) {
   );
 }
 
+// Editable headline input bridge replacing static text components
+function SubHeader({ 
+  applicationNumber, 
+  taxpayerName, 
+  onNameChange 
+}: { 
+  applicationNumber: string; 
+  taxpayerName: string;
+  onNameChange: (val: string) => void;
+}) {
+  return (
+    <div className="border-b border-border bg-secondary/10 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="space-y-1 w-full max-w-md">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono font-bold text-muted-foreground bg-secondary px-2 py-0.5 rounded border border-border shrink-0">{applicationNumber}</span>
+          <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+          <input 
+            type="text"
+            value={taxpayerName}
+            onChange={(e) => onNameChange(e.target.value)}
+            className="text-sm font-bold bg-transparent border-b border-transparent hover:border-border focus:border-emerald-500 focus:outline-none w-full py-0.5 text-foreground transition-all"
+            placeholder="Enter Applicant Name..."
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DocumentLens() {
   return (
     <div className="flex flex-col h-full border border-border rounded-xl shadow-sm overflow-hidden bg-card">
@@ -856,20 +885,6 @@ function DocumentLens() {
           <div className="divide-y divide-border">
             <ReconRow doc="Line 15000 · Total Income" val="$94,500.00" status="Match Verified" tone="ok" />
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SubHeader({ applicationNumber, taxpayerName }: { applicationNumber: string; taxpayerName: string }) {
-  return (
-    <div className="border-b border-border bg-secondary/10 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-bold text-muted-foreground bg-secondary px-2 py-0.5 rounded border border-border">{applicationNumber}</span>
-          <ChevronRight className="h-3 w-3 text-muted-foreground" />
-          <h1 className="text-sm font-bold tracking-tight text-foreground">{taxpayerName}</h1>
         </div>
       </div>
     </div>
