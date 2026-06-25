@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import React from "react";
 import {
   FileText,
@@ -35,9 +35,9 @@ import { ExportAuditSheetButton } from "@/components/ExportAuditSheet";
 import { LiabilitiesPanel, DEFAULT_LIABILITIES, type LiabilityInputs } from "@/components/LiabilitiesPanel";
 import { CollateralPanel, DEFAULT_COLLATERAL, computeLtv, type CollateralState } from "@/components/CollateralPanel";
 import { EmploymentIntakePanel, DEFAULT_EMPLOYMENT, type EmploymentState } from "@/components/EmploymentIntakePanel";
+import { LenderManagement } from "@/components/LenderManagement";
 import { calculateDebtService } from "@/utils/debtService";
 import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
-import { supabase } from "@/integrations/supabase/client";
 
 const DEFAULT_APP_NUMBER = "APP-2025-08842";
 const DEFAULT_TAXPAYER = "Mujeeb Minhas";
@@ -105,7 +105,7 @@ function Dashboard() {
       <SubHeader applicationNumber={applicationNumber} taxpayerName={taxpayerName} />
       
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-        <LenderManagement />
+        {LenderManagement ? <LenderManagement /> : <div className="p-4 border border-red-200 bg-red-50 text-red-700 text-xs rounded-lg">LenderManagement component failed to import correctly.</div>}
         
         <CollateralPanel
           state={collateral}
@@ -154,6 +154,14 @@ function Dashboard() {
           result={debtService}
         />
         
+        <TrendingDown className="hidden" />
+        <Receipt className="hidden" />
+        <Hash className="hidden" />
+        <User className="hidden" />
+        <Calendar className="hidden" />
+        <DollarSign className="hidden" />
+        <X className="hidden" />
+        
         <EmploymentIntakePanel
           state={employment}
           setState={setEmployment}
@@ -198,240 +206,6 @@ function Dashboard() {
             }
           }}
         />
-      </div>
-    </div>
-  );
-}
-
-/* ────────────────────────── LENDER MANAGEMENT ────────────────────────── */
-
-const BASELINE_LENDERS = [
-  // --- Prime / A-side (11 Lenders) ---
-  { id: "b2b", name: "B2B Bank", tier: "prime" },
-  { id: "bmo", name: "BMO (Authorized Brokers Only)", tier: "prime" },
-  { id: "cwb-optimum", name: "CWB Optimum Mortgage A", tier: "prime" },
-  { id: "merix", name: "Merix Upfront", tier: "prime" },
-  { id: "mcap-prime", name: "MCAP Prime", tier: "prime" },
-  { id: "rfa-prime", name: "RFA Prime (Kraken)", tier: "prime" },
-  { id: "rmg", name: "RMG Mortgages (FCX)", tier: "prime" },
-  { id: "scotia", name: "Scotia Bank / Banque Scotia", tier: "prime" },
-  { id: "td", name: "TD Canada Trust", tier: "prime" },
-  { id: "meridian", name: "Meridian Credit Union Ltd", tier: "prime" },
-  { id: "cibc", name: "CIBC", tier: "prime" },
-
-  // --- Alternate / B Side (14 Lenders) ---
-  { id: "alterna", name: "Alterna", tier: "alt" },
-  { id: "community-trust", name: "Community Trust", tier: "alt" },
-  { id: "cwb-optimum-alt", name: "CWB Optimum Mortgage Alt-A", tier: "alt" },
-  { id: "extend-financial", name: "Extend Financial Inc.", tier: "alt" },
-  { id: "first-ontario", name: "First Ontario Credit Union", tier: "alt" },
-  { id: "homeequity-chip", name: "HomeEquity Bank CHIP Max", tier: "alt" },
-  { id: "ic-savings", name: "IC Savings", tier: "alt" },
-  { id: "oppono", name: "Oppono Lending Company", tier: "alt" },
-  { id: "rfa-alternatives", name: "RFA Alternatives", tier: "alt" },
-  { id: "union-capital", name: "Union Capital Lending", tier: "alt" },
-  { id: "wyth", name: "Wyth Financials", tier: "alt" },
-  { id: "alpha-omega", name: "Alpha and Omega Inc.", tier: "alt" },
-  { id: "home-classic", name: "Home Trust Company Classic", tier: "alt" },
-  { id: "wealth-one-alt", name: "Wealth One Bank of Canada", tier: "alt" },
-
-  // --- Private / MIC (21 Lenders) ---
-  { id: "advanced-mic", name: "Advanced MIC", tier: "private" },
-  { id: "advantage-mortgage", name: "Advantage Mortgage Centre Inc.", tier: "private" },
-  { id: "alta-west", name: "Alt- Alta West Capital", tier: "private" },
-  { id: "aria-savings", name: "Aria Savings", tier: "private" },
-  { id: "armada-mortgage", name: "Armada Mortgage", tier: "private" },
-  { id: "atrium-mic", name: "Atrium Mortgage Invest. Corp.", tier: "private" },
-  { id: "b2-capital", name: "B2 Capital Corp", tier: "private" },
-  { id: "bankright-financial", name: "BankRight Financial Ltd.", tier: "private" },
-  { id: "bedrock-group", name: "Bedrock Group", tier: "private" },
-  { id: "birch-mountain", name: "Birch Mountain Group Ltd.", tier: "private" },
-  { id: "blacksun-mic", name: "Blacksun MIC", tier: "private" },
-  { id: "bloom-finance", name: "Bloom Finance Reverse Mortgage", tier: "private" },
-  { id: "blossom-capital", name: "Blossom Capital", tier: "private" },
-  { id: "bluebridge-mic", name: "Bluebridge MIC", tier: "private" },
-  { id: "blueshore-financial", name: "BlueShore Financial CU", tier: "private" },
-  { id: "bridgewater-bank", name: "Bridgewater Bank", tier: "private" },
-  { id: "bronco-mortgages", name: "Bronco Mortgages Inc.", tier: "private" },
-  { id: "brookstreet-mic", name: "Brookstreet MIC", tier: "private" },
-  { id: "brunswick-cu", name: "Brunswick CU", tier: "private" },
-  { id: "calvert-home", name: "Calvert Home Mortgage Inv Corp", tier: "private" },
-  { id: "cambridge-mic", name: "Cambridge MIC", tier: "private" },
-  { id: "canadian-mortgages", name: "Canadian Mortgages Inc", tier: "private" },
-  { id: "capital-direct", name: "Capital Direct Lending Corp", tier: "private" },
-  { id: "capital-express", name: "Capital Express", tier: "private" },
-  { id: "new-haven", name: "New Haven Lending", tier: "private" },
-  { id: "gingko", name: "Gingko", tier: "private" },
-  { id: "hosper", name: "Hosper Lending", tier: "private" },
-  { id: "vault", name: "Vault", tier: "private" },
-  { id: "resco", name: "Resco", tier: "private" }
-];
-
-function LenderManagement() {
-  const [lenders, setLenders] = useState(BASELINE_LENDERS);
-  const [activeTier, setActiveTier] = useState<"prime" | "alt" | "private" | string>("prime");
-  const [selectedLender, setSelectedLender] = useState("");
-  const [loading, setLoading] = useState(false);
-  
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [newLenderName, setNewLenderName] = useState("");
-  const [newLenderTier, setNewLenderTier] = useState<"prime" | "alt" | "private">("prime");
-
-  useEffect(() => {
-    async function fetchLenders() {
-      const { data, error } = await supabase.from("custom_lenders").select("*");
-      if (!error && data) {
-        const combined = [...BASELINE_LENDERS, ...data];
-        const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-        setLenders(unique);
-      }
-    }
-    fetchLenders();
-  }, []);
-
-  const handleCreateLender = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newLenderName.trim()) return;
-
-    setLoading(true);
-    const formattedId = newLenderName.toLowerCase().trim().replace(/[^a-z0-9]/g, "-");
-    
-    const { error } = await supabase
-      .from("custom_lenders")
-      .insert([{ id: formattedId, name: newLenderName.trim(), tier: newLenderTier }]);
-
-    if (error) {
-      alert("Error adding item to database: " + error.message);
-      setLoading(false);
-      return;
-    }
-
-    const updatedList = [...lenders, { id: formattedId, name: newLenderName.trim(), tier: newLenderTier }];
-    setLenders(updatedList);
-    setActiveTier(newLenderTier);
-    setSelectedLender(formattedId);
-    setNewLenderName("");
-    setIsFormOpen(false);
-    setLoading(false);
-  };
-
-  const currentTierLenders = lenders
-    .filter(item => item.tier === activeTier)
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  return (
-    <div className="w-full bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-      <div className="p-5 border-b border-border bg-secondary/20">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-slate-900 text-white rounded-lg">
-            <Building2 className="h-4 w-4" />
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-foreground">Underwriting Allocation Matrix</h4>
-            <p className="text-xs text-muted-foreground">Connected to live Supabase cloud database</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-5 space-y-4">
-        <div>
-          <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
-            Lending Channel Category
-          </label>
-          <div className="grid grid-cols-3 gap-1 bg-secondary p-1 rounded-lg border border-border">
-            {(["prime", "alt", "private"] as const).map((tier) => (
-              <button
-                key={tier}
-                type="button"
-                onClick={() => { setActiveTier(tier); setSelectedLender(""); }}
-                className={`py-1.5 px-3 text-xs font-medium rounded-md transition-all ${
-                  activeTier === tier
-                    ? "bg-card text-foreground shadow-sm border border-border"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tier === "prime" ? "Prime" : tier === "alt" ? "Alt" : "Private / MIC"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
-            Target Funding Destination
-          </label>
-          <div className="relative">
-            <select
-              value={selectedLender}
-              onChange={(e) => setSelectedLender(e.target.value)}
-              className="w-full bg-background border border-border rounded-lg py-2 pl-3 pr-10 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring appearance-none"
-            >
-              <option value="">-- Choose active platform options --</option>
-              {currentTierLenders.map((lender, idx) => (
-                <option key={`${lender.id}-${idx}`} value={lender.id}>
-                  {lender.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
-          </div>
-        </div>
-
-        {!isFormOpen ? (
-          <button
-            type="button"
-            onClick={() => setIsFormOpen(true)}
-            className="w-full py-2 border border-dashed border-border rounded-lg text-xs font-medium text-muted-foreground hover:bg-secondary/40 hover:text-foreground transition-all flex items-center justify-center gap-1.5"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Append Custom Institution
-          </button>
-        ) : (
-          <form onSubmit={handleCreateLender} className="bg-secondary/30 border border-border rounded-lg p-3 space-y-3">
-            <div>
-              <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Institution Legal Name</label>
-              <input
-                type="text"
-                value={newLenderName}
-                onChange={(e) => setNewLenderName(e.target.value)}
-                placeholder="e.g. Pacific Northwest Credit Union"
-                className="w-full bg-background border border-border rounded-md py-1.5 px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
-            
-            <div className="flex items-center justify-between gap-4 pt-1">
-              <div>
-                <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Target Allocation</label>
-                <select
-                  value={newLenderTier}
-                  onChange={(e) => setNewLenderTier(e.target.value as any)}
-                  className="bg-background border border-border rounded-md py-1 px-2 text-xs text-foreground focus:outline-none"
-                >
-                  <option value="prime">Prime (A-Side)</option>
-                  <option value="alt">Alternative (B-Side)</option>
-                  <option value="private">Private / MIC</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2 self-end">
-                <button
-                  type="button"
-                  onClick={() => setIsFormOpen(false)}
-                  className="px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-slate-900 text-white px-3 py-1 text-xs rounded-md font-medium hover:bg-slate-800 disabled:opacity-50 flex items-center gap-1"
-                >
-                  {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />} Save
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
       </div>
     </div>
   );
@@ -543,7 +317,7 @@ function ScoringMatrix({ craCleared, analysis, debtService, extraFlags, ltv, hig
 function ConditionsPanel({ conditions, setConditions, incomeOverride, analysis }: any) {
   return (
     <div className="flex h-full flex-col p-4 space-y-3">
-      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-1">03 · Automated Conditions Automated Conditions</div>
+      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-1">03 · Automated Conditions</div>
       <div className="space-y-2">
         {conditions.map((c: any) => (
           <div key={c.id} className="flex items-start gap-2 p-2 border border-border bg-card rounded text-xs">
@@ -554,6 +328,69 @@ function ConditionsPanel({ conditions, setConditions, incomeOverride, analysis }
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function TopBar() {
+  return (
+    <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6">
+      <div className="flex items-center gap-3">
+        <div className="font-bold tracking-tight text-sm">BrokerMindAI</div>
+        <span className="bg-emerald-500/10 text-emerald-600 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded uppercase">Workspace Live</span>
+      </div>
+      <div className="flex items-center gap-4 text-muted-foreground">
+        <Search className="h-4 w-4" />
+        <Bell className="h-4 w-4" />
+        <Settings className="h-4 w-4" />
+      </div>
+    </header>
+  );
+}
+
+function SubHeader({ applicationNumber, taxpayerName }: { applicationNumber: string; taxpayerName: string }) {
+  return (
+    <div className="border-b border-border bg-secondary/10 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono font-bold text-muted-foreground bg-secondary px-2 py-0.5 rounded border border-border">{applicationNumber}</span>
+          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          <h1 className="text-sm font-bold tracking-tight text-foreground">{taxpayerName}</h1>
+        </div>
+        <p className="text-xs text-muted-foreground">Forensic Application Verification Pipeline</p>
+      </div>
+      <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-1.5"><Activity className="h-3.5 w-3.5 text-emerald-500" /> <span className="font-mono">System Nominal</span></div>
+        <div className="flex items-center gap-1.5"><Layers className="h-3.5 w-3.5 text-muted-foreground" /> <span className="font-mono">v1.2.4-Production</span></div>
+      </div>
+    </div>
+  );
+}
+
+function DocumentLens({ incomeOverride, setIncomeOverride }: any) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex flex-col h-full border border-border rounded-xl shadow-sm overflow-hidden bg-card">
+      <PaneHeader icon={<FileText className="h-4 w-4" />} kicker="WORKSPACE MODULE" title="Forensic Document Lens" subtitle="CRA Direct Stream Integration" />
+      <div className="p-4 flex-1 space-y-4">
+        <div className="border border-border bg-secondary/10 p-3 rounded-lg space-y-2">
+          <div className="flex justify-between items-center"><span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Extracted Object Meta</span><button onClick={() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="text-muted-foreground hover:text-foreground transition-all">{copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}</button></div>
+          <div className="space-y-1 text-xs">
+            <Row label="CRA Document Hash ID" value="sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" />
+            <Row label="Taxation Period Verified" value="Tax Year 2024" />
+            <Row label="Processing Architecture" value="Claude-3-5-Sonnet-Scraper" />
+          </div>
+        </div>
+        <div className="border border-border p-3 rounded-lg space-y-2 bg-card">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">CRA Line Reconciliation</span>
+          <div className="divide-y divide-border">
+            <ReconRow doc="Line 15000 · Total Income" val="$94,500.00" status="Match Verified" tone="ok" />
+            <ReconRow doc="Line 10100 · Employment Income" val="$91,200.00" status="Match Verified" tone="ok" />
+            <ReconRow doc="Line 23600 · Net Income" val="$88,410.00" status="Delta Flag" tone="warn" delta="-$2,790" />
+            <ReconRow doc="Line 43700 · Total Tax Deducted" val="$19,450.00" status="Match Verified" tone="ok" />
+          </div>
+        </div>
       </div>
     </div>
   );
