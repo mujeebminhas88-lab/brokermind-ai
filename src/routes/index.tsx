@@ -27,16 +27,22 @@ function Dashboard() {
   const [activeAppId, setActiveAppId] = useState<string>("");
 
   useEffect(() => {
-    const fetchApplications = async () => {
-      const { data, error } = await supabase.from('mortgage_applications').select('*');
-      if (data) {
-        setApplications(data);
-        if (data.length > 0) setActiveAppId(data[0].id);
-      }
-    };
-    fetchApplications();
-  }, []);
-
+  const fetchApplications = async () => {
+    // We select only the columns that exist in your DB
+    const { data, error } = await supabase
+      .from('mortgage_applications')
+      .select('application_id, applicant_full_name, amortization_months, requested_loan_amount');
+    
+    if (error) {
+      console.error("Supabase fetch error:", error);
+    } else if (data) {
+      // Map the DB response to your application state
+      setApplications(data as any); 
+      if (data.length > 0) setActiveAppId(data[0].application_id);
+    }
+  };
+  fetchApplications();
+}, []);
   // Ensure this function is inside the component
   const updateCurrentApp = async (fields: Partial<ApplicationRecord>) => {
     // Logic for updating state and Supabase...
