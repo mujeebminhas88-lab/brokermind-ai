@@ -103,10 +103,14 @@ const initialConditions = [
   { id: "PROP-01", category: "Property", title: "Appraisal Report Valuation Match", satisfied: false }
 ];
 
+const DEFAULT_APP_NUMBER = "APP-2025-08842";
+const DEFAULT_TAXPAYER = "Mujeeb Minhas";
+const DEFAULT_QUALIFYING_INCOME = 94500;
+
 const DEFAULT_RECORDS: ApplicationRecord[] = [
   {
-    id: "APP-2025-08842",
-    taxpayerName: "Mujeeb Minhas",
+    id: DEFAULT_APP_NUMBER,
+    taxpayerName: DEFAULT_TAXPAYER,
     amortization: 25,
     rateType: "fixed",
     selectedTerm: "5y",
@@ -123,7 +127,7 @@ function Dashboard() {
 
   // Multi-file Management Pipeline State
   const [applications, setApplications] = useState<ApplicationRecord[]>(DEFAULT_RECORDS);
-  const [activeAppId, setActiveAppId] = useState<string>("APP-2025-08842");
+  const [activeAppId, setActiveAppId] = useState<string>(DEFAULT_APP_NUMBER);
   const [selectedAppIdsForDeletion, setSelectedAppIdsForDeletion] = useState<string[]>([]);
 
   // Active Context Sub-states
@@ -248,7 +252,7 @@ function Dashboard() {
       
       if (remainingList.length === 0) {
         setApplications(DEFAULT_RECORDS);
-        setActiveAppId("APP-2025-08842");
+        setActiveAppId(DEFAULT_APP_NUMBER);
         localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(DEFAULT_RECORDS));
       } else {
         setApplications(remainingList);
@@ -342,7 +346,8 @@ function Dashboard() {
 
   const debtService = calculateDebtService(globalCombinedIncome, adjustedLiabilities);
   const ltvCalc = computeLtv(collateral);
-  const activeTaxpayerName = applications.find(a => a.id === activeAppId)?.taxpayerName || taxpayerName;
+  const staticTaxpayerName = analysis?.payload.taxpayer_name ?? DEFAULT_TAXPAYER;
+  const activeTaxpayerName = applications.find(a => a.id === activeAppId)?.taxpayerName || staticTaxpayerName;
 
   const toggleAppSelectionForDeletion = (id: string) => {
     if (selectedAppIdsForDeletion.includes(id)) {
@@ -644,7 +649,7 @@ function Dashboard() {
                       >
                         {app.id}
                       </td>
-                      <td className="p-3 font-sans text-foreground font-medium">{app.id === "APP-2025-08842" ? activeTaxpayerName : app.taxpayerName}</td>
+                      <td className="p-3 font-sans text-foreground font-medium">{app.id === DEFAULT_APP_NUMBER ? activeTaxpayerName : app.taxpayerName}</td>
                       <td className="p-3">{app.id === activeAppId ? amortization : app.amortization} Years</td>
                       <td className="p-3 font-sans">{(app.id === activeAppId ? coApplicant.enabled : app.coApplicant.enabled) ? "Assigned Spouse" : "None Assigned"}</td>
                     </tr>
@@ -784,6 +789,18 @@ function PaneHeader({ icon, kicker, title }: { icon: React.ReactNode; kicker: st
   );
 }
 
+function ReconRow({ doc, val, status, tone }: { doc: string; val: string; status: string; tone?: "ok" | "warn" }) {
+  return (
+    <div className="flex items-center justify-between py-1.5 border-b border-border text-[11px]">
+      <span className="text-muted-foreground">{doc}</span>
+      <div className="flex items-center gap-2 font-mono">
+        <span>{val}</span>
+        <span className={`px-1.5 py-0.5 text-[9px] font-bold ${tone === "ok" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{status}</span>
+      </div>
+    </div>
+  );
+}
+
 function ScoringMatrix({ ltv, highRatio, debtService }: any) {
   return (
     <div className="flex h-full flex-col p-4 space-y-3">
@@ -803,7 +820,7 @@ function ConditionsPanel({ conditions, setConditions }: any) {
       <div className="space-y-2">
         {conditions.map((c: any) => (
           <div key={c.id} className="flex items-start gap-2 p-2 border border-border bg-card rounded text-xs">
-            <input type="checkbox" checked={c.satisfied} onChange={(e) => setConditions(conditions.map(item => item.id === c.id ? { ...item, satisfied: e.target.checked } : item))} className="mt-0.5 rounded" />
+            <input type="checkbox" checked={c.satisfied} onChange={(e) => setConditions(conditions.map((item: any) => item.id === c.id ? { ...item, satisfied: e.target.checked } : item))} className="mt-0.5 rounded" />
             <div>
               <div className="font-mono text-[10px] font-bold text-muted-foreground">{c.id}</div>
               <div className="font-medium">{c.title}</div>
