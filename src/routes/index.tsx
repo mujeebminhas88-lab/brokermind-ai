@@ -156,7 +156,7 @@ function Dashboard() {
     monthlyLiabilities: 350
   });
 
-  // Automated AML Flag Generation Model (Triggers based on document irregularities or high risk ratios)
+  // Automated AML Flag Generation Model
   const [amlFlags, setAmlFlags] = useState<Array<{ id: string; metric: string; risk: "high" | "medium"; description: string }>>([]);
 
   // Load persistence database layer on initial render
@@ -834,4 +834,44 @@ function ConditionsPanel({ conditions, setConditions }: any) {
       <div className="space-y-2">
         {conditions.map((c: any) => (
           <div key={c.id} className="flex items-start gap-2 p-2 border border-border bg-card rounded text-xs">
-            <input type="checkbox" checked={c.satisfied} onChange={(e) => setConditions
+            <input type="checkbox" checked={c.satisfied} onChange={(e) => setConditions(conditions.map((item: any) => item.id === c.id ? { ...item, satisfied: e.target.checked } : item))} className="mt-0.5 rounded" />
+            <div>
+              <div className="font-mono text-[10px] font-bold text-muted-foreground">{c.id}</div>
+              <div className="font-medium">{c.title}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DocumentLens() {
+  return (
+    <div className="flex flex-col h-full border border-border rounded-xl shadow-sm overflow-hidden bg-card">
+      <PaneHeader icon={<FileText className="h-4 w-4" />} kicker="WORKSPACE MODULE" title="Forensic Document Lens" />
+      <div className="p-4 flex-1 space-y-4">
+        <div className="border border-border p-3 rounded-lg space-y-2 bg-card">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">CRA Line Reconciliation</span>
+          <div className="divide-y divide-border">
+            <ReconRow doc="Line 15000 · Total Income" val="$94,500.00" status="Match Verified" tone="ok" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SubHeader({ applicationNumber, taxpayerName }: { applicationNumber: string; taxpayerName: string }) {
+  return (
+    <div className="border-b border-border bg-secondary/10 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono font-bold text-muted-foreground bg-secondary px-2 py-0.5 rounded border border-border">{applicationNumber}</span>
+          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          <h1 className="text-sm font-bold tracking-tight text-foreground">{taxpayerName}</h1>
+        </div>
+      </div>
+    </div>
+  );
+}
