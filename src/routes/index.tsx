@@ -32,7 +32,8 @@ import {
   Trash2,
   Sliders,
   Save,
-  FilePlus
+  FilePlus,
+  ShieldAlert
 } from "lucide-react";
 import { NoaUploader } from "@/components/NoaUploader";
 import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
@@ -44,10 +45,6 @@ import { EmploymentIntakePanel, DEFAULT_EMPLOYMENT, type EmploymentState } from 
 import { LenderManagement } from "@/components/LenderManagement";
 import { calculateDebtService } from "@/utils/debtService";
 import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
-
-const DEFAULT_APP_NUMBER = "APP-2025-08842";
-const DEFAULT_TAXPAYER = "Mujeeb Minhas";
-const DEFAULT_QUALIFYING_INCOME = 94500;
 
 type IncomeOverride = { value: string; note: string; appliedAt: string } | null;
 
@@ -73,6 +70,19 @@ interface CoApplicantState {
   monthlyLiabilities: number;
 }
 
+interface ApplicationRecord {
+  id: string;
+  taxpayerName: string;
+  amortization: number;
+  rateType: "fixed" | "variable";
+  selectedTerm: string;
+  additionalProperties: AdditionalProperty[];
+  liabilities: LiabilityInputs;
+  collateral: CollateralState;
+  conditions: any[];
+  coApplicant: CoApplicantState;
+}
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -93,114 +103,185 @@ const initialConditions = [
   { id: "PROP-01", category: "Property", title: "Appraisal Report Valuation Match", satisfied: false }
 ];
 
+const DEFAULT_RECORDS: ApplicationRecord[] = [
+  {
+    id: "APP-2025-08842",
+    taxpayerName: "Mujeeb Minhas",
+    amortization: 25,
+    rateType: "fixed",
+    selectedTerm: "5y",
+    additionalProperties: [],
+    liabilities: DEFAULT_LIABILITIES,
+    collateral: DEFAULT_COLLATERAL,
+    conditions: initialConditions,
+    coApplicant: { enabled: false, name: "Ayesha Minhas", onTitle: false, income: 62000, employmentType: "salaried", monthlyLiabilities: 350 }
+  }
+];
+
 function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("Adjudication");
 
-  // Core States
+  // Multi-file Management Pipeline State
+  const [applications, setApplications] = useState<ApplicationRecord[]>(DEFAULT_RECORDS);
+  const [activeAppId, setActiveAppId] = useState<string>("APP-2025-08842");
+  const [selectedAppIdsForDeletion, setSelectedAppIdsForDeletion] = useState<string[]>([]);
+
+  // Active Context Sub-states
   const [conditions, setConditions] = useState(initialConditions);
   const [incomeOverride, setIncomeOverride] = useState<IncomeOverride>(null);
   const [analysis, setAnalysis] = useState<NoaAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [sandbox, setSandbox] = useState(false);
-  const [applicationNumber, setApplicationNumber] = useState(DEFAULT_APP_NUMBER);
   const [liabilities, setLiabilities] = useState<LiabilityInputs>(DEFAULT_LIABILITIES);
   const [collateral, setCollateral] = useState<CollateralState>(DEFAULT_COLLATERAL);
   const [employment, setEmployment] = useState<EmploymentState>(DEFAULT_EMPLOYMENT);
   const [collateralFlags, setCollateralFlags] = useState<RiskFlag[]>([]);
   const [employmentFlags, setEmploymentFlags] = useState<RiskFlag[]>([]);
 
-  // Product Parameters
+  // Product Execution parameters
   const [selectedTerm, setSelectedTerm] = useState<string>("5y");
   const [rateType, setRateType] = useState<"fixed" | "variable">("fixed");
   const [amortization, setAmortization] = useState<number>(25);
   const [additionalProperties, setAdditionalProperties] = useState<AdditionalProperty[]>([]);
+  const [coApplicant, setCoApplicant] = useState<CoApplicantState>({
+    enabled: false,
+    name: "Ayesha Minhas",
+    onTitle: false,
+    income: 62000,
+    employmentType: "salaried",
+    monthlyLiabilities: 350
+  });
 
-  // Co-Applicant Engine State
-  const [coApplicant, setCoApplicant] = useState<CoApplicantState>(
-    { enabled: false, name: "Ayesha Minhas", onTitle: false, income: 62000, employmentType: "salaried", monthlyLiabilities: 350 }
-  );
+  // Automated AML Flag Generation Model (Triggers based on document irregularities or high risk ratios)
+  const [amlFlags, setAmlFlags] = useState<Array<{ id: string; metric: string; risk: "high" | "medium"; description: string }>>([]);
 
-  const craCleared = !!analysis;
-
+  // Load persistence database layer on initial render
   useEffect(() => {
-    const savedData = localStorage.getItem("brokermind_active_application");
-    if (savedData) {
+    const savedList = localStorage.getItem("brokermind_applications_pipeline");
+    if (savedList) {
       try {
-        const parsed = JSON.parse(savedData);
-        if (parsed.amortization) setAmortization(parsed.amortization);
-        if (parsed.rateType) setRateType(parsed.rateType);
-        if (parsed.selectedTerm) setSelectedTerm(parsed.selectedTerm);
-        if (parsed.additionalProperties) setAdditionalProperties(parsed.additionalProperties);
-        if (parsed.liabilities) setLiabilities(parsed.liabilities);
-        if (parsed.collateral) setCollateral(parsed.collateral);
-        if (parsed.conditions) setConditions(parsed.conditions);
-        if (parsed.coApplicant) setCoApplicant(parsed.coApplicant);
-        if (parsed.applicationNumber) setApplicationNumber(parsed.applicationNumber);
+        const parsedList = JSON.parse(savedList);
+        if (parsedList && parsedList.length > 0) {
+          setApplications(parsedList);
+          setActiveAppId(parsedList[0].id);
+          loadApplicationIntoContext(parsedList[0]);
+        }
       } catch (e) {
-        console.error(e);
+        console.error("Failed to re-initialize file storage track pipeline ledger", e);
       }
+    } else {
+      localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(DEFAULT_RECORDS));
     }
   }, []);
 
-  const handleManualSave = () => {
-    const stateToSave = {
-      amortization,
-      rateType,
-      selectedTerm,
-      additionalProperties,
-      liabilities,
-      collateral,
-      conditions,
-      coApplicant,
-      applicationNumber
-    };
-    localStorage.setItem("brokermind_active_application", JSON.stringify(stateToSave));
-    alert("Application data synchronized locally.");
+  const loadApplicationIntoContext = (app: ApplicationRecord) => {
+    setAmortization(app.amortization);
+    setRateType(app.rateType);
+    setSelectedTerm(app.selectedTerm);
+    setAdditionalProperties(app.additionalProperties);
+    setLiabilities(app.liabilities);
+    setCollateral(app.collateral);
+    setConditions(app.conditions);
+    setCoApplicant(app.coApplicant);
   };
 
-  const handleStateDeleteReset = () => {
-    localStorage.removeItem("brokermind_active_application");
-    setAmortization(25);
-    setRateType("fixed");
-    setSelectedTerm("5y");
-    setAdditionalProperties([]);
-    setLiabilities(DEFAULT_LIABILITIES);
-    setCollateral(DEFAULT_COLLATERAL);
-    setConditions(initialConditions);
-    setIncomeOverride(null);
-    setAnalysis(null);
-    setCoApplicant({
-      enabled: false,
-      name: "",
-      onTitle: false,
-      income: 0,
-      employmentType: "salaried",
-      monthlyLiabilities: 0
+  useEffect(() => {
+    const currentApp = applications.find(a => a.id === activeAppId);
+    if (currentApp) {
+      loadApplicationIntoContext(currentApp);
+    }
+  }, [activeAppId]);
+
+  // Compute AML verification states adaptively
+  useEffect(() => {
+    const flags = [];
+    if (coApplicant.enabled && !coApplicant.onTitle && coApplicant.income > 100000) {
+      flags.push({
+        id: "AML-01",
+        metric: "Layered Unregistered Asset Structuring",
+        risk: "medium" as const,
+        description: "Co-applicant providing significant income yield metrics without being attached to the collateral registration asset deed."
+      });
+    }
+    if (additionalProperties.some(p => p.grossRentalIncome > 6000 && p.status === "free-and-clear")) {
+      flags.push({
+        id: "AML-02",
+        metric: "High Yield Unverified Real Estate Cashflow",
+        risk: "high" as const,
+        description: "Rental property assets displaying disproportionate cash distributions with no verification of underlying acquisition tracking."
+      });
+    }
+    setAmlFlags(flags);
+  }, [coApplicant, additionalProperties]);
+
+  const handleManualSave = () => {
+    const updatedList = applications.map(app => {
+      if (app.id === activeAppId) {
+        return {
+          ...app,
+          amortization,
+          rateType,
+          selectedTerm,
+          additionalProperties,
+          liabilities,
+          collateral,
+          conditions,
+          coApplicant
+        };
+      }
+      return app;
     });
-    alert("All active session variations wiped cleanly from browser memory.");
+
+    setApplications(updatedList);
+    localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(updatedList));
+    alert("Application files successfully updated and compiled inside registry pipeline memory.");
+  };
+
+  const handleBatchDeleteSelected = () => {
+    if (selectedAppIdsForDeletion.length === 0) {
+      alert("No application checkbox items targeted for pipeline deletion.");
+      return;
+    }
+
+    if (confirm(`Acknowledge definitive hard deletion request of ${selectedAppIdsForDeletion.length} processing file records? This action purges all associated underwriting document layers.`)) {
+      const remainingList = applications.filter(app => !selectedAppIdsForDeletion.includes(app.id));
+      
+      if (remainingList.length === 0) {
+        setApplications(DEFAULT_RECORDS);
+        setActiveAppId("APP-2025-08842");
+        localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(DEFAULT_RECORDS));
+      } else {
+        setApplications(remainingList);
+        if (selectedAppIdsForDeletion.includes(activeAppId)) {
+          setActiveAppId(remainingList[0].id);
+        }
+        localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(remainingList));
+      }
+      setSelectedAppIdsForDeletion([]);
+      alert("Targeted application registries and document buffers permanently deleted from the system.");
+    }
   };
 
   const handleCreateNewApplication = () => {
-    const nextAppId = `APP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
-    localStorage.removeItem("brokermind_active_application");
-    setApplicationNumber(nextAppId);
-    setAmortization(25);
-    setRateType("fixed");
-    setSelectedTerm("5y");
-    setAdditionalProperties([]);
-    setLiabilities(DEFAULT_LIABILITIES);
-    setCollateral(DEFAULT_COLLATERAL);
-    setConditions(initialConditions);
-    setAnalysis(null);
-    setCoApplicant({
-      enabled: false,
-      name: "",
-      onTitle: false,
-      income: 0,
-      employmentType: "salaried",
-      monthlyLiabilities: 0
-    });
-    alert(`Initialized brand new baseline submission: ${nextAppId}`);
+    const generatedId = `APP-2026-${Math.floor(10000 + Math.random() * 90000)}`;
+    const newRecord: ApplicationRecord = {
+      id: generatedId,
+      taxpayerName: "Unassigned Submission File",
+      amortization: 25,
+      rateType: "fixed",
+      selectedTerm: "5y",
+      additionalProperties: [],
+      liabilities: DEFAULT_LIABILITIES,
+      collateral: DEFAULT_COLLATERAL,
+      conditions: initialConditions,
+      coApplicant: { enabled: false, name: "", onTitle: false, income: 0, employmentType: "salaried", monthlyLiabilities: 0 }
+    };
+
+    const expandedPipeline = [newRecord, ...applications];
+    setApplications(expandedPipeline);
+    localStorage.setItem("brokermind_applications_pipeline", JSON.stringify(expandedPipeline));
+    setActiveAppId(generatedId);
+    alert(`Generated completely clear application submission matrix under structural reference token: ${generatedId}`);
   };
 
   const addProperty = () => {
@@ -261,14 +342,20 @@ function Dashboard() {
 
   const debtService = calculateDebtService(globalCombinedIncome, adjustedLiabilities);
   const ltvCalc = computeLtv(collateral);
+  const activeTaxpayerName = applications.find(a => a.id === activeAppId)?.taxpayerName || taxpayerName;
 
-  const extraFlags = [...collateralFlags, ...employmentFlags];
-  const taxpayerName = analysis?.payload.taxpayer_name ?? DEFAULT_TAXPAYER;
+  const toggleAppSelectionForDeletion = (id: string) => {
+    if (selectedAppIdsForDeletion.includes(id)) {
+      setSelectedAppIdsForDeletion(selectedAppIdsForDeletion.filter(i => i !== id));
+    } else {
+      setSelectedAppIdsForDeletion([...selectedAppIdsForDeletion, id]);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
       <GlobalHeader activeTab={activeTab} setActiveTab={setActiveTab} />
-      <SubHeader applicationNumber={applicationNumber} taxpayerName={taxpayerName} />
+      <SubHeader applicationNumber={activeAppId} taxpayerName={activeTaxpayerName} />
       
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         
@@ -281,6 +368,14 @@ function Dashboard() {
             >
               <FilePlus className="h-3.5 w-3.5 text-emerald-600" /> Start New Application File
             </button>
+            {selectedAppIdsForDeletion.length > 0 && (
+              <button
+                onClick={handleBatchDeleteSelected}
+                className="flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Purge Selected Files ({selectedAppIdsForDeletion.length})
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -288,12 +383,6 @@ function Dashboard() {
               className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-semibold rounded-lg transition-all shadow-xs"
             >
               <Save className="h-3.5 w-3.5" /> Save Application Context
-            </button>
-            <button
-              onClick={handleStateDeleteReset}
-              className="flex items-center gap-1.5 bg-secondary text-foreground hover:bg-red-50 hover:text-red-600 border border-border px-3 py-1.5 text-xs font-semibold rounded-lg transition-all"
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Clear & Delete Changes
             </button>
           </div>
         </div>
@@ -401,15 +490,14 @@ function Dashboard() {
                   <div>
                     <label className="block text-[11px] text-muted-foreground mb-1">Registered On Title / Deed?</label>
                     <div className="grid grid-cols-2 gap-1 bg-background p-0.5 rounded border border-border mt-0.5">
-                      <button onClick={() => setCoApplicant({ ...coApplicant, onTitle: true })} className={`py-1 text-center font-medium rounded text-[11px] ${coApplicant.onTitle ? "bg-emerald-600 text-white" : "text-white"}`}>Yes</button>
-                      <button onClick={() => setCoApplicant({ ...coApplicant, onTitle: false })} className={`py-1 text-center font-medium rounded text-[11px] ${!coApplicant.onTitle ? "bg-amber-600 text-white" : "text-white"}`}>No (Title Split)</button>
+                      <button onClick={() => setCoApplicant({ ...coApplicant, onTitle: true })} className={`py-1 text-center font-medium rounded text-[11px] ${coApplicant.onTitle ? "bg-emerald-600 text-white" : "text-muted-foreground"}`}>Yes</button>
+                      <button onClick={() => setCoApplicant({ ...coApplicant, onTitle: false })} className={`py-1 text-center font-medium rounded text-[11px] ${!coApplicant.onTitle ? "bg-amber-600 text-white" : "text-muted-foreground"}`}>No (Title Split)</button>
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Lender Core Systems Component */}
             <div className="overflow-hidden">
               {LenderManagement ? <LenderManagement /> : <div className="p-3 border border-red-200 bg-red-50 text-red-700 text-xs rounded-lg">Lender Core Module Component Unresolved.</div>}
             </div>
@@ -496,6 +584,7 @@ function Dashboard() {
               )}
             </div>
 
+            {/* Injected synced collateral layout block */}
             <CollateralPanel state={collateral} setState={setCollateral} onFlagsChange={setCollateralFlags} amortizationOverride={amortization} />
 
             {sandbox ? (
@@ -509,10 +598,10 @@ function Dashboard() {
             
             <main className="grid grid-cols-12 gap-px bg-border" style={{ minHeight: "calc(100vh - 168px)" }}>
               <section className="col-span-12 lg:col-span-5 bg-background overflow-hidden">
-                <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
+                <DocumentLens />
               </section>
               <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden relative">
-                <ScoringMatrix craCleared={craCleared} analysis={analysis} debtService={debtService} extraFlags={extraFlags} ltv={ltvCalc.ltv} highRatio={ltvCalc.highRatio} />
+                <ScoringMatrix ltv={ltvCalc.ltv} highRatio={ltvCalc.highRatio} debtService={debtService} />
               </section>
               <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden relative">
                 <ConditionsPanel conditions={conditions} setConditions={setConditions} />
@@ -528,19 +617,38 @@ function Dashboard() {
               <table className="w-full text-left font-mono">
                 <thead className="bg-secondary/60 border-b border-border text-muted-foreground font-sans">
                   <tr>
+                    <th className="p-3 w-10 text-center">Select</th>
                     <th className="p-3">Application ID</th>
                     <th className="p-3">Borrower Name</th>
-                    <th className="p-3">LTV Ratio</th>
+                    <th className="p-3">Amortization Stream</th>
                     <th className="p-3">Co-Applicant Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  <tr>
-                    <td className="p-3 font-bold text-emerald-600">{applicationNumber}</td>
-                    <td className="p-3 font-sans text-foreground font-medium">{taxpayerName}</td>
-                    <td className="p-3">{ltvCalc.ltv}%</td>
-                    <td className="p-3 font-sans">{coApplicant.enabled ? `Enabled (${coApplicant.name})` : "None Assigned"}</td>
-                  </tr>
+                  {applications.map((app) => (
+                    <tr 
+                      key={app.id} 
+                      className={`hover:bg-secondary/20 transition-colors ${app.id === activeAppId ? "bg-emerald-500/5" : ""}`}
+                    >
+                      <td className="p-3 text-center">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedAppIdsForDeletion.includes(app.id)} 
+                          onChange={() => toggleAppSelectionForDeletion(app.id)}
+                          className="rounded border-border text-emerald-600 focus:ring-emerald-500"
+                        />
+                      </td>
+                      <td 
+                        className="p-3 font-bold text-emerald-600 cursor-pointer underline decoration-dotted"
+                        onClick={() => setActiveAppId(app.id)}
+                      >
+                        {app.id}
+                      </td>
+                      <td className="p-3 font-sans text-foreground font-medium">{app.id === "APP-2025-08842" ? activeTaxpayerName : app.taxpayerName}</td>
+                      <td className="p-3">{app.id === activeAppId ? amortization : app.amortization} Years</td>
+                      <td className="p-3 font-sans">{(app.id === activeAppId ? coApplicant.enabled : app.coApplicant.enabled) ? "Assigned Spouse" : "None Assigned"}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -566,12 +674,37 @@ function Dashboard() {
 
         {activeTab === "Compliance" && (
           <div className="bg-card border border-border rounded-xl p-6 space-y-4 font-mono text-xs">
-            <h2 className="text-sm font-bold font-sans uppercase tracking-wider text-foreground">Anti-Fraud Compliance</h2>
-            <div className="p-4 bg-secondary/30 rounded-lg border border-border space-y-2">
+            <h2 className="text-sm font-bold font-sans uppercase tracking-wider text-foreground">Anti-Fraud & AML Compliance Risk Ledger</h2>
+            <p className="text-xs font-sans text-muted-foreground">Real-time threat monitoring checks scanning documentation feeds for structured deployment profiles or asset misalignments.</p>
+            
+            {amlFlags.length === 0 ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg font-sans">
+                No active anti-money laundering variances or structuring thresholds triggered inside document processing streams.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {amlFlags.map((flag) => (
+                  <div key={flag.id} className={`p-4 border rounded-xl flex items-start gap-3 bg-card ${flag.risk === "high" ? "border-red-200 bg-red-50/10" : "border-amber-200 bg-amber-50/10"}`}>
+                    <ShieldAlert className={`h-4 w-4 shrink-0 mt-0.5 ${flag.risk === "high" ? "text-red-600" : "text-amber-600"}`} />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-foreground">{flag.id} · {flag.metric}</span>
+                        <span className={`text-[10px] uppercase font-sans font-bold px-1.5 py-0.5 rounded ${flag.risk === "high" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>
+                          {flag.risk} Severity Risk
+                        </span>
+                      </div>
+                      <p className="font-sans text-muted-foreground mt-1 text-[11.5px]">{flag.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="p-4 bg-secondary/30 rounded-lg border border-border space-y-2 mt-4">
               <div className="flex justify-between font-sans">
-                <span>Co-Applicant Title Verification Risk Match</span>
+                <span>Co-Applicant Marital Title Asset Risk Match</span>
                 <span className={coApplicant.enabled && !coApplicant.onTitle ? "text-amber-600 font-mono font-bold" : "text-emerald-600 font-mono font-bold"}>
-                  {coApplicant.enabled && !coApplicant.onTitle ? "[SPLIT TITLE POLICY WARNING]" : "[NOMINAL PASS]"}
+                  {coApplicant.enabled && !coApplicant.onTitle ? "[SPLIT TITLE WARNING FLAG]" : "[NOMINAL PASS]"}
                 </span>
               </div>
             </div>
@@ -603,7 +736,7 @@ function Dashboard() {
   );
 }
 
-/* ────────────────────────── MODULE SUBCOMPONENTS ────────────────────────── */
+/* ────────────────────────── UTILITY WORKSPACE SUBCOMPONENTS ────────────────────────── */
 
 function GlobalHeader({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (v: string) => void }) {
   return (
@@ -651,18 +784,6 @@ function PaneHeader({ icon, kicker, title }: { icon: React.ReactNode; kicker: st
   );
 }
 
-function ReconRow({ doc, val, status, tone }: { doc: string; val: string; status: string; tone?: "ok" | "warn" }) {
-  return (
-    <div className="flex items-center justify-between py-1.5 border-b border-border text-[11px]">
-      <span className="text-muted-foreground">{doc}</span>
-      <div className="flex items-center gap-2 font-mono">
-        <span>{val}</span>
-        <span className={`px-1.5 py-0.5 text-[9px] font-bold ${tone === "ok" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{status}</span>
-      </div>
-    </div>
-  );
-}
-
 function ScoringMatrix({ ltv, highRatio, debtService }: any) {
   return (
     <div className="flex h-full flex-col p-4 space-y-3">
@@ -682,7 +803,7 @@ function ConditionsPanel({ conditions, setConditions }: any) {
       <div className="space-y-2">
         {conditions.map((c: any) => (
           <div key={c.id} className="flex items-start gap-2 p-2 border border-border bg-card rounded text-xs">
-            <input type="checkbox" checked={c.satisfied} onChange={(e) => setConditions(conditions.map((item: any) => item.id === c.id ? { ...item, satisfied: e.target.checked } : item))} className="mt-0.5 rounded" />
+            <input type="checkbox" checked={c.satisfied} onChange={(e) => setConditions(conditions.map(item => item.id === c.id ? { ...item, satisfied: e.target.checked } : item))} className="mt-0.5 rounded" />
             <div>
               <div className="font-mono text-[10px] font-bold text-muted-foreground">{c.id}</div>
               <div className="font-medium">{c.title}</div>
@@ -694,7 +815,7 @@ function ConditionsPanel({ conditions, setConditions }: any) {
   );
 }
 
-function DocumentLens({ incomeOverride, setIncomeOverride }: any) {
+function DocumentLens() {
   return (
     <div className="flex flex-col h-full border border-border rounded-xl shadow-sm overflow-hidden bg-card">
       <PaneHeader icon={<FileText className="h-4 w-4" />} kicker="WORKSPACE MODULE" title="Forensic Document Lens" />
