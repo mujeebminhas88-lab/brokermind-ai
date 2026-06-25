@@ -6,15 +6,12 @@ import {
   FileText, Building2, Users, Sliders, Save, FilePlus, Trash2, Search, ChevronRight, ShieldAlert
 } from "lucide-react";
 
-// Keep your interfaces here at the top level, outside the component
 interface ApplicationRecord {
-  application_id: string; // Maps to your UUID primary key
+  application_id: string;
   applicant_full_name: string;
   amortization_months: number;
   requested_loan_amount: number;
   property_appraised_value: number;
-  // Add other fields here as you map them:
-  // e.g., gds_ratio, tds_ratio, ltv_ratio, etc.
 }
 
 export const Route = createFileRoute("/")({
@@ -22,37 +19,59 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
-  const [activeTab, setActiveTab] = useState<string>("Adjudication");
-  const [applications, setApplications] = useState<any[]>([]);
+  const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [activeAppId, setActiveAppId] = useState<string>("");
 
   useEffect(() => {
-  const fetchApplications = async () => {
-    // We select only the columns that exist in your DB
-    const { data, error } = await supabase
-      .from('mortgage_applications')
-      .select('application_id, applicant_full_name, amortization_months, requested_loan_amount');
-    
-    if (error) {
-      console.error("Supabase fetch error:", error);
-    } else if (data) {
-      // Map the DB response to your application state
-      setApplications(data as any); 
-      if (data.length > 0) setActiveAppId(data[0].application_id);
-    }
-  };
-  fetchApplications();
-}, []);
-  // Ensure this function is inside the component
+    const fetchApplications = async () => {
+      const { data, error } = await supabase
+        .from('mortgage_applications')
+        .select('application_id, applicant_full_name, amortization_months, requested_loan_amount, property_appraised_value');
+      
+      if (data) {
+        setApplications(data as ApplicationRecord[]);
+        if (data.length > 0) setActiveAppId(data[0].application_id);
+      }
+    };
+    fetchApplications();
+  }, []);
+
   const updateCurrentApp = async (fields: Partial<ApplicationRecord>) => {
-    // Logic for updating state and Supabase...
+    setApplications(prev => prev.map(app => 
+      app.application_id === activeAppId ? { ...app, ...fields } : app
+    ));
+
+    const { error } = await supabase
+      .from('mortgage_applications')
+      .update(fields)
+      .eq('application_id', activeAppId);
+      
+    if (error) console.error("Sync error:", error);
   };
 
+  const currentApp = applications.find(a => a.application_id === activeAppId);
+
+  if (!currentApp) return <div className="p-20 text-center">Loading Application Data...</div>;
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Your Header and main UI structure */}
-      <h1>BrokerMind AI Dashboard</h1>
+    <div className="p-6 space-y-6">
+      <h1 className="text-xl font-bold">BrokerMind AI - Underwriter Workspace</h1>
+      <div className="bg-card p-4 rounded-xl border">
+        <label className="block text-xs text-muted-foreground">Applicant Name</label>
+        <input 
+          value={currentApp.applicant_full_name}
+          onChange={(e) => updateCurrentApp({ applicant_full_name: e.target.value })}
+          className="w-full border p-2 rounded"
+        />
+        
+        <label className="block text-xs text-muted-foreground mt-4">Amortization (Months)</label>
+        <input 
+          type="number"
+          value={currentApp.amortization_months}
+          onChange={(e) => updateCurrentApp({ amortization_months: Number(e.target.value) })}
+          className="w-full border p-2 rounded"
+        />
+      </div>
     </div>
   );
 }
-// NO EXTRA CLOSING BRACE HERE
