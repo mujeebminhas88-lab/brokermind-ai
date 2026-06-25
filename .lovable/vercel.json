@@ -1,8 +1,28 @@
 {
-  "rewrites": [
+  "version": 2,
+  "framework": null,
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "dist/server/server.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "dist/client/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/_nitro/(.*)",
+      "dest": "/dist/client/_nitro/$1"
+    },
+    {
+      "src": "/assets/(.*)",
+      "dest": "/dist/client/assets/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "dist/server/server.js"
     }
   ]
 }
