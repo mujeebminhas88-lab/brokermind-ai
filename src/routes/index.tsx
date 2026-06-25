@@ -8,10 +8,13 @@ import {
 
 // Keep your interfaces here at the top level, outside the component
 interface ApplicationRecord {
-  id: string;
-  taxpayerName: string;
-  amortization: number;
-  // ... rest of your interface fields
+  application_id: string; // Maps to your UUID primary key
+  applicant_full_name: string;
+  amortization_months: number;
+  requested_loan_amount: number;
+  property_appraised_value: number;
+  // Add other fields here as you map them:
+  // e.g., gds_ratio, tds_ratio, ltv_ratio, etc.
 }
 
 export const Route = createFileRoute("/")({
