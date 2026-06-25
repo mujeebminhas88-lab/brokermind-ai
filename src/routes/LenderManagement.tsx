@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Building2, Plus, ChevronDown, Check, Loader2 } from "lucide-react";
+import React, { useState } from "react";
+import { Building2, Plus, ChevronDown, Check } from "lucide-react";
 
+// FORCE STATIC RE-ALIGNMENT (Bypassing database pollution completely)
 const BASELINE_LENDERS = [
   // --- Prime / A / Monolines (11 Lenders) ---
   { id: "b2b-bank-prime", name: "B2B Bank", tier: "prime" },
@@ -64,71 +64,9 @@ const BASELINE_LENDERS = [
 ];
 
 export default function LenderManagement() {
-  const [lenders, setLenders] = useState(BASELINE_LENDERS);
+  const [lenders] = useState(BASELINE_LENDERS);
   const [activeTier, setActiveTier] = useState<"prime" | "alt" | "private">("prime");
   const [selectedLender, setSelectedLender] = useState("");
-  const [loading, setLoading] = useState(false);
-  
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [newLenderName, setNewLenderName] = useState("");
-  const [newLenderTier, setNewLenderTier] = useState<"prime" | "alt" | "private">("prime");
-
-  useEffect(() => {
-    async function fetchLenders() {
-      const { data, error } = await supabase.from("custom_lenders").select("*");
-      if (!error && data && data.length > 0) {
-        // Build a fresh dictionary map of everything from the database
-        const dbMap = new Map();
-        data.forEach(item => dbMap.set(item.id, item));
-        
-        // Loop baseline items, if database has a variant, it takes precedence
-        const rawCombined = [...BASELINE_LENDERS];
-        data.forEach(item => {
-          if (!rawCombined.some(b => b.id === item.id)) {
-            rawCombined.push(item);
-          }
-        });
-
-        // Map everything accurately and force tier matching from the database schema
-        const finalCleaned = rawCombined.map(item => {
-          const dbMatch = dbMap.get(item.id);
-          return dbMatch ? { id: dbMatch.id, name: dbMatch.name, tier: dbMatch.tier } : item;
-        });
-
-        setLenders(finalCleaned);
-      } else {
-        setLenders(BASELINE_LENDERS);
-      }
-    }
-    fetchLenders();
-  }, []);
-
-  const handleCreateLender = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newLenderName.trim()) return;
-
-    setLoading(true);
-    const slug = newLenderName.toLowerCase().trim().replace(/[^a-z0-9]/g, "-");
-    const formattedId = `${slug}-${newLenderTier}`;
-    
-    const { error } = await supabase
-      .from("custom_lenders")
-      .insert([{ id: formattedId, name: newLenderName.trim(), tier: newLenderTier }]);
-
-    if (error) {
-      alert("Error adding item to database: " + error.message);
-      setLoading(false);
-      return;
-    }
-
-    const updatedList = [...lenders, { id: formattedId, name: newLenderName.trim(), tier: newLenderTier }];
-    setLenders(updatedList);
-    setActiveTier(newLenderTier);
-    setSelectedLender(formattedId);
-    setNewLenderName("");
-    setIsFormOpen(false);
-    setLoading(false);
-  };
 
   const currentTierLenders = lenders
     .filter(item => item.tier === activeTier)
@@ -143,7 +81,7 @@ export default function LenderManagement() {
           </div>
           <div>
             <h4 className="text-sm font-semibold text-slate-950">Underwriting Allocation Matrix</h4>
-            <p className="text-xs text-slate-500">Connected to live Supabase cloud database</p>
+            <p className="text-xs text-slate-500">Live Static Configuration Mode</p>
           </div>
         </div>
       </div>
@@ -191,62 +129,6 @@ export default function LenderManagement() {
             <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-slate-400 pointer-events-none" />
           </div>
         </div>
-
-        {!isFormOpen ? (
-          <button
-            type="button"
-            onClick={() => setIsFormOpen(true)}
-            className="w-full py-2 border border-dashed border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all flex items-center justify-center gap-1.5"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Append Custom Institution
-          </button>
-        ) : (
-          <form onSubmit={handleCreateLender} className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-3">
-            <div>
-              <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1">Institution Legal Name</label>
-              <input
-                type="text"
-                value={newLenderName}
-                onChange={(e) => setNewLenderName(e.target.value)}
-                placeholder="e.g. Pacific Northwest Credit Union"
-                className="w-full bg-white border border-slate-200 rounded-md py-1.5 px-3 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-950"
-              />
-            </div>
-            
-            <div className="flex items-center justify-between gap-4 pt-1">
-              <div>
-                <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1">Target Allocation</label>
-                <select
-                  value={newLenderTier}
-                  onChange={(e) => setNewLenderTier(e.target.value as any)}
-                  className="bg-white border border-slate-200 rounded-md py-1 px-2 text-xs text-slate-700 focus:outline-none"
-                >
-                  <option value="prime">Prime (A-Side)</option>
-                  <option value="alt">Alternative (B-Side)</option>
-                  <option value="private">Private / MIC</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2 self-end">
-                <button
-                  type="button"
-                  onClick={() => setIsFormOpen(false)}
-                  className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-800 font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-slate-900 text-white px-3 py-1 text-xs rounded-md font-medium hover:bg-slate-800 disabled:opacity-50 flex items-center gap-1"
-                >
-                  {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Save
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
       </div>
     </div>
   );
