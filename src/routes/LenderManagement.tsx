@@ -1,61 +1,66 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client"; // This links it directly to your Supabase credentials
+import { supabase } from "@/integrations/supabase/client";
 import { Building2, Plus, ChevronDown, Check, Loader2 } from "lucide-react";
 
 const BASELINE_LENDERS = [
-  // --- Prime (A-Side) ---
-  { id: "b2b-bank", name: "B2B Bank", tier: "prime" },
-  { id: "bmo-authorized-brokers", name: "BMO (Authorized Brokers Only)", tier: "prime" },
-  { id: "cwb-optimum-a", name: "CWB Optimum Mortgage A", tier: "prime" },
-  { id: "merix-upfront", name: "Merix Upfront", tier: "prime" },
-  { id: "mcap-prime", name: "MCAP Prime", tier: "prime" },
-  { id: "rfa-prime", name: "RFA Prime", tier: "prime" },
-  { id: "rmg-mortgages-fcx", name: "RMG Mortgages (FCX)", tier: "prime" },
-  { id: "scotia-bank-banque-scotia", name: "Scotia Bank / Banque Scotia", tier: "prime" },
-  { id: "td-canada-trust", name: "TD Canada Trust", tier: "prime" },
-  { id: "wealth-one-bank-of-canada", name: "Wealth One Bank of Canada", tier: "prime" },
+  // --- Prime / A / Monolines (11 Lenders) ---
+  { id: "b2b-bank-prime", name: "B2B Bank", tier: "prime" },
+  { id: "bmo-authorized-brokers-prime", name: "BMO (Authorized Brokers Only)", tier: "prime" },
+  { id: "cwb-optimum-a-prime", name: "CWB Optimum Mortgage A", tier: "prime" },
+  { id: "merix-upfront-prime", name: "Merix Upfront", tier: "prime" },
+  { id: "mcap-prime-prime", name: "MCAP Prime", tier: "prime" },
+  { id: "rfa-prime-kraken-prime", name: "RFA Prime (Kraken)", tier: "prime" },
+  { id: "rmg-mortgages-fcx-prime", name: "RMG Mortgages (FCX)", tier: "prime" },
+  { id: "scotia-bank-banque-scotia-prime", name: "Scotia Bank / Banque Scotia", tier: "prime" },
+  { id: "td-canada-trust-prime", name: "TD Canada Trust", tier: "prime" },
+  { id: "meridian-credit-union-ltd-prime", name: "Meridian Credit Union Ltd", tier: "prime" },
+  { id: "cibc-prime", name: "CIBC", tier: "prime" },
 
-  // --- Alternate (B-Side) ---
-  { id: "alterna", name: "Alterna", tier: "alt" },
-  { id: "community-trust", name: "Community Trust", tier: "alt" },
-  { id: "cwb-optimum-alt-a", name: "CWB Optimum Mortgage Alt-A", tier: "alt" },
-  { id: "extend-financial-inc", name: "Extend Financial Inc.", tier: "alt" },
-  { id: "first-ontario-credit-union", name: "First Ontario Credit Union", tier: "alt" },
-  { id: "home-trust-company-classic", name: "Home Trust Company Classic", tier: "alt" },
-  { id: "homeequity-bank-chip-max", name: "HomeEquity Bank CHIP Max", tier: "alt" },
-  { id: "ic-savings", name: "IC Savings", tier: "alt" },
-  { id: "meridian-credit-union-ltd", name: "Meridian Credit Union Ltd", tier: "alt" },
-  { id: "oppono-lending-company", name: "Oppono Lending Company", tier: "alt" },
-  { id: "rfa-alternatives", name: "RFA Alternatives", tier: "alt" },
-  { id: "union-capital-lending", name: "Union Capital Lending", tier: "alt" },
-  { id: "wyth-financials", name: "Wyth Financials", tier: "alt" },
-  { id: "alpha-and-omega-inc", name: "Alpha and Omega Inc.", tier: "alt" },
+  // --- Alternate / B Side (13 Lenders) ---
+  { id: "wealth-one-1-alt", name: "Wealth One Bank of Canada", tier: "alt" },
+  { id: "home-trust-alt", name: "Home Trust", tier: "alt" },
+  { id: "eclipse-rmg-alt-alt", name: "Eclipse (RMG-alt)", tier: "alt" },
+  { id: "wealth-one-2-alt", name: "Wealth One Bank of Canada", tier: "alt" },
+  { id: "alterna-alt", name: "Alterna", tier: "alt" },
+  { id: "community-trust-alt", name: "Community Trust", tier: "alt" },
+  { id: "extend-financial-inc-alt", name: "Extend Financial Inc.", tier: "alt" },
+  { id: "first-ontario-credit-union-alt", name: "First Ontario Credit Union", tier: "alt" },
+  { id: "ic-savings-alt", name: "IC Savings", tier: "alt" },
+  { id: "rfa-alternatives-pegasus-alt", name: "RFA Alternatives (Pegasus)", tier: "alt" },
+  { id: "union-capital-lending-alt", name: "Union Capital Lending", tier: "alt" },
+  { id: "wyth-financials-alt", name: "Wyth Financials", tier: "alt" },
+  { id: "alpha-and-omega-inc-alt", name: "Alpha and Omega Inc.", tier: "alt" },
 
-  // --- Private / MIC ---
-  { id: "advanced-mic", name: "Advanced MIC", tier: "private" },
-  { id: "advantage-mortgage-centre-inc", name: "Advantage Mortgage Centre Inc.", tier: "private" },
-  { id: "alt-alta-west-capital", name: "Alt- Alta West Capital", tier: "private" },
-  { id: "aria-savings", name: "Aria Savings", tier: "private" },
-  { id: "armada-mortgage", name: "Armada Mortgage", tier: "private" },
-  { id: "atrium-mortgage-invest-corp", name: "Atrium Mortgage Invest. Corp.", tier: "private" },
-  { id: "b2-capital-corp", name: "B2 Capital Corp", tier: "private" },
-  { id: "bankright-financial-ltd", name: "BankRight Financial Ltd.", tier: "private" },
-  { id: "bedrock-group", name: "Bedrock Group", tier: "private" },
-  { id: "birch-mountain-group-ltd", name: "Birch Mountain Group Ltd.", tier: "private" },
-  { id: "blacksun-mic", name: "Blacksun MIC", tier: "private" },
-  { id: "bloom-finance-reverse-mortgage", name: "Bloom Finance Reverse Mortgage", tier: "private" },
-  { id: "blossom-capital", name: "Blossom Capital", tier: "private" },
-  { id: "bluebridge-mic", name: "Bluebridge MIC", tier: "private" },
-  { id: "blueshore-financial-cu", name: "BlueShore Financial CU", tier: "private" },
-  { id: "bridgewater-bank", name: "Bridgewater Bank", tier: "private" },
-  { id: "bronco-mortgages-inc", name: "Bronco Mortgages Inc.", tier: "private" },
-  { id: "brookstreet-mic", name: "Brookstreet MIC", tier: "private" },
-  { id: "brunswick-cu", name: "Brunswick CU", tier: "private" },
-  { id: "calvert-home-mortgage-inv-corp", name: "Calvert Home Mortgage Inv Corp", tier: "private" },
-  { id: "cambridge-mic", name: "Cambridge MIC", tier: "private" },
-  { id: "canadian-mortgages-inc", name: "Canadian Mortgages Inc", tier: "private" },
-  { id: "capital-direct-lending-corp", name: "Capital Direct Lending Corp", tier: "private" },
-  { id: "capital-express", name: "Capital Express", tier: "private" }
+  // --- Private (29 Lenders) ---
+  { id: "advanced-mic-private", name: "Advanced MIC", tier: "private" },
+  { id: "alta-west-capital-private", name: "Alta West Capital", tier: "private" },
+  { id: "aria-savings-private", name: "Aria Savings", tier: "private" },
+  { id: "armada-mortgage-private", name: "Armada Mortgage", tier: "private" },
+  { id: "atrium-mortgage-invest-corp-private", name: "Atrium Mortgage Invest. Corp.", tier: "private" },
+  { id: "b2-capital-corp-private", name: "B2 Capital Corp", tier: "private" },
+  { id: "bankright-financial-ltd-private", name: "BankRight Financial Ltd.", tier: "private" },
+  { id: "bedrock-group-private", name: "Bedrock Group", tier: "private" },
+  { id: "birch-mountain-group-ltd-private", name: "Birch Mountain Group Ltd.", tier: "private" },
+  { id: "blacksun-mic-private", name: "Blacksun MIC", tier: "private" },
+  { id: "bloom-finance-reverse-mortgage-private", name: "Bloom Finance Reverse Mortgage", tier: "private" },
+  { id: "blossom-capital-private", name: "Blossom Capital", tier: "private" },
+  { id: "bluebridge-mic-private", name: "Bluebridge MIC", tier: "private" },
+  { id: "blueshore-financial-cu-private", name: "BlueShore Financial CU", tier: "private" },
+  { id: "bridgewater-bank-private", name: "Bridgewater Bank", tier: "private" },
+  { id: "bronco-mortgages-inc-private", name: "Bronco Mortagages Inc.", tier: "private" },
+  { id: "brookstreet-mic-private", name: "Brookstreet MIC", tier: "private" },
+  { id: "brunswick-cu-private", name: "Brunswick CU", tier: "private" },
+  { id: "calvert-home-mortgage-inv-corp-private", name: "Calvert Home Mortgage Inv Corp", tier: "private" },
+  { id: "cambridge-mic-private", name: "Cambridge MIC", tier: "private" },
+  { id: "canadian-mortgages-inc-private", name: "Canadian Mortgages Inc", tier: "private" },
+  { id: "capital-direct-lending-corp-private", name: "Capital Direct Lending Corp", tier: "private" },
+  { id: "capital-express-private", name: "Capital Express", tier: "private" },
+  { id: "oppono-lending-company-private", name: "Oppono Lending Company", tier: "private" },
+  { id: "new-haven-lending-private", name: "New Haven Lending", tier: "private" },
+  { id: "gingko-private", name: "Gingko", tier: "private" },
+  { id: "hosper-lending-private", name: "Hosper Lending", tier: "private" },
+  { id: "vault-private", name: "Vault", tier: "private" },
+  { id: "resco-private", name: "Resco", tier: "private" }
 ];
 
 export default function LenderManagement() {
@@ -68,14 +73,11 @@ export default function LenderManagement() {
   const [newLenderName, setNewLenderName] = useState("");
   const [newLenderTier, setNewLenderTier] = useState<"prime" | "alt" | "private">("prime");
 
-  // Fetch from Supabase when the component loads
   useEffect(() => {
     async function fetchLenders() {
       const { data, error } = await supabase.from("custom_lenders").select("*");
       if (!error && data) {
-        // Combine our core excel baseline with whatever is in Supabase
         const combined = [...BASELINE_LENDERS, ...data];
-        // Deduplicate elements
         const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
         setLenders(unique);
       }
@@ -88,9 +90,9 @@ export default function LenderManagement() {
     if (!newLenderName.trim()) return;
 
     setLoading(true);
-    const formattedId = newLenderName.toLowerCase().trim().replace(/[^a-z0-9]/g, "-");
+    const slug = newLenderName.toLowerCase().trim().replace(/[^a-z0-9]/g, "-");
+    const formattedId = `${slug}-${newLenderTier}`;
     
-    // Insert row right into your Supabase database table
     const { error } = await supabase
       .from("custom_lenders")
       .insert([{ id: formattedId, name: newLenderName.trim(), tier: newLenderTier }]);
@@ -101,17 +103,15 @@ export default function LenderManagement() {
       return;
     }
 
-    // Update local visual state
     const updatedList = [...lenders, { id: formattedId, name: newLenderName.trim(), tier: newLenderTier }];
     setLenders(updatedList);
     setActiveTier(newLenderTier);
     setSelectedLender(formattedId);
-    newLenderName("");
+    setNewLenderName("");
     setIsFormOpen(false);
     setLoading(false);
   };
 
-  // Filter items by tier, then strictly sort alphabetical A-Z by name
   const currentTierLenders = lenders
     .filter(item => item.tier === activeTier)
     .sort((a, b) => a.name.localeCompare(b.name));
