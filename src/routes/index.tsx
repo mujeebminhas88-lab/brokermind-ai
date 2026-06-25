@@ -484,3 +484,77 @@ function PaneHeader({
         <div className="text-muted-foreground shrink-0">{icon}</div>
         <div className="flex items-baseline gap-2 min-w-0">
           <span className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground">{kicker}</span>
+          <h2 className="text-[12.5px] font-bold tracking-tight truncate text-foreground">{title}</h2>
+          <span className="hidden text-[11px] text-muted-foreground sm:inline truncate">· {subtitle}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value, emphasis }: { label: string; value: string; emphasis?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between py-0.5 ${emphasis ? "font-bold text-foreground" : "text-muted-foreground"}`}>
+      <span>{label}</span>
+      <span className="font-mono">{value}</span>
+    </div>
+  );
+}
+
+function Field({ icon, label, value, mono, accent }: { icon: React.ReactNode; label: string; value: string; mono?: boolean; accent?: boolean }) {
+  return (
+    <div className="flex items-center justify-between border border-border bg-secondary/20 p-2 text-[11.5px]">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <span className={`${mono ? "font-mono" : ""} ${accent ? "font-bold text-emerald-600" : "font-semibold"}`}>{value}</span>
+    </div>
+  );
+}
+
+function ReconRow({ doc, val, status, tone, delta, onClick }: { doc: string; val: string; status: string; tone?: "ok" | "warn"; delta?: string; onClick?: () => void }) {
+  return (
+    <div onClick={onClick} className={`flex items-center justify-between py-1.5 border-b border-border text-[11px] ${onClick ? "cursor-pointer hover:bg-secondary/30" : ""}`}>
+      <span className="text-muted-foreground">{doc}</span>
+      <div className="flex items-center gap-2 font-mono">
+        <span>{val}</span>
+        <span className={`px-1.5 py-0.5 text-[9px] font-bold ${tone === "ok" ? "bg-emerald-100 text-emerald-800" : tone === "warn" ? "bg-amber-100 text-amber-800" : "bg-secondary text-muted-foreground"}`}>
+          {status} {delta ? `(${delta})` : ""}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ScoringMatrix({ craCleared, analysis, debtService, extraFlags, ltv, highRatio }: any) {
+  return (
+    <div className="flex h-full flex-col p-4 space-y-3">
+      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-1">02 · Risk Scoring Matrix</div>
+      <div className="bg-secondary/30 p-3 rounded-lg border border-border space-y-2 text-xs">
+        <div className="flex justify-between"><span>LTV Ratio</span><span className="font-mono font-bold">{ltv}% ({highRatio ? "High Ratio" : "Conventional"})</span></div>
+        <div className="flex justify-between"><span>GDS / TDS</span><span className="font-mono">{debtService.gds}% / {debtService.tds}%</span></div>
+        <div className="flex justify-between"><span>CRA Verification Status</span><span className={`font-bold ${craCleared ? "text-emerald-600" : "text-amber-600"}`}>{craCleared ? "Cleared" : "Pending Arrears Match"}</span></div>
+      </div>
+    </div>
+  );
+}
+
+function ConditionsPanel({ conditions, setConditions, incomeOverride, analysis }: any) {
+  return (
+    <div className="flex h-full flex-col p-4 space-y-3">
+      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-1">03 · Automated Conditions Automated Conditions</div>
+      <div className="space-y-2">
+        {conditions.map((c: any) => (
+          <div key={c.id} className="flex items-start gap-2 p-2 border border-border bg-card rounded text-xs">
+            <input type="checkbox" checked={c.satisfied} onChange={(e) => setConditions(conditions.map((item: any) => item.id === c.id ? { ...item, satisfied: e.target.checked } : item))} className="mt-0.5 rounded border-border" />
+            <div>
+              <div className="font-mono text-[10px] font-bold text-muted-foreground">{c.id} · {c.category}</div>
+              <div className="font-medium">{c.title}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
