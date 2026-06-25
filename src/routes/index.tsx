@@ -2,49 +2,46 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import React from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  FileText, Building2, Users, Sliders, Save, FilePlus, Trash2, Search, ChevronRight, ShieldAlert
-} from "lucide-react";
-
-// THIS INTERFACE MUST MATCH YOUR SUPABASE COLUMN NAMES EXACTLY
-interface ApplicationRecord {
-  id: string; // Ensure your DB column is named 'id'
-  taxpayer_name: string; // Rename to match your DB column (likely snake_case)
-  amortization: number;
-  // Add other fields as they exist in your 'mortgage_applications' table
-}
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
 function Dashboard() {
-  const [applications, setApplications] = useState<ApplicationRecord[]>([]);
+  const [data, setData] = useState<any[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchApplications = async () => {
+    const fetchData = async () => {
       setLoading(true);
+      setError(null);
+      
+      // We are fetching from 'mortgage_applications'
       const { data, error } = await supabase
         .from('mortgage_applications')
-        .select('*'); // Be explicit with columns if this fails
+        .select('*');
       
       if (error) {
-        console.error("Database Fetch Error:", error);
-      } else if (data) {
-        setApplications(data as ApplicationRecord[]);
+        // This will print the actual error text to the console
+        console.error("Full Supabase Error:", error);
+        setError(`Error ${error.code}: ${error.message}`);
+      } else {
+        setData(data);
       }
       setLoading(false);
     };
-    fetchApplications();
+
+    fetchData();
   }, []);
 
-  if (loading) return <div className="p-20 text-center">Connecting to Database...</div>;
+  if (loading) return <div className="p-20 text-center font-mono">Connecting to Database...</div>;
+  if (error) return <div className="p-20 text-center text-red-600 font-mono">Connection Failed: {error}</div>;
 
   return (
     <div className="p-6">
-      <h1 className="text-xl font-bold">BrokerMind AI - Underwriter Workspace</h1>
-      {/* Build your UI using the 'applications' state here */}
+      <h1 className="text-xl font-bold">Successfully Connected</h1>
+      <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>
   );
 }
