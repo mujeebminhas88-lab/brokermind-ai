@@ -76,10 +76,28 @@ export default function LenderManagement() {
   useEffect(() => {
     async function fetchLenders() {
       const { data, error } = await supabase.from("custom_lenders").select("*");
-      if (!error && data) {
-        const combined = [...BASELINE_LENDERS, ...data];
-        const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-        setLenders(unique);
+      if (!error && data && data.length > 0) {
+        // Build a fresh dictionary map of everything from the database
+        const dbMap = new Map();
+        data.forEach(item => dbMap.set(item.id, item));
+        
+        // Loop baseline items, if database has a variant, it takes precedence
+        const rawCombined = [...BASELINE_LENDERS];
+        data.forEach(item => {
+          if (!rawCombined.some(b => b.id === item.id)) {
+            rawCombined.push(item);
+          }
+        });
+
+        // Map everything accurately and force tier matching from the database schema
+        const finalCleaned = rawCombined.map(item => {
+          const dbMatch = dbMap.get(item.id);
+          return dbMatch ? { id: dbMatch.id, name: dbMatch.name, tier: dbMatch.tier } : item;
+        });
+
+        setLenders(finalCleaned);
+      } else {
+        setLenders(BASELINE_LENDERS);
       }
     }
     fetchLenders();
@@ -164,8 +182,8 @@ export default function LenderManagement() {
               className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-3 pr-10 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 appearance-none"
             >
               <option value="">-- Choose active platform options --</option>
-              {currentTierLenders.map((lender) => (
-                <option key={lender.id} value={lender.id}>
+              {currentTierLenders.map((lender, index) => (
+                <option key={`${lender.id}-${index}`} value={lender.id}>
                   {lender.name}
                 </option>
               ))}
