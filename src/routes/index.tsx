@@ -5,16 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   FileText, Building2, Users, Sliders, Save, FilePlus, Trash2, Search, ChevronRight, ShieldAlert
 } from "lucide-react";
-import { NoaUploader } from "@/components/NoaUploader";
-import { SandboxPanel } from "@/components/SandboxPanel";
-import { LiabilitiesPanel, DEFAULT_LIABILITIES } from "@/components/LiabilitiesPanel";
-import { CollateralPanel, DEFAULT_COLLATERAL, computeLtv } from "@/components/CollateralPanel";
-import { EmploymentIntakePanel, DEFAULT_EMPLOYMENT } from "@/components/EmploymentIntakePanel";
-import { LenderManagement } from "@/components/LenderManagement";
-import { calculateDebtService } from "@/utils/debtService";
 
-// Note: Ensure your interfaces and helper functions (like createBlankRecord) 
-// remain defined outside of the Dashboard component function.
+// Keep your interfaces here at the top level, outside the component
+interface ApplicationRecord {
+  id: string;
+  taxpayerName: string;
+  amortization: number;
+  // ... rest of your interface fields
+}
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -36,14 +34,16 @@ function Dashboard() {
     fetchApplications();
   }, []);
 
-  // ... (Your Dashboard rendering logic here)
-  
+  // Ensure this function is inside the component
+  const updateCurrentApp = async (fields: Partial<ApplicationRecord>) => {
+    // Logic for updating state and Supabase...
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* UI Code */}
-      <h1>Dashboard</h1>
+      {/* Your Header and main UI structure */}
+      <h1>BrokerMind AI Dashboard</h1>
     </div>
   );
 }
-
-// Ensure there is only one export default or component export structure here
+// NO EXTRA CLOSING BRACE HERE
