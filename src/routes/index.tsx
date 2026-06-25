@@ -115,15 +115,12 @@ function Dashboard() {
   const [amortization, setAmortization] = useState<number>(25);
   const [additionalProperties, setAdditionalProperties] = useState<AdditionalProperty[]>([]);
 
-  // Outside-the-box Co-Applicant Engine State
-  const [coApplicant, setCoApplicant] = useState<CoApplicantState>({
-    enabled: false,
-    name: "Ayesha Minhas",
-    onTitle: false, 
-    income: 62000,
-    employmentType: "salaried",
-    monthlyLiabilities: 350
-  });
+  // Co-Applicant Engine State
+  const [coApplicant, setCoApplicant] = useState<CoApplicantState>(
+    { enabled: false, name: "Ayesha Minhas", onTitle: false, income: 62000, employmentType: "salaried", monthlyLiabilities: 350 }
+  );
+
+  const craCleared = !!analysis;
 
   useEffect(() => {
     const savedData = localStorage.getItem("brokermind_active_application");
@@ -363,7 +360,7 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* Dynamic Outside-the-box Multi-Applicant Control Bridge */}
+            {/* Dynamic Multi-Applicant Control Bridge */}
             <div className="bg-card border border-border rounded-xl shadow-sm p-4 space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <div className="flex items-center gap-2">
@@ -404,8 +401,8 @@ function Dashboard() {
                   <div>
                     <label className="block text-[11px] text-muted-foreground mb-1">Registered On Title / Deed?</label>
                     <div className="grid grid-cols-2 gap-1 bg-background p-0.5 rounded border border-border mt-0.5">
-                      <button onClick={() => setCoApplicant({ ...coApplicant, onTitle: true })} className={`py-1 text-center font-medium rounded text-[11px] ${coApplicant.onTitle ? "bg-emerald-600 text-white" : "text-muted-foreground"}`}>Yes</button>
-                      <button onClick={() => setCoApplicant({ ...coApplicant, onTitle: false })} className={`py-1 text-center font-medium rounded text-[11px] ${!coApplicant.onTitle ? "bg-amber-600 text-white" : "text-muted-foreground"}`}>No (Title Split)</button>
+                      <button onClick={() => setCoApplicant({ ...coApplicant, onTitle: true })} className={`py-1 text-center font-medium rounded text-[11px] ${coApplicant.onTitle ? "bg-emerald-600 text-white" : "text-white"}`}>Yes</button>
+                      <button onClick={() => setCoApplicant({ ...coApplicant, onTitle: false })} className={`py-1 text-center font-medium rounded text-[11px] ${!coApplicant.onTitle ? "bg-amber-600 text-white" : "text-white"}`}>No (Title Split)</button>
                     </div>
                   </div>
                 </div>
@@ -456,13 +453,13 @@ function Dashboard() {
                       </div>
                       
                       {prop.status === "mortgaged" && (
-                        <div className="md:col-span-1.5">
+                        <div className="md:col-span-2">
                           <label className="block text-[11px] text-muted-foreground font-medium mb-1">Mo. Mortgage ($)</label>
                           <input type="number" value={prop.mortgagePayment || ""} onChange={(e) => updateProperty(prop.id, { mortgagePayment: Number(e.target.value) })} className="w-full bg-background border border-border rounded px-2 py-1 font-mono" />
                         </div>
                       )}
 
-                      <div className="md:col-span-1.5">
+                      <div className="md:col-span-2">
                         <label className="block text-[11px] text-muted-foreground font-medium mb-1">Mo. Taxes/Heat ($)</label>
                         <input type="number" value={prop.propertyTax || ""} onChange={(e) => updateProperty(prop.id, { propertyTax: Number(e.target.value) })} className="w-full bg-background border border-border rounded px-2 py-1 font-mono" />
                       </div>
@@ -499,7 +496,6 @@ function Dashboard() {
               )}
             </div>
 
-            {/* Injected Collateral Sync Component Mapping via local state configuration */}
             <CollateralPanel state={collateral} setState={setCollateral} onFlagsChange={setCollateralFlags} amortizationOverride={amortization} />
 
             {sandbox ? (
@@ -525,7 +521,6 @@ function Dashboard() {
           </>
         )}
 
-        {/* Alternate Application View Routes */}
         {activeTab === "Pipeline" && (
           <div className="bg-card border border-border rounded-xl p-6 space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Pipeline File Ledger</h2>
@@ -608,7 +603,7 @@ function Dashboard() {
   );
 }
 
-/* ────────────────────────── GLOBAL HEADER ────────────────────────── */
+/* ────────────────────────── MODULE SUBCOMPONENTS ────────────────────────── */
 
 function GlobalHeader({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (v: string) => void }) {
   return (
@@ -642,7 +637,7 @@ function GlobalHeader({ activeTab, setActiveTab }: { activeTab: string; setActiv
   );
 }
 
-function PaneHeader({ icon, kicker, title, subtitle }: { icon: React.ReactNode; kicker: string; title: string; subtitle: string }) {
+function PaneHeader({ icon, kicker, title }: { icon: React.ReactNode; kicker: string; title: string }) {
   return (
     <div className="flex h-12 items-center justify-between border-b border-border bg-card px-4">
       <div className="flex items-center gap-2.5 min-w-0">
@@ -656,7 +651,7 @@ function PaneHeader({ icon, kicker, title, subtitle }: { icon: React.ReactNode; 
   );
 }
 
-function ReconRow({ doc, val, status, tone, delta }: { doc: string; val: string; status: string; tone?: "ok" | "warn"; delta?: string }) {
+function ReconRow({ doc, val, status, tone }: { doc: string; val: string; status: string; tone?: "ok" | "warn" }) {
   return (
     <div className="flex items-center justify-between py-1.5 border-b border-border text-[11px]">
       <span className="text-muted-foreground">{doc}</span>
@@ -668,7 +663,7 @@ function ReconRow({ doc, val, status, tone, delta }: { doc: string; val: string;
   );
 }
 
-function ScoringMatrix({ craCleared, analysis, debtService, ltv, highRatio }: any) {
+function ScoringMatrix({ ltv, highRatio, debtService }: any) {
   return (
     <div className="flex h-full flex-col p-4 space-y-3">
       <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-1">02 · Risk Scoring Matrix</div>
@@ -702,7 +697,7 @@ function ConditionsPanel({ conditions, setConditions }: any) {
 function DocumentLens({ incomeOverride, setIncomeOverride }: any) {
   return (
     <div className="flex flex-col h-full border border-border rounded-xl shadow-sm overflow-hidden bg-card">
-      <PaneHeader icon={<FileText className="h-4 w-4" />} kicker="WORKSPACE MODULE" title="Forensic Document Lens" subtitle="" />
+      <PaneHeader icon={<FileText className="h-4 w-4" />} kicker="WORKSPACE MODULE" title="Forensic Document Lens" />
       <div className="p-4 flex-1 space-y-4">
         <div className="border border-border p-3 rounded-lg space-y-2 bg-card">
           <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">CRA Line Reconciliation</span>
