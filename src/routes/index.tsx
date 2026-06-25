@@ -3,10 +3,12 @@ import { useState, useEffect } from "react";
 import React from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+// This interface mirrors your database columns exactly
 interface ApplicationRecord {
   application_id: string;
   applicant_full_name: string;
   amortization_months: number;
+  requested_loan_amount: number;
 }
 
 export const Route = createFileRoute("/")({
@@ -14,37 +16,50 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
-  const [data, setData] = useState<ApplicationRecord[]>([]);
+  const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchApplications = async () => {
       setLoading(true);
+      setError(null);
+      
       const { data, error } = await supabase
         .from('mortgage_applications')
-        .select('application_id, applicant_full_name, amortization_months');
+        .select('application_id, applicant_full_name, amortization_months, requested_loan_amount');
       
       if (error) {
-        // This will now show the actual error message in the console
-        console.error("Database Fetch Error Details:", JSON.stringify(error, null, 2));
+        console.error("Supabase Error:", error);
+        setError(error.message);
       } else if (data) {
-        setData(data as ApplicationRecord[]);
+        setApplications(data as ApplicationRecord[]);
       }
       setLoading(false);
     };
-    fetchData();
+    
+    fetchApplications();
   }, []);
 
-  if (loading) return <div className="p-10 text-center">Connecting to Database...</div>;
+  if (loading) return <div className="p-20 text-center">Loading from Database...</div>;
+  if (error) return <div className="p-20 text-center text-red-500">Error: {error}</div>;
 
   return (
     <div className="p-6">
-      <h1 className="text-xl font-bold mb-4">Underwriter Dashboard</h1>
-      {data.length === 0 ? (
-        <p>No applications found in database.</p>
-      ) : (
-        <pre className="text-xs bg-slate-100 p-4">{JSON.stringify(data, null, 2)}</pre>
-      )}
+      <h1 className="text-xl font-bold mb-6">BrokerMind AI - Underwriter Workspace</h1>
+      
+      <div className="grid gap-4">
+        {applications.length === 0 ? (
+          <p>No applications found. Add a record in your database.</p>
+        ) : (
+          applications.map((app) => (
+            <div key={app.application_id} className="p-4 border rounded-lg bg-card shadow-sm">
+              <h2 className="font-bold">{app.applicant_full_name}</h2>
+              <p className="text-sm text-muted-foreground">Loan: ${app.requested_loan_amount}</p>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
