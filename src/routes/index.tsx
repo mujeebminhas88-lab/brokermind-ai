@@ -579,4 +579,259 @@ function Dashboard() {
                           </div>
                           <div>
                             <label className="block text-[11px] text-muted-foreground font-medium mb-1">Calculation Offset Strategy</label>
-                            <select value={prop.rentalCalculationMethod} onChange={(e) => updateProperty(prop.id, { rentalCalculationMethod: e.target.value as any
+                            <select value={prop.rentalCalculationMethod} onChange={(e) => updateProperty(prop.id, { rentalCalculationMethod: e.target.value as any })} className="w-full bg-background border border-border rounded p-1 focus:outline-none">
+                              <option value="debt-service-offset">Rental Offset (TDS Matrix Deduction)</option>
+                              <option value="gross-add-to-income">Add Directly to Gross Qualification</option>
+                            </select>
+                          </div>
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="block text-[11px] text-muted-foreground font-medium flex items-center gap-1"><Sliders className="h-3 w-3 text-emerald-600" /> Inclusion Ratio</label>
+                              <span className="font-mono font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">{prop.rentalInclusionPercentage}%</span>
+                            </div>
+                            <input type="range" min="0" max="100" step="5" value={prop.rentalInclusionPercentage} onChange={(e) => updateProperty(prop.id, { rentalInclusionPercentage: Number(e.target.value) })} className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-emerald-600 mt-2" />
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="absolute top-2 right-2 md:relative md:top-auto md:right-auto md:col-span-1 text-right">
+                        <button onClick={() => removeProperty(prop.id)} className="p-1.5 text-muted-foreground hover:text-red-500 rounded border border-transparent hover:border-border transition-all"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Syndermaster synchronization bridge attached here */}
+            <CollateralPanel state={currentSyncedCollateral} setState={setCollateral} onFlagsChange={setCollateralFlags} amortizationOverride={amortization} />
+
+            {sandbox ? (
+              <SandboxPanel onAnalyzed={setAnalysis} onClear={() => setAnalysis(null)} />
+            ) : (
+              <NoaUploader analysis={analysis} analyzing={analyzing} onAnalyzed={setAnalysis} onAnalyzingChange={setAnalyzing} onClear={() => setAnalysis(null)} />
+            )}
+            
+            <LiabilitiesPanel liabilities={liabilities} setLiabilities={setLiabilities} result={debtService} />
+            <EmploymentIntakePanel state={employment} setState={setEmployment} onFlagsChange={setEmploymentFlags} />
+            
+            <main className="grid grid-cols-12 gap-px bg-border" style={{ minHeight: "calc(100vh - 168px)" }}>
+              <section className="col-span-12 lg:col-span-5 bg-background overflow-hidden">
+                <DocumentLens />
+              </section>
+              <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden relative">
+                <ScoringMatrix ltv={ltvCalc.ltv} highRatio={ltvCalc.highRatio} debtService={debtService} />
+              </section>
+              <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden relative">
+                <ConditionsPanel conditions={conditions} setConditions={setConditions} />
+              </section>
+            </main>
+          </>
+        )}
+
+        {activeTab === "Pipeline" && (
+          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Pipeline File Ledger</h2>
+            <div className="border border-border rounded-lg overflow-hidden text-xs">
+              <table className="w-full text-left font-mono">
+                <thead className="bg-secondary/60 border-b border-border text-muted-foreground font-sans">
+                  <tr>
+                    <th className="p-3 w-10 text-center">Select</th>
+                    <th className="p-3">Application ID</th>
+                    <th className="p-3">Borrower Name</th>
+                    <th className="p-3">Amortization Stream</th>
+                    <th className="p-3">Co-Applicant Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {applications.map((app) => (
+                    <tr 
+                      key={app.id} 
+                      className={`hover:bg-secondary/20 transition-colors ${app.id === activeAppId ? "bg-emerald-500/5" : ""}`}
+                    >
+                      <td className="p-3 text-center">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedAppIdsForDeletion.includes(app.id)} 
+                          onChange={() => toggleAppSelectionForDeletion(app.id)}
+                          className="rounded border-border text-emerald-600 focus:ring-emerald-500"
+                        />
+                      </td>
+                      <td 
+                        className="p-3 font-bold text-emerald-600 cursor-pointer underline decoration-dotted"
+                        onClick={() => setActiveAppId(app.id)}
+                      >
+                        {app.id}
+                      </td>
+                      <td className="p-3 font-sans text-foreground font-medium">{app.id === DEFAULT_APP_NUMBER ? activeTaxpayerName : app.taxpayerName}</td>
+                      <td className="p-3">{app.id === activeAppId ? amortization : app.amortization} Years</td>
+                      <td className="p-3 font-sans">{(app.id === activeAppId ? coApplicant.enabled : app.coApplicant.enabled) ? "Assigned Spouse" : "None Assigned"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "Conditions" && (
+          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Conditions Hub</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {conditions.map((c) => (
+                <div key={c.id} className="p-4 border border-border bg-secondary/10 rounded-xl flex items-start gap-3 text-xs">
+                  <input type="checkbox" checked={c.satisfied} onChange={(e) => setConditions(conditions.map(item => item.id === c.id ? { ...item, satisfied: e.target.checked } : item))} className="mt-0.5 rounded" />
+                  <div>
+                    <span className="font-mono text-[10px] text-muted-foreground uppercase">{c.id}</span>
+                    <h4 className="font-semibold text-foreground text-sm mt-0.5">{c.title}</h4>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "Compliance" && (
+          <div className="bg-card border border-border rounded-xl p-6 space-y-4 font-mono text-xs">
+            <h2 className="text-sm font-bold font-sans uppercase tracking-wider text-foreground">Anti-Fraud & AML Compliance Risk Ledger</h2>
+            <p className="text-xs font-sans text-muted-foreground">Real-time threat monitoring checks scanning documentation feeds for structured deployment profiles or asset misalignments.</p>
+            
+            {amlFlags.length === 0 ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg font-sans">
+                No active anti-money laundering variances or structuring thresholds triggered inside document processing streams.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {amlFlags.map((flag) => (
+                  <div key={flag.id} className={`p-4 border rounded-xl flex items-start gap-3 bg-card ${flag.risk === "high" ? "border-red-200 bg-red-50/10" : "border-amber-200 bg-amber-50/10"}`}>
+                    <ShieldAlert className={`h-4 w-4 shrink-0 mt-0.5 ${flag.risk === "high" ? "text-red-600" : "text-amber-600"}`} />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-foreground">{flag.id} · {flag.metric}</span>
+                        <span className={`text-[10px] uppercase font-sans font-bold px-1.5 py-0.5 rounded ${flag.risk === "high" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>
+                          {flag.risk} Severity Risk
+                        </span>
+                      </div>
+                      <p className="font-sans text-muted-foreground mt-1 text-[11.5px]">{flag.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="p-4 bg-secondary/30 rounded-lg border border-border space-y-2 mt-4">
+              <div className="flex justify-between font-sans">
+                <span>Co-Applicant Marital Title Asset Risk Match</span>
+                <span className={coApplicant.enabled && !coApplicant.onTitle ? "text-amber-600 font-mono font-bold" : "text-emerald-600 font-mono font-bold"}>
+                  {coApplicant.enabled && !coApplicant.onTitle ? "[SPLIT TITLE WARNING FLAG]" : "[NOMINAL PASS]"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "Reports" && (
+          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Executive Deal Analytics Report</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono text-center">
+              <div className="p-4 bg-secondary/30 border border-border rounded-xl">
+                <div className="text-muted-foreground font-sans text-[11px] mb-1">Calculated GDS Ratio</div>
+                <div className="text-xl font-bold text-foreground">{debtService.gds}%</div>
+              </div>
+              <div className="p-4 bg-secondary/30 border border-border rounded-xl">
+                <div className="text-muted-foreground font-sans text-[11px] mb-1">Calculated TDS Ratio</div>
+                <div className="text-xl font-bold text-foreground">{debtService.tds}%</div>
+              </div>
+              <div className="p-4 bg-secondary/30 border border-border rounded-xl">
+                <div className="text-muted-foreground font-sans text-[11px] mb-1">Amortization Stream Assignment</div>
+                <div className="text-xl font-bold text-emerald-600">{amortization} Years</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────── UTILITY WORKSPACE SUBCOMPONENTS ────────────────────────── */
+
+function GlobalHeader({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (v: string) => void }) {
+  return (
+    <header className="bg-card border-b border-border h-14 px-6 flex items-center justify-between shadow-xs">
+      <div className="flex items-center gap-8">
+        <div className="flex items-center gap-2">
+          <div className="h-6 w-6 bg-emerald-700 rounded flex items-center justify-center text-white font-bold text-xs">B</div>
+          <span className="font-bold tracking-tight text-sm text-foreground">
+            BrokerMind <span className="text-emerald-600">AI</span>
+          </span>
+        </div>
+        <nav className="hidden md:flex items-center gap-1 h-14">
+          {["Pipeline", "Adjudication", "Conditions", "Compliance", "Reports"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`h-full px-4 text-xs font-semibold border-b-2 transition-all duration-150 ${activeTab === tab ? "border-emerald-600 text-emerald-600 bg-emerald-500/5" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            >
+              {tab}
+            </button>
+          ))}
+        </nav>
+      </div>
+      <div className="flex items-center gap-4 max-w-sm w-full md:w-72 relative">
+        <div className="relative w-full">
+          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <input type="text" placeholder="Search applications..." className="w-full bg-secondary/40 border border-border rounded-lg pl-8 pr-3 py-1.5 text-[11.5px] focus:outline-none" />
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function PaneHeader({ icon, kicker, title }: { icon: React.ReactNode; kicker: string; title: string }) {
+  return (
+    <div className="flex h-12 items-center justify-between border-b border-border bg-card px-4">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className="text-muted-foreground shrink-0">{icon}</div>
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground">{kicker}</span>
+          <h2 className="text-[12.5px] font-bold tracking-tight truncate text-foreground">{title}</h2>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReconRow({ doc, val, status, tone }: { doc: string; val: string; status: string; tone?: "ok" | "warn" }) {
+  return (
+    <div className="flex items-center justify-between py-1.5 border-b border-border text-[11px]">
+      <span className="text-muted-foreground">{doc}</span>
+      <div className="flex items-center gap-2 font-mono">
+        <span>{val}</span>
+        <span className={`px-1.5 py-0.5 text-[9px] font-bold ${tone === "ok" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{status}</span>
+      </div>
+    </div>
+  );
+}
+
+function ScoringMatrix({ ltv, highRatio, debtService }: any) {
+  return (
+    <div className="flex h-full flex-col p-4 space-y-3">
+      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-1">02 · Risk Scoring Matrix</div>
+      <div className="bg-secondary/30 p-3 rounded-lg border border-border space-y-2 text-xs">
+        <div className="flex justify-between"><span>LTV Ratio</span><span className="font-mono font-bold">{ltv}% ({highRatio ? "High Ratio" : "Conventional"})</span></div>
+        <div className="flex justify-between"><span>Adjusted GDS / TDS</span><span className="font-mono text-emerald-700 font-bold">{debtService.gds}% / {debtService.tds}%</span></div>
+      </div>
+    </div>
+  );
+}
+
+function ConditionsPanel({ conditions, setConditions }: any) {
+  return (
+    <div className="flex h-full flex-col p-4 space-y-3">
+      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-1">03 · Automated Conditions</div>
+      <div className="space-y-2">
+        {conditions.map((c: any) => (
+          <div key={c.id} className="flex items-start gap-2 p-2 border border-border bg-card rounded text-xs">
+            <input type="checkbox" checked={c.satisfied} onChange={(e) => setConditions
