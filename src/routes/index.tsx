@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import React from "react";
 import {
   FileText,
   AlertTriangle,
@@ -24,6 +25,8 @@ import {
   DollarSign,
   X,
   Sparkles,
+  Plus,
+  Loader2,
 } from "lucide-react";
 import { NoaUploader } from "@/components/NoaUploader";
 import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
@@ -34,7 +37,7 @@ import { CollateralPanel, DEFAULT_COLLATERAL, computeLtv, type CollateralState }
 import { EmploymentIntakePanel, DEFAULT_EMPLOYMENT, type EmploymentState } from "@/components/EmploymentIntakePanel";
 import { calculateDebtService } from "@/utils/debtService";
 import type { NoaAnalysis, RiskFlag } from "@/utils/noaParser";
-
+import { supabase } from "@/integrations/supabase/client";
 
 const DEFAULT_APP_NUMBER = "APP-2025-08842";
 const DEFAULT_TAXPAYER = "Mujeeb Minhas";
@@ -94,1552 +97,173 @@ function Dashboard() {
     <div className="min-h-screen bg-background font-display text-foreground antialiased">
       <TopBar />
       <SubHeader applicationNumber={applicationNumber} taxpayerName={taxpayerName} />
-      <CollateralPanel
-        state={collateral}
-        setState={setCollateral}
-        onFlagsChange={setCollateralFlags}
-      />
-      <div className="flex items-center justify-between border-b border-border bg-card">
-        <div className="flex-1">
-          <SandboxToggleBar enabled={sandbox} onToggle={(v) => { setSandbox(v); if (!v) setAnalysis(null); }} />
-        </div>
-        <div className="flex items-center gap-2 border-l border-border px-4 py-2.5">
-          <ExportAuditSheetButton
-            analysis={analysis}
-            applicationNumber={applicationNumber}
-            taxpayerName={taxpayerName}
-            gds={debtService.gds}
-            tds={debtService.tds}
-            aggregateRiskScore={aggregateRiskScore}
-          />
-          <SaveApplicationButton
-            analysis={analysis}
-            applicationNumber={applicationNumber}
-            gds={debtService.gds}
-            tds={debtService.tds}
-            aggregateRiskScore={aggregateRiskScore}
-          />
-        </div>
-      </div>
-      {sandbox ? (
-        <SandboxPanel onAnalyzed={setAnalysis} onClear={() => setAnalysis(null)} />
-      ) : (
-        <NoaUploader
-          analysis={analysis}
-          analyzing={analyzing}
-          onAnalyzed={setAnalysis}
-          onAnalyzingChange={setAnalyzing}
-          onClear={() => setAnalysis(null)}
+      
+      <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+        <LenderManagement />
+        
+        <CollateralPanel
+          state={collateral}
+          setState={setCollateral}
+          onFlagsChange={setCollateralFlags}
         />
-      )}
-      <LiabilitiesPanel
-        liabilities={liabilities}
-        setLiabilities={setLiabilities}
-        result={debtService}
-      />
-      <EmploymentIntakePanel
-        state={employment}
-        setState={setEmployment}
-        onFlagsChange={setEmploymentFlags}
-      />
-      <main
-        className="grid grid-cols-12 gap-px bg-border"
-        style={{ minHeight: "calc(100vh - 168px)" }}
-      >
-        <section className="col-span-12 lg:col-span-5 bg-background overflow-hidden">
-          <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
-        </section>
-        <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden relative">
-          <ScoringMatrix
-            craCleared={craCleared}
-            analysis={analysis}
-            debtService={debtService}
-            extraFlags={extraFlags}
-            ltv={ltvCalc.ltv}
-            highRatio={ltvCalc.highRatio}
-          />
-          {analyzing && <AnalyzingOverlay label="Scoring matrix recalculating" />}
-        </section>
-        <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden relative">
-          <ConditionsPanel
-            conditions={conditions}
-            setConditions={setConditions}
-            incomeOverride={incomeOverride}
-            analysis={analysis}
-          />
-          {analyzing && <AnalyzingOverlay label="Drafting conditions" />}
-        </section>
-      </main>
-      <PipelineLedger
-        onLoadRecord={({ analysis: a, applicationNumber: appNum }) => {
-          setApplicationNumber(appNum);
-          setAnalysis(a);
-          if (typeof window !== "undefined") {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }
-        }}
-      />
-    </div>
-  );
-}
-
-
-function AnalyzingOverlay({ label }: { label: string }) {
-  return (
-    <div
-      className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 backdrop-blur-[2px]"
-      style={{ background: "color-mix(in oklab, var(--background) 78%, transparent)" }}
-    >
-      <div className="flex items-center gap-2.5">
-        <span
-          className="h-2 w-2 animate-pulse"
-          style={{ background: "var(--emerald)" }}
-        />
-        <span className="font-mono text-[10px] font-bold tracking-[0.22em]" style={{ color: "var(--emerald-deep)" }}>
-          AI ANALYZING DOCUMENT
-        </span>
-      </div>
-      <div className="font-mono text-[10.5px] text-muted-foreground">{label}…</div>
-      <div className="mt-1 h-[2px] w-40 overflow-hidden bg-border">
-        <div
-          className="h-full w-1/2 animate-pulse"
-          style={{ background: "var(--emerald)" }}
-        />
-      </div>
-    </div>
-  );
-}
-
-
-/* ────────────────────────── TOP BAR ────────────────────────── */
-
-function TopBar() {
-  return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
-      <div className="flex items-center gap-8">
-        <div className="flex items-center gap-2.5">
-          <div
-            className="flex h-7 w-7 items-center justify-center"
-            style={{ background: "var(--emerald-deep)" }}
-          >
-            <Layers className="h-3.5 w-3.5 text-primary-foreground" strokeWidth={2.5} />
+        
+        <div className="flex items-center justify-between border-b border-border bg-card">
+          <div className="flex-1">
+            <SandboxToggleBar enabled={sandbox} onToggle={(v) => { setSandbox(v); if (!v) setAnalysis(null); }} />
           </div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-[15px] font-bold tracking-tight">BrokerMind</span>
-            <span className="text-[15px] font-bold tracking-tight" style={{ color: "var(--emerald)" }}>
-              AI
-            </span>
+          <div className="flex items-center gap-2 border-l border-border px-4 py-2.5">
+            <ExportAuditSheetButton
+              analysis={analysis}
+              applicationNumber={applicationNumber}
+              taxpayerName={taxpayerName}
+              gds={debtService.gds}
+              tds={debtService.tds}
+              aggregateRiskScore={aggregateRiskScore}
+            />
+            <SaveApplicationButton
+              analysis={analysis}
+              applicationNumber={applicationNumber}
+              gds={debtService.gds}
+              tds={debtService.tds}
+              aggregateRiskScore={aggregateRiskScore}
+            />
           </div>
         </div>
-        <nav className="hidden items-center gap-1 md:flex">
-          {["Pipeline", "Adjudication", "Conditions", "Compliance", "Reports"].map((n, i) => (
-            <a
-              key={n}
-              className={`px-3 py-1.5 text-[12.5px] font-medium tracking-tight ${
-                i === 1
-                  ? "text-foreground border-b-2 -mb-[17px] pb-[14px]"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              style={i === 1 ? { borderColor: "var(--emerald)" } : undefined}
-              href="#"
-            >
-              {n}
-            </a>
-          ))}
-        </nav>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="relative hidden md:block">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input
-            placeholder="Search applications, brokers, conditions…"
-            className="h-8 w-72 border border-border bg-secondary pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        
+        {sandbox ? (
+          <SandboxPanel onAnalyzed={setAnalysis} onClear={() => setAnalysis(null)} />
+        ) : (
+          <NoaUploader
+            analysis={analysis}
+            analyzing={analyzing}
+            onAnalyzed={setAnalysis}
+            onAnalyzingChange={setAnalyzing}
+            onClear={() => setAnalysis(null)}
           />
-        </div>
-        <button className="flex h-8 w-8 items-center justify-center border border-border bg-card text-muted-foreground hover:text-foreground">
-          <Bell className="h-3.5 w-3.5" />
-        </button>
-        <button className="flex h-8 w-8 items-center justify-center border border-border bg-card text-muted-foreground hover:text-foreground">
-          <Settings className="h-3.5 w-3.5" />
-        </button>
-        <div
-          className="flex h-8 w-8 items-center justify-center text-[11px] font-semibold text-primary-foreground"
-          style={{ background: "var(--emerald-deep)" }}
+        )}
+        
+        <LiabilitiesPanel
+          liabilities={liabilities}
+          setLiabilities={setLiabilities}
+          result={debtService}
+        />
+        
+        <EmploymentIntakePanel
+          state={employment}
+          setState={setEmployment}
+          onFlagsChange={setEmploymentFlags}
+        />
+        
+        <main
+          className="grid grid-cols-12 gap-px bg-border"
+          style={{ minHeight: "calc(100vh - 168px)" }}
         >
-          AK
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function SubHeader({
-  applicationNumber = "APP-2025-08842",
-  taxpayerName = "Mujeeb Minhas",
-}: {
-  applicationNumber?: string;
-  taxpayerName?: string;
-}) {
-  return (
-    <div className="flex h-10 items-center justify-between border-b border-border bg-secondary/60 px-6 text-[11.5px]">
-      <div className="flex items-center gap-4">
-        <span className="font-mono text-muted-foreground">FILE</span>
-        <span className="font-mono font-semibold tracking-wide">#{applicationNumber}</span>
-        <span className="text-border">│</span>
-        <span className="text-muted-foreground">Applicant</span>
-        <span className="font-semibold">{taxpayerName}</span>
-        <span className="text-border">│</span>
-        <span className="text-muted-foreground">Lender</span>
-        <span className="font-semibold">First National A-Lender</span>
-        <span className="text-border">│</span>
-        <span className="text-muted-foreground">Product</span>
-        <span className="font-semibold">5Y Fixed Insured · 78% LTV</span>
-      </div>
-      <div className="flex items-center gap-4">
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <Clock className="h-3 w-3" /> SLA 4h 12m
-        </span>
-        <span
-          className="flex items-center gap-1.5 px-2 py-0.5 font-semibold"
-          style={{ background: "var(--warning-bg)", color: "var(--warning-fg)" }}
-        >
-          <CircleDot className="h-2.5 w-2.5" /> IN ADJUDICATION
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* ────────────────────── COLUMN 1: DOCUMENT LENS ────────────────────── */
-
-function DocumentLens({
-  incomeOverride,
-  setIncomeOverride,
-}: {
-  incomeOverride: IncomeOverride;
-  setIncomeOverride: React.Dispatch<React.SetStateAction<IncomeOverride>>;
-}) {
-  const [modalOpen, setModalOpen] = useState(false);
-  return (
-    <div className="flex h-full flex-col">
-      <PaneHeader
-        icon={<FileText className="h-3.5 w-3.5" />}
-        kicker="01"
-        title="Forensic Document Lens"
-        subtitle="Side-by-side extraction with audit trail"
-      />
-      <div className="grid flex-1 grid-cols-2 gap-px overflow-hidden bg-border">
-        {/* PDF viewer */}
-        <div className="flex flex-col bg-secondary/40">
-          <div className="flex items-center justify-between border-b border-border bg-card px-3 py-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <Receipt className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="truncate font-mono text-[11px] font-medium">
-                CRA_Notice_of_Assessment_2025.pdf
-              </span>
-            </div>
-            <span className="shrink-0 font-mono text-[10px] text-muted-foreground">1 / 3</span>
-          </div>
-          <div className="relative flex-1 overflow-auto p-4">
-            <div className="mx-auto max-w-[280px] bg-card p-5 shadow-[0_1px_0_var(--border),0_8px_24px_-12px_rgba(15,42,30,0.15)]">
-              <div className="mb-3 flex items-center justify-between border-b border-border pb-2">
-                <div>
-                  <div className="text-[8px] font-bold tracking-[0.18em] text-muted-foreground">
-                    CANADA REVENUE AGENCY
-                  </div>
-                  <div className="text-[10px] font-semibold">Notice of Assessment</div>
-                </div>
-                <div className="text-right text-[8px] text-muted-foreground">
-                  <div>Tax Year</div>
-                  <div className="font-bold text-foreground">2025</div>
-                </div>
-              </div>
-
-              <div className="space-y-1 text-[8.5px]">
-                <Row label="Name" value="MINHAS, MUJEEB" />
-                <Row label="SIN" value="••• ••• 421" />
-                <Row label="Date Issued" value="2025-05-14" />
-              </div>
-
-              <div className="mt-3 border-t border-border pt-2 text-[8.5px]">
-                <div className="mb-1 font-semibold text-foreground">Summary</div>
-                <Row label="Line 10100 — Employment" value="$78,420.00" />
-                <Row label="Line 12000 — Dividends" value="$12,180.00" />
-                <Row label="Line 13000 — Other" value="$3,900.00" />
-                <Row label="Line 15000 — Total Income" value="$94,500.00" emphasis />
-                <Row label="Line 23600 — Net Income" value="$88,940.12" />
-                <Row label="Line 26000 — Taxable" value="$88,940.12" />
-              </div>
-
-              <div className="mt-3 border-t border-border pt-2 text-[8.5px]">
-                <div className="mb-1 font-semibold text-foreground">Assessment</div>
-                <Row label="Federal Tax" value="$14,231.04" />
-                <Row label="Provincial Tax" value="$8,902.55" />
-                <Row label="Less: Credits" value="-$2,118.00" />
-                <Row label="Total Payable" value="$21,015.59" />
-                <Row label="Tax Deducted" value="-$16,765.28" />
-                <div
-                  className="mt-1 flex items-center justify-between border px-1.5 py-1 font-bold"
-                  style={{
-                    borderColor: "var(--warning)",
-                    background: "var(--warning-bg)",
-                    color: "var(--warning-fg)",
-                  }}
-                >
-                  <span>BALANCE OWING</span>
-                  <span>$4,250.31</span>
-                </div>
-              </div>
-
-              <div className="mt-3 border-t border-dashed border-border pt-2 text-center text-[7px] tracking-widest text-muted-foreground">
-                — END OF NOTICE —
-              </div>
-            </div>
-            <div className="mt-3 text-center font-mono text-[9px] text-muted-foreground">
-              Page 1 · CRA-NOA-2025 · OCR confidence 98.4%
-            </div>
-          </div>
-        </div>
-
-        {/* Extraction panel */}
-        <div className="flex flex-col bg-card">
-          <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <span className="text-[11px] font-semibold tracking-tight">Extracted Fields</span>
-            <span
-              className="flex items-center gap-1 font-mono text-[10px]"
-              style={{ color: "var(--emerald)" }}
-            >
-              <ShieldCheck className="h-3 w-3" /> VERIFIED
-            </span>
-          </div>
-          <div className="flex-1 overflow-auto p-3">
-            <div className="grid grid-cols-1 gap-2">
-              <Field icon={<User />} label="Taxpayer Name" value="Mujeeb Minhas" />
-              <Field icon={<Hash />} label="SIN (Masked)" value="••• ••• 421" mono />
-              <Field icon={<Calendar />} label="Tax Year" value="2025" mono />
-              <Field
-                icon={<DollarSign />}
-                label="Line 15000 · Total Income"
-                value="$94,500.00"
-                mono
-                accent
-              />
-              <Field icon={<DollarSign />} label="Line 23600 · Net Income" value="$88,940.12" mono />
-              <Field icon={<Building2 />} label="Issuing Agency" value="Canada Revenue Agency" />
-            </div>
-
-            {/* Warning Card */}
-            <div
-              className="mt-4 border-l-4 p-3"
-              style={{
-                borderColor: "var(--warning)",
-                background: "var(--warning-bg)",
-                color: "var(--warning-fg)",
-              }}
-            >
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.14em]">
-                    Warning · CRA Arrears
-                  </div>
-                  <p className="mt-1 text-[12px] font-semibold leading-snug">
-                    Balance owing of <span className="font-mono">$4,250.31</span> detected at
-                    assessment.
-                  </p>
-                  <p className="mt-1 text-[11px] leading-snug opacity-90">
-                    Triggers condition INC-04. Lender requires proof of payment or CRA payment
-                    arrangement prior to instruction.
-                  </p>
-                  <div className="mt-2 flex items-center gap-2 font-mono text-[9.5px] opacity-80">
-                    <span>SRC: Line-Balance-Owing</span>
-                    <span>·</span>
-                    <span>CONF: 99.1%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 border-t border-border pt-3">
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Cross-Document Reconciliation
-              </div>
-              <ReconRow doc="T4 — Employer Inc." val="$78,420.00" status="MATCH" />
-              <ReconRow doc="T5 — Dividends" val="$12,180.00" status="MATCH" />
-              <ReconRow
-                doc="Stated Income (App)"
-                val={incomeOverride ? incomeOverride.value : "$96,000.00"}
-                status={incomeOverride ? "RECONCILED" : "VARIANCE"}
-                tone={incomeOverride ? "ok" : "warn"}
-                delta={incomeOverride ? "OVERRIDE" : "+1.6%"}
-                onClick={incomeOverride ? undefined : () => setModalOpen(true)}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-      {modalOpen && (
-        <IncomeOverrideModal
-          onClose={() => setModalOpen(false)}
-          onApply={(value, note) => {
-            setIncomeOverride({
-              value,
-              note,
-              appliedAt: new Date().toLocaleString("en-CA", { hour12: false }),
-            });
-            setModalOpen(false);
+          <section className="col-span-12 lg:col-span-5 bg-background overflow-hidden">
+            <DocumentLens incomeOverride={incomeOverride} setIncomeOverride={setIncomeOverride} />
+          </section>
+          <section className="col-span-12 lg:col-span-4 bg-background overflow-hidden relative">
+            <ScoringMatrix
+              craCleared={craCleared}
+              analysis={analysis}
+              debtService={debtService}
+              extraFlags={extraFlags}
+              ltv={ltvCalc.ltv}
+              highRatio={ltvCalc.highRatio}
+            />
+            {analyzing && <AnalyzingOverlay label="Scoring matrix recalculating" />}
+          </section>
+          <section className="col-span-12 lg:col-span-3 bg-background overflow-hidden relative">
+            <ConditionsPanel
+              conditions={conditions}
+              setConditions={setConditions}
+              incomeOverride={incomeOverride}
+              analysis={analysis}
+            />
+            {analyzing && <AnalyzingOverlay label="Drafting conditions" />}
+          </section>
+        </main>
+        
+        <PipelineLedger
+          onLoadRecord={({ analysis: a, applicationNumber: appNum }) => {
+            setApplicationNumber(appNum);
+            setAnalysis(a);
+            if (typeof window !== "undefined") {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
           }}
         />
-      )}
-    </div>
-  );
-}
-
-function IncomeOverrideModal({
-  onClose,
-  onApply,
-}: {
-  onClose: () => void;
-  onApply: (value: string, note: string) => void;
-}) {
-  const [value, setValue] = useState("$94,500.00");
-  const [note, setNote] = useState(
-    "Stated income reconciled to CRA Line 15000 per OSFI B-20 §5.1.1. Variance within tolerance; T4 + T5 corroborated."
-  );
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 animate-fade-in"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md border border-border bg-card shadow-[0_20px_60px_-20px_rgba(15,42,30,0.45)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          className="flex items-center justify-between border-b border-border px-4 py-3"
-          style={{ background: "var(--emerald-deep)" }}
-        >
-          <div className="flex items-center gap-2 text-primary-foreground">
-            <ShieldCheck className="h-4 w-4" />
-            <h3 className="text-[13px] font-bold tracking-tight">Manual Income Reconciliation</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-primary-foreground/80 hover:text-primary-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="space-y-4 p-4">
-          <div className="grid grid-cols-2 gap-2 border border-border bg-secondary/50 p-2 text-[10.5px]">
-            <div>
-              <div className="text-muted-foreground">Stated (App)</div>
-              <div className="font-mono font-bold">$96,000.00</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">CRA Line 15000</div>
-              <div className="font-mono font-bold">$94,500.00</div>
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Underwriter Reconciled Income
-            </label>
-            <input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              className="h-9 w-full border border-border bg-background px-2.5 font-mono text-[12.5px] font-semibold focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              OSFI B-20 Compliance Justification Note
-            </label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={4}
-              className="w-full resize-none border border-border bg-background px-2.5 py-2 text-[11.5px] leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-          </div>
-
-          <div className="flex items-center justify-between border-t border-border pt-3">
-            <button
-              onClick={onClose}
-              className="border border-border bg-card px-3 py-1.5 text-[11px] font-semibold tracking-tight hover:bg-secondary"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => onApply(value, note)}
-              className="flex items-center gap-1.5 px-4 py-1.5 text-[11.5px] font-bold tracking-tight text-primary-foreground"
-              style={{ background: "var(--emerald-deep)" }}
-            >
-              Apply Override
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
 }
 
-function Row({ label, value, emphasis }: { label: string; value: string; emphasis?: boolean }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={emphasis ? "font-bold text-foreground" : "font-mono text-foreground"}>
-        {value}
-      </span>
-    </div>
-  );
-}
+/* ────────────────────────── LENDER MANAGEMENT ────────────────────────── */
 
-function Field({
-  icon,
-  label,
-  value,
-  mono,
-  accent,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  mono?: boolean;
-  accent?: boolean;
-}) {
-  return (
-    <div className="border border-border bg-card px-3 py-2 hover:border-foreground/30">
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-        <span className="[&>svg]:h-3 [&>svg]:w-3">{icon}</span>
-        {label}
-      </div>
-      <div
-        className={`mt-0.5 text-[13px] ${mono ? "font-mono" : ""} ${
-          accent ? "font-bold" : "font-semibold"
-        }`}
-        style={accent ? { color: "var(--emerald-deep)" } : undefined}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function ReconRow({
-  doc,
-  val,
-  status,
-  tone = "ok",
-  delta,
-  onClick,
-}: {
-  doc: string;
-  val: string;
-  status: string;
-  tone?: "ok" | "warn";
-  delta?: string;
-  onClick?: () => void;
-}) {
-  const color =
-    tone === "warn"
-      ? { background: "var(--warning-bg)", color: "var(--warning-fg)" }
-      : { background: "color-mix(in oklab, var(--success) 14%, transparent)", color: "var(--success)" };
-  return (
-    <div
-      onClick={onClick}
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      className={`flex items-center justify-between border-b border-border py-1.5 text-[11px] last:border-0 ${onClick ? "cursor-pointer hover:bg-secondary/60 px-1 -mx-1 transition-colors" : ""}`}
-    >
-      <span className="truncate text-foreground">{doc}</span>
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-muted-foreground">{val}</span>
-        {delta && <span className="font-mono text-[10px] text-muted-foreground">{delta}</span>}
-        <span className="px-1.5 py-px font-mono text-[9.5px] font-bold tracking-wider" style={color}>
-          {status}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* ────────────────────── COLUMN 2: SCORING MATRIX ────────────────────── */
-
-function ScoringMatrix({
-  craCleared,
-  analysis,
-  debtService,
-  extraFlags = [],
-  ltv,
-  highRatio,
-}: {
-  craCleared: boolean;
-  analysis: NoaAnalysis | null;
-  debtService: import("@/utils/debtService").DebtServiceResult;
-  extraFlags?: RiskFlag[];
-  ltv: number;
-  highRatio: boolean;
-}) {
-  const score = craCleared ? 30 : 45;
-  const riskLabel = craCleared ? "Low Risk" : "Moderate Risk";
-  const riskBg = craCleared
-
-    ? "color-mix(in oklab, var(--success) 16%, transparent)"
-    : "var(--warning-bg)";
-  const riskFg = craCleared ? "var(--success)" : "var(--warning-fg)";
-  return (
-    <div className="flex h-full flex-col overflow-auto">
-      <PaneHeader
-        icon={<Activity className="h-3.5 w-3.5" />}
-        kicker="02"
-        title="Dynamic Scoring Matrix"
-        subtitle="B-20 stress-tested qualification"
-      />
-      <div className="space-y-3 p-4">
-        <div className="grid grid-cols-3 gap-2">
-          <DebtRatioCard
-            label="Stress-Tested GDS"
-            value={debtService.gds}
-            cap={debtService.gdsCap}
-            exceeded={debtService.gdsExceeded}
-          />
-          <DebtRatioCard
-            label="Stress-Tested TDS"
-            value={debtService.tds}
-            cap={debtService.tdsCap}
-            exceeded={debtService.tdsExceeded}
-          />
-          <RatioCard
-            label="LTV Ratio"
-            value={ltv.toFixed(1)}
-            cap={highRatio ? "Insured" : "Conv."}
-            tone={highRatio ? "bad" : "good"}
-          />
-
-        </div>
-
-        {/* Aggregate Risk Score */}
-        <div className="border border-border bg-card p-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Aggregate Risk Score
-              </div>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-[44px] font-bold leading-none text-foreground transition-all duration-300">
-                  {score}
-                </span>
-                <span className="font-mono text-[13px] text-muted-foreground">/ 100</span>
-              </div>
-              <div
-                className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.12em] transition-colors"
-                style={{ background: riskBg, color: riskFg }}
-              >
-                <CircleDot className="h-2.5 w-2.5" /> {riskLabel}
-              </div>
-            </div>
-            <div className="text-right text-[10px] text-muted-foreground">
-              <div>Model</div>
-              <div className="font-mono text-foreground">BMA-RISK v4.2</div>
-              <div className="mt-1">Updated</div>
-              <div className="font-mono text-foreground">14:02:11</div>
-            </div>
-          </div>
-
-          {/* Bar */}
-          <div className="mt-4">
-            <div className="relative h-2 w-full bg-secondary">
-              <div
-                className="absolute left-0 top-0 h-full transition-all duration-500"
-                style={{
-                  width: `${score}%`,
-                  background:
-                    "linear-gradient(90deg, var(--success), var(--warning))",
-                }}
-              />
-              <div
-                className="absolute top-[-3px] h-3 w-[2px] transition-all duration-500"
-                style={{ left: `${score}%`, background: "var(--foreground)" }}
-              />
-            </div>
-            <div className="mt-1 flex justify-between font-mono text-[9.5px] text-muted-foreground">
-              <span>0 LOW</span>
-              <span>50</span>
-              <span>100 SEVERE</span>
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-3 text-[10.5px]">
-            <Mini label="Capacity" v="62" />
-            <Mini label="Credit" v="38" />
-            <Mini label="Collateral" v="35" />
-          </div>
-        </div>
-
-        {/* Risk Flags */}
-        <div className="border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <span className="text-[11px] font-semibold tracking-tight">Triggered Risk Flags</span>
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {(() => {
-                const base = craCleared ? 1 : 2;
-                const debt = debtService.gdsExceeded || debtService.tdsExceeded ? 1 : 0;
-                return `${base + debt + extraFlags.length} ACTIVE`;
-              })()}
-            </span>
-          </div>
-          <div className="divide-y divide-border">
-            <FlagRow
-              code="TAX-CRA-ARREARS"
-              title={craCleared ? "Cleared by condition INC-04" : "CRA balance owing detected"}
-              severity={craCleared ? "Cleared" : "Elevated"}
-              penalty={craCleared ? "—" : "+15"}
-              tone={craCleared ? "cleared" : "warn"}
-              icon={<Receipt className="h-3.5 w-3.5" />}
-            />
-            <FlagRow
-              code="INC-DROP-YOY"
-              title="Year-over-year income variance"
-              severity="None"
-              penalty="Stable"
-              tone="ok"
-              icon={<TrendingDown className="h-3.5 w-3.5" />}
-            />
-            {(debtService.gdsExceeded || debtService.tdsExceeded) && (
-              <FlagRow
-                code="COMPLIANCE-B20-DEBT-RATIO"
-                title="Debt service ratios exceed standard OSFI B-20 qualification limits."
-                severity="High"
-                penalty={`+${(debtService.gdsExceeded ? 18 : 0) + (debtService.tdsExceeded ? 22 : 0)}`}
-                tone="warn"
-                icon={<AlertTriangle className="h-3.5 w-3.5" />}
-              />
-            )}
-            {extraFlags.map((f) => (
-              <FlagRow
-                key={f.code}
-                code={f.code}
-                title={f.title}
-                severity={f.severity}
-                penalty={`+${f.penalty}`}
-                tone="warn"
-                icon={<AlertTriangle className="h-3.5 w-3.5" />}
-              />
-            ))}
-          </div>
-        </div>
-
-        {analysis && <NoaAnalysisCard analysis={analysis} />}
-
-
-
-
-        {/* Calculation Trace */}
-        <div className="border border-border bg-secondary/40 p-3">
-          <div className="mb-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            <span>Calculation Trace</span>
-            <span>Qualifying Rate · 7.04%</span>
-          </div>
-          <div className="space-y-1 font-mono text-[11px]">
-            <Trace l="Monthly Qualifying Income" r={fmtMoney(debtService.monthlyIncome)} />
-            <Trace l="GDS Numerator" r={fmtMoney(debtService.gdsNumerator)} sub />
-            <Trace l="TDS Numerator" r={fmtMoney(debtService.tdsNumerator)} sub />
-            <Trace l="GDS Ratio" r={`${debtService.gds.toFixed(2)}%`} />
-            <Trace l="TDS Ratio" r={`${debtService.tds.toFixed(2)}%`} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function fmtMoney(n: number) {
-  return n.toLocaleString("en-CA", {
-    style: "currency",
-    currency: "CAD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function DebtRatioCard({
-  label,
-  value,
-  cap,
-  exceeded,
-}: {
-  label: string;
-  value: number;
-  cap: number;
-  exceeded: boolean;
-}) {
-  const color = exceeded ? "var(--destructive)" : "var(--success)";
-  const pct = Math.min(100, Math.max(0, (value / cap) * 100));
-  return (
-    <div
-      className="border bg-card p-3 transition-colors"
-      style={{
-        borderColor: exceeded ? "var(--destructive)" : "var(--border)",
-      }}
-    >
-      <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-1.5 flex items-baseline gap-1">
-        <span
-          className="font-mono text-[22px] font-bold leading-none tabular-nums transition-colors"
-          style={exceeded ? { color: "var(--destructive)" } : undefined}
-        >
-          {value.toFixed(1)}
-        </span>
-        <span className="text-[11px] text-muted-foreground">%</span>
-      </div>
-      <div className="mt-2 h-1 w-full bg-secondary">
-        <div
-          className="h-full transition-all duration-500"
-          style={{ width: `${pct}%`, background: color }}
-        />
-      </div>
-      <div className="mt-1.5 flex items-center justify-between font-mono text-[9.5px]">
-        <span style={{ color }}>
-          ● {exceeded ? "Exceeds" : "Within"}
-        </span>
-        <span className="text-muted-foreground">Cap {cap.toFixed(1)}%</span>
-      </div>
-    </div>
-  );
-}
-
-function RatioCard({
-  label,
-  value,
-  cap,
-  tone,
-}: {
-  label: string;
-  value: string;
-  cap: string;
-  tone: "good" | "info" | "bad";
-}) {
-  const color =
-    tone === "good"
-      ? "var(--success)"
-      : tone === "info"
-        ? "var(--info)"
-        : "var(--destructive)";
-  return (
-    <div className="border border-border bg-card p-3">
-      <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-1.5 flex items-baseline gap-1">
-        <span className="font-mono text-[22px] font-bold leading-none">{value}</span>
-        <span className="text-[11px] text-muted-foreground">%</span>
-      </div>
-      <div className="mt-2 h-1 w-full bg-secondary">
-        <div className="h-full" style={{ width: "78%", background: color }} />
-      </div>
-      <div className="mt-1.5 flex items-center justify-between font-mono text-[9.5px]">
-        <span style={{ color }}>● {tone === "info" ? "Insured" : "Within"}</span>
-        <span className="text-muted-foreground">Cap {cap}</span>
-      </div>
-    </div>
-  );
-}
-
-function Mini({ label, v }: { label: string; v: string }) {
-  return (
-    <div>
-      <div className="text-[9.5px] uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
-      <div className="font-mono text-[15px] font-semibold">{v}</div>
-    </div>
-  );
-}
-
-function FlagRow({
-  code,
-  title,
-  severity,
-  penalty,
-  tone,
-  icon,
-}: {
-  code: string;
-  title: string;
-  severity: string;
-  penalty: string;
-  tone: "warn" | "ok" | "cleared";
-  icon: React.ReactNode;
-}) {
-  const sev =
-    tone === "warn"
-      ? { background: "var(--warning-bg)", color: "var(--warning-fg)" }
-      : tone === "cleared"
-        ? { background: "color-mix(in oklab, var(--muted-foreground) 14%, transparent)", color: "var(--muted-foreground)" }
-        : { background: "color-mix(in oklab, var(--success) 14%, transparent)", color: "var(--success)" };
-  const dimmed = tone === "cleared" ? "opacity-50" : "";
-  return (
-    <div className={`flex items-center justify-between px-3 py-2.5 transition-opacity ${dimmed}`}>
-      <div className="flex min-w-0 items-start gap-2.5">
-        <div className="mt-0.5 text-muted-foreground">{icon}</div>
-        <div className="min-w-0">
-          <div className={`font-mono text-[10.5px] font-bold tracking-wide ${tone === "cleared" ? "line-through" : ""}`}>
-            {code}
-          </div>
-          <div className="truncate text-[11.5px] text-foreground/80">{title}</div>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <span
-          className="px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.12em]"
-          style={sev}
-        >
-          {severity}
-        </span>
-        <span className="w-16 text-right font-mono text-[10.5px] font-semibold text-foreground">
-          {penalty}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function Trace({ l, r, sub }: { l: string; r: string; sub?: boolean }) {
-  return (
-    <div className={`flex justify-between ${sub ? "border-t border-border pt-1 font-bold" : ""}`}>
-      <span className="text-muted-foreground">{l}</span>
-      <span className="text-foreground">{r}</span>
-    </div>
-  );
-}
-
-function NoaAnalysisCard({ analysis }: { analysis: NoaAnalysis }) {
-  const { payload, flags, aggregatePenalty } = analysis;
-  const tone =
-    aggregatePenalty >= 25 ? "warn" : aggregatePenalty > 0 ? "elevated" : "ok";
-  const accent =
-    tone === "warn"
-      ? { background: "var(--warning-bg)", color: "var(--warning-fg)" }
-      : tone === "elevated"
-        ? { background: "color-mix(in oklab, var(--warning) 14%, transparent)", color: "var(--warning-fg)" }
-        : { background: "color-mix(in oklab, var(--success) 14%, transparent)", color: "var(--success)" };
-
-  return (
-    <div className="border border-border bg-card">
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--emerald)" }} />
-          <span className="text-[11px] font-semibold tracking-tight">
-            NOA Analysis · {payload.tax_year}
-          </span>
-        </div>
-        <span
-          className="px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.12em]"
-          style={accent}
-        >
-          {aggregatePenalty > 0 ? `+${aggregatePenalty} PTS` : "CLEAN"}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-3 gap-px border-b border-border bg-border text-[10.5px]">
-        <AnalysisStat label="Line 15000" value={fmtCAD(payload.line_15000_total_income)} />
-        <AnalysisStat label="Line 23600" value={fmtCAD(payload.line_23600_net_income)} />
-        <AnalysisStat
-          label="Balance Owing"
-          value={fmtCAD(payload.balance_owing_at_assessment)}
-          warn={payload.balance_owing_at_assessment > 0}
-        />
-      </div>
-
-      {flags.length === 0 ? (
-        <div className="px-3 py-3 text-[11px] text-muted-foreground">
-          No risk anomalies detected. NOA conforms to OSFI B-20 income contract.
-        </div>
-      ) : (
-        <ul className="divide-y divide-border">
-          {flags.map((f) => (
-            <NoaFlagRow key={f.code} flag={f} />
-          ))}
-        </ul>
-      )}
-
-      <div className="border-t border-border bg-secondary/40 px-3 py-1.5 font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted-foreground">
-        Evaluated {analysis.evaluatedAt} · BMA-NOA v1.0
-      </div>
-    </div>
-  );
-}
-
-function AnalysisStat({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
-  return (
-    <div className="bg-card px-2.5 py-2">
-      <div className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
-      <div
-        className="font-mono text-[11.5px] font-bold"
-        style={warn ? { color: "var(--warning-fg)" } : undefined}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function NoaFlagRow({ flag }: { flag: RiskFlag }) {
-  const sev =
-    flag.severity === "High"
-      ? { background: "var(--warning-bg)", color: "var(--warning-fg)" }
-      : flag.severity === "Elevated"
-        ? { background: "color-mix(in oklab, var(--warning) 14%, transparent)", color: "var(--warning-fg)" }
-        : { background: "color-mix(in oklab, var(--success) 14%, transparent)", color: "var(--success)" };
-  return (
-    <li className="flex items-start justify-between gap-2 px-3 py-2.5">
-      <div className="min-w-0">
-        <div className="font-mono text-[10.5px] font-bold tracking-wide">{flag.code}</div>
-        <div className="text-[11.5px] font-semibold text-foreground/85">{flag.title}</div>
-        <div className="mt-0.5 text-[10.5px] leading-snug text-muted-foreground">
-          {flag.detail}
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className="px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.12em]" style={sev}>
-          {flag.severity}
-        </span>
-        <span className="font-mono text-[10.5px] font-bold">+{flag.penalty}</span>
-      </div>
-    </li>
-  );
-}
-
-function fmtCAD(n: number) {
-  return n.toLocaleString("en-CA", {
-    style: "currency",
-    currency: "CAD",
-    minimumFractionDigits: 2,
-  });
-}
-
-/* ────────────────────── COLUMN 3: CONDITIONS PANEL ────────────────────── */
-
-type Cond = {
-  id: string;
-  title: string;
-  category: string;
-  satisfied: boolean;
-};
-
-const initialConditions: Cond[] = [
-  { id: "INC-04", title: "Verify CRA Outstanding Balance", category: "Income", satisfied: false },
-  { id: "EMP-02", title: "Confirm continuous employment 24 mo.", category: "Employment", satisfied: true },
-  { id: "DWN-01", title: "Source of down payment — 90 day history", category: "Down Payment", satisfied: false },
-  { id: "PROP-03", title: "Appraisal — independent AACI report", category: "Property", satisfied: false },
-  { id: "INS-01", title: "Property insurance binder", category: "Insurance", satisfied: true },
+const BASELINE_LENDERS = [
+  { id: "b2b", name: "B2B Bank", tier: "prime" },
+  { id: "bmo", name: "BMO (Authorized Brokers Only)", tier: "prime" },
+  { id: "cwb-optimum", name: "CWB Optimum Mortgage A", tier: "prime" },
+  { id: "home-classic", name: "Home Trust Company Classic", tier: "prime" },
+  { id: "merix", name: "Merix Upfront", tier: "prime" },
+  { id: "mcap-prime", name: "MCAP Prime", tier: "prime" },
+  { id: "rfa-prime", name: "RFA Prime", tier: "prime" },
+  { id: "rmg", name: "RMG Mortgages (FCX)", tier: "prime" },
+  { id: "scotia", name: "Scotia Bank / Banque Scotia", tier: "prime" },
+  { id: "td", name: "TD Canada Trust", tier: "prime" },
+  { id: "alterna", name: "Alterna", tier: "alt" },
+  { id: "community-trust", name: "Community Trust", tier: "alt" },
+  { id: "advanced-mic", name: "Advanced MIC", tier: "private" },
+  { id: "alta-west", name: "Alt- Alta West Capital", tier: "private" }
 ];
 
-function ConditionsPanel({
-  conditions,
-  setConditions,
-  incomeOverride,
-  analysis,
-}: {
-  conditions: Cond[];
-  setConditions: React.Dispatch<React.SetStateAction<Cond[]>>;
-  incomeOverride: IncomeOverride;
-  analysis: NoaAnalysis | null;
-}) {
-  const [tab, setTab] = useState<"internal" | "broker" | "borrower">("internal");
-  const [activeId, setActiveId] = useState<string>("INC-04");
+function LenderManagement() {
+  const [lenders, setLenders] = useState(BASELINE_LENDERS);
+  const [activeTier, setActiveTier] = useState<"prime" | "alt" | "private" | string>("prime");
+  const [selectedLender, setSelectedLender] = useState("");
+  const [loading, setLoading] = useState(false);
+  
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [newLenderName, setNewLenderName] = useState("");
+  const [newLenderTier, setNewLenderTier] = useState<"prime" | "alt" | "private">("prime");
 
-  // Merge the NOA-generated condition (if any) into the visible list.
-  const generated: Cond | null = analysis?.draftedCondition
-    ? {
-        id: analysis.draftedCondition.id,
-        title: analysis.draftedCondition.title,
-        category: analysis.draftedCondition.category,
-        satisfied: false,
-      }
-    : null;
-  const mergedConditions: Cond[] = generated ? [generated, ...conditions] : conditions;
-
-  // When a fresh NOA analysis arrives, focus the generated condition.
   useEffect(() => {
-    if (analysis?.generatedConditionId) {
-      setActiveId(analysis.generatedConditionId);
-      setTab("internal");
-    }
-  }, [analysis?.generatedConditionId, analysis?.evaluatedAt]);
-
-  const top = mergedConditions.find((c) => c.id === activeId) ?? mergedConditions[0];
-  const isGenerated = generated && top.id === generated.id;
-  const drafts: DraftBundle = isGenerated && analysis?.draftedCondition
-    ? {
-        meta: {
-          docType: "NOA-derived",
-          due: "48 hours",
-          source: `Auto · ${analysis.evaluatedAt}`,
-        },
-        internal: analysis.draftedCondition.internal,
-        broker: analysis.draftedCondition.broker,
-        borrower: analysis.draftedCondition.borrower,
+    async function fetchLenders() {
+      const { data, error } = await supabase.from("custom_lenders").select("*");
+      if (!error && data) {
+        const combined = [...BASELINE_LENDERS, ...data];
+        const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+        setLenders(unique);
       }
-    : (conditionDrafts[top.id] ?? conditionDrafts["INC-04"]);
+    }
+    fetchLenders();
+  }, []);
 
-  const toggleSatisfied = () => {
-    if (isGenerated) return; // generated condition is read-only until accepted into workflow
-    setConditions((c) =>
-      c.map((x) => (x.id === top.id ? { ...x, satisfied: !x.satisfied } : x))
-    );
+  const handleCreateLender = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLenderName.trim()) return;
+
+    setLoading(true);
+    const formattedId = newLenderName.toLowerCase().trim().replace(/[^a-z0-9]/g, "-");
+    
+    const { error } = await supabase
+      .from("custom_lenders")
+      .insert([{ id: formattedId, name: newLenderName.trim(), tier: newLenderTier }]);
+
+    if (error) {
+      alert("Error adding item to database: " + error.message);
+      setLoading(false);
+      return;
+    }
+
+    const updatedList = [...lenders, { id: formattedId, name: newLenderName.trim(), tier: newLenderTier }];
+    setLenders(updatedList);
+    setActiveTier(newLenderTier);
+    setSelectedLender(formattedId);
+    setNewLenderName("");
+    setIsFormOpen(false);
+    setLoading(false);
   };
 
-  const overrideLog = incomeOverride
-    ? `\n\n— — — IMMUTABLE LOG ENTRY — — —\n[${incomeOverride.appliedAt}] MANUAL INCOME RECONCILIATION APPLIED\nReconciled Income: ${incomeOverride.value}\nJustification (OSFI B-20): ${incomeOverride.note}\nLocked by: A. Khan · BMA-AUDIT-${Math.floor(Math.random() * 9000 + 1000)}`
-    : "";
-
-  const internalText = drafts.internal + overrideLog;
+  const currentTierLenders = lenders.filter(item => item.tier === activeTier);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <PaneHeader
-        icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-        kicker="03"
-        title="Conditions Automation"
-        subtitle="Adjudication outputs · ready to dispatch"
-      />
-
-      <div className="flex items-center justify-between border-b border-border bg-secondary/40 px-4 py-2">
-        <div className="flex items-center gap-3 text-[10.5px]">
-          <span className="font-mono uppercase tracking-[0.14em] text-muted-foreground">
-            Conditions
-          </span>
-          <span className="font-mono font-bold">
-            {mergedConditions.filter((c) => c.satisfied).length}
-            <span className="text-muted-foreground">/{mergedConditions.length}</span>
-          </span>
-        </div>
-        <button className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground hover:text-foreground">
-          + Add
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-auto">
-        {/* Featured condition card */}
-        <div className="border-b border-border bg-card p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                <span>Condition</span>
-                <span className="font-bold text-foreground">{top.id}</span>
-                <span className="text-border">|</span>
-                <span>{top.category}</span>
-                {isGenerated && (
-                  <span
-                    className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold tracking-[0.12em] text-primary-foreground"
-                    style={{ background: "var(--emerald-deep)" }}
-                  >
-                    <Sparkles className="h-2.5 w-2.5" /> NOA-DERIVED
-                  </span>
-                )}
-              </div>
-              <h3 className="mt-1 text-[14.5px] font-bold leading-snug tracking-tight">
-                {top.title}
-              </h3>
-            </div>
-            <StatusBadge satisfied={top.satisfied} />
-          </div>
-
-          <div className="mt-3 grid grid-cols-3 gap-2 text-[10.5px]">
-            <Meta label="Doc Type" v={drafts.meta.docType} />
-            <Meta label="Due" v={drafts.meta.due} />
-            <Meta label="Source" v={drafts.meta.source} />
-          </div>
-
-          {/* Tabs */}
-          <div className="mt-4 flex border-b border-border">
-            {[
-              { k: "internal", l: "Internal Credit Note" },
-              { k: "broker", l: "Broker Portal" },
-              { k: "borrower", l: "Borrower Email" },
-            ].map((t) => (
-              <button
-                key={t.k}
-                onClick={() => setTab(t.k as typeof tab)}
-                className={`-mb-px border-b-2 px-3 py-2 text-[11px] font-semibold tracking-tight transition-colors ${
-                  tab === t.k
-                    ? "text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-                style={tab === t.k ? { borderColor: "var(--emerald)" } : undefined}
-              >
-                {t.l}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-3 border border-border bg-secondary/40">
-            <div className="flex items-center justify-between border-b border-border bg-card px-3 py-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                Draft · auto-generated
-              </span>
-              <button className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground hover:text-foreground">
-                <Copy className="h-3 w-3" /> Copy
-              </button>
-            </div>
-            <div className="max-h-44 overflow-auto whitespace-pre-wrap p-3 font-mono text-[11px] leading-relaxed text-foreground/85">
-              {tab === "internal" && internalText}
-              {tab === "broker" && drafts.broker}
-              {tab === "borrower" && drafts.borrower}
-            </div>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between">
-            <button className="border border-border bg-card px-3 py-1.5 text-[11px] font-semibold tracking-tight text-foreground hover:bg-secondary">
-              Request Re-Submission
-            </button>
-            <button
-              onClick={toggleSatisfied}
-              className="flex items-center gap-1.5 px-4 py-1.5 text-[11.5px] font-bold tracking-tight text-primary-foreground transition-colors"
-              style={{
-                background: top.satisfied ? "var(--slate-ink)" : "var(--emerald-deep)",
-              }}
-            >
-              {top.satisfied ? "Re-open Condition" : "Clear Condition"}
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Other conditions */}
-        <ul className="divide-y divide-border">
-          {mergedConditions
-            .filter((c) => c.id !== top.id)
-            .map((c) => (
-              <li key={c.id}>
-                <button
-                  onClick={() => {
-                    setActiveId(c.id);
-                    setTab("internal");
-                  }}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-secondary/60 transition-colors"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0">
-                      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                        {c.id} · {c.category}
-                      </div>
-                      <div className="truncate text-[12px] font-semibold tracking-tight">
-                        {c.title}
-                      </div>
-                    </div>
-                  </div>
-                  <StatusBadge satisfied={c.satisfied} compact />
-                </button>
-              </li>
-            ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function StatusBadge({ satisfied, compact }: { satisfied: boolean; compact?: boolean }) {
-  const cls = compact ? "px-1.5 py-0.5 text-[9.5px]" : "px-2 py-1 text-[10.5px]";
-  if (satisfied) {
-    return (
-      <span
-        className={`inline-flex shrink-0 items-center gap-1 font-bold uppercase tracking-[0.12em] ${cls}`}
-        style={{
-          background: "color-mix(in oklab, var(--success) 16%, transparent)",
-          color: "var(--success)",
-        }}
-      >
-        <CheckCircle2 className={compact ? "h-2.5 w-2.5" : "h-3 w-3"} /> Satisfied
-      </span>
-    );
-  }
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1 font-bold uppercase tracking-[0.12em] ${cls}`}
-      style={{ background: "var(--warning-bg)", color: "var(--warning-fg)" }}
-    >
-      <Clock className={compact ? "h-2.5 w-2.5" : "h-3 w-3"} /> Awaiting Documents
-    </span>
-  );
-}
-
-function Meta({ label, v }: { label: string; v: string }) {
-  return (
-    <div className="border border-border bg-secondary/40 px-2 py-1.5">
-      <div className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
-      <div className="font-mono text-[11px] font-semibold">{v}</div>
-    </div>
-  );
-}
-
-/* ────────────────────── SHARED ────────────────────── */
-
-function PaneHeader({
-  icon,
-  kicker,
-  title,
-  subtitle,
-}: {
-  icon: React.ReactNode;
-  kicker: string;
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3">
-      <div className="flex items-center gap-3">
-        <div
-          className="flex h-7 w-7 items-center justify-center text-primary-foreground"
-          style={{ background: "var(--emerald-deep)" }}
-        >
-          {icon}
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-muted-foreground">
-              {kicker}
-            </span>
-            <h2 className="text-[13px] font-bold tracking-tight">{title}</h2>
-          </div>
-          <p className="text-[11px] text-muted-foreground">{subtitle}</p>
-        </div>
-      </div>
-      <button className="text-muted-foreground hover:text-foreground">
-        <ChevronDown className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
-/* ────────────────────── DRAFT COPY ────────────────────── */
-
-type DraftBundle = {
-  internal: string;
-  broker: string;
-  borrower: string;
-  meta: { docType: string; due: string; source: string };
-};
-
-const conditionDrafts: Record<string, DraftBundle> = {
-  "INC-04": {
-    meta: { docType: "CRA NOA + Receipt", due: "48 hours", source: "Auto-flagged" },
-    internal: `CREDIT NOTE — FILE #APP-2025-08842
-Applicant: Mujeeb Minhas
-Condition: INC-04 — Verify CRA Outstanding Balance
-
-OBSERVATION
-The 2025 Notice of Assessment shows a balance owing of
-$4,250.31 as of 2025-05-14. CRA arrears constitute a
-priority lien and must be resolved or formally arranged
-prior to instructing solicitors.
-
-RECOMMENDATION
-Hold instruction pending one of (a) proof of payment in
-full, or (b) executed CRA payment arrangement with two
-months of consecutive payment history. Re-score INC
-component upon receipt.
-
-UW: A. Khan · 2026-06-15 14:02 ET`,
-    broker: `Hi team,
-
-We've completed initial adjudication on Mujeeb Minhas
-(File #APP-2025-08842) and require one outstanding item
-to move to final approval:
-
-• INC-04 — CRA Outstanding Balance ($4,250.31)
-  Please provide either:
-    - CRA receipt showing balance paid in full, OR
-    - Signed CRA payment arrangement + 2 months of
-      cleared payments from the borrower's account.
-
-Once received, we'll re-run the risk model and target
-same-day commitment issuance. SLA clock: 48 hours.
-
-Thanks,
-BrokerMindAI Adjudication Desk`,
-    borrower: `Dear Mr. Minhas,
-
-Thank you for your mortgage application. As part of our
-standard review, we identified an outstanding balance of
-$4,250.31 on your 2025 CRA Notice of Assessment.
-
-To proceed, please provide ONE of the following at your
-earliest convenience:
-
-  1. A receipt or CRA account screenshot confirming the
-     balance has been paid in full, or
-  2. A copy of your CRA payment arrangement together
-     with two months of bank statements showing the
-     scheduled payments have cleared.
-
-Documents can be uploaded securely through your broker's
-portal. Please contact us if you have any questions.
-
-Kind regards,
-Adjudication Team`,
-  },
-
-  "EMP-02": {
-    meta: { docType: "Letter of Employment + 2 Paystubs", due: "Satisfied", source: "Standard pack" },
-    internal: `CREDIT NOTE — FILE #APP-2025-08842
-Condition: EMP-02 — Continuous Employment (24 mo.)
-
-OBSERVATION
-Letter of Employment on company letterhead dated
-2026-06-10 confirms applicant employed since 2023-09-04
-in a permanent full-time capacity. Two most recent
-paystubs (2026-05-31, 2026-06-14) corroborate base
-salary of $78,420 + variable.
-
-DETERMINATION
-Tenure threshold (24 mo.) satisfied. No probationary
-language present. Closing this condition.
-
-UW: A. Khan · 2026-06-15 14:08 ET`,
-    broker: `Hi team,
-
-EMP-02 is cleared on file #APP-2025-08842. LOE and the
-two paystubs you submitted on 2026-06-14 reconcile to
-employer T4 and our minimum tenure rule (24 months).
-
-No further action required on the employment file. We
-will keep you posted on remaining conditions.
-
-— BrokerMindAI Adjudication Desk`,
-    borrower: `Dear Mr. Minhas,
-
-We have received and verified your employment
-documentation. No further action is required from you on
-this item. We will reach out separately if any other
-conditions remain outstanding.
-
-Kind regards,
-Adjudication Team`,
-  },
-
-  "DWN-01": {
-    meta: { docType: "90-day bank statements", due: "72 hours", source: "AML mandate" },
-    internal: `CREDIT NOTE — FILE #APP-2025-08842
-Condition: DWN-01 — Source of Down Payment (90 day history)
-
-OBSERVATION
-Required to evidence the full down payment ($118,500)
-held or accumulated through traceable channels over the
-most recent 90 days. Large deposits (>$5,000) must be
-sourced individually under FINTRAC/AML guidance.
-
-OUTSTANDING
-Awaiting (a) 90 days of bank statements for all accounts
-holding deposit funds, and (b) explanation + supporting
-docs for any single deposit exceeding $5,000.
-
-UW: A. Khan · 2026-06-15`,
-    broker: `Hi team,
-
-Please collect for DWN-01 on file #APP-2025-08842:
-
-  • 90 days of statements for ALL accounts contributing
-    to the down payment.
-  • Source documentation for any single deposit greater
-    than $5,000 (gift letter, sale proceeds, bonus, etc.)
-
-Closing depends on satisfactory AML trace. Target
-turnaround: 72 hours.
-
-— BrokerMindAI Adjudication Desk`,
-    borrower: `Dear Mr. Minhas,
-
-To complete the down payment verification step required
-by Canadian anti-money-laundering rules, please provide:
-
-  1. 90 days of statements for every account that holds
-     funds being used toward your down payment.
-  2. A short note explaining any single deposit larger
-     than $5,000 (and supporting documents such as a
-     gift letter or sale receipt where applicable).
-
-Your broker can upload these securely on your behalf.
-
-Kind regards,
-Adjudication Team`,
-  },
-
-  "PROP-03": {
-    meta: { docType: "AACI Appraisal Report", due: "5 business days", source: "Lender mandate" },
-    internal: `CREDIT NOTE — FILE #APP-2025-08842
-Condition: PROP-03 — Independent AACI Appraisal
-
-OBSERVATION
-Subject property: detached, urban. Purchase price
-$540,000. Lender policy requires an independent AACI
-appraisal — automated valuation insufficient at this
-LTV band.
-
-OUTSTANDING
-Full narrative AACI report with three comparables within
-1 km and 90 days. Effective date within 30 days of
-funding.
-
-UW: A. Khan · 2026-06-15`,
-    broker: `Hi team,
-
-For PROP-03 on file #APP-2025-08842, please order an
-independent AACI appraisal from a panel-approved firm.
-Lender will not accept AVM or drive-by. Report should
-include three recent comparables and confirm effective
-value at or above the purchase price of $540,000.
-
-Target: 5 business days.
-
-— BrokerMindAI Adjudication Desk`,
-    borrower: `Dear Mr. Minhas,
-
-To finalize your mortgage, the lender has requested an
-independent professional appraisal of the property. Your
-broker will arrange access with the appraisal firm; you
-do not need to provide further documentation at this
-stage.
-
-Kind regards,
-Adjudication Team`,
-  },
-
-  "INS-01": {
-    meta: { docType: "Insurance binder", due: "Satisfied", source: "Closing pack" },
-    internal: `CREDIT NOTE — FILE #APP-2025-08842
-Condition: INS-01 — Property Insurance Binder
-
-OBSERVATION
-Binder received from Intact Insurance, policy
-#H-44820193, effective from closing date. Replacement
-cost $612,000; lender named as first loss payee with
-standard mortgage clause.
-
-DETERMINATION
-Coverage and mortgage clause meet lender requirement.
-Closing this condition.
-
-UW: A. Khan · 2026-06-15 14:11 ET`,
-    broker: `Hi team,
-
-INS-01 is cleared. The Intact binder you forwarded names
-the lender correctly and the replacement-cost amount is
-in line with the appraised value. No further action.
-
-— BrokerMindAI Adjudication Desk`,
-    borrower: `Dear Mr. Minhas,
-
-We have received your property insurance binder. No
-further action is required from you on this item.
-
-Kind regards,
-Adjudication Team`,
-  },
-};
