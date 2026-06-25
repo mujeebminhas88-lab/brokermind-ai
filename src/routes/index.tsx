@@ -28,7 +28,8 @@ import {
   Plus,
   Loader2,
   PlusCircle,
-  Trash2
+  Trash2,
+  Sliders
 } from "lucide-react";
 import { NoaUploader } from "@/components/NoaUploader";
 import { SandboxToggleBar, SandboxPanel } from "@/components/SandboxPanel";
@@ -96,7 +97,7 @@ function Dashboard() {
   // Lender Match States
   const [selectedTerm, setSelectedTerm] = useState<string>("5y");
   const [rateType, setRateType] = useState<"fixed" | "variable">("fixed");
-  const [amortization, setAmortization] = useState<string>("25");
+  const [amortization, setAmortization] = useState<number>(25);
 
   // Real Estate Owned Portfolio state
   const [additionalProperties, setAdditionalProperties] = useState<AdditionalProperty[]>([]);
@@ -185,17 +186,30 @@ function Dashboard() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
             <div>
-              <label className="block text-muted-foreground font-medium mb-1.5">Amortization Period</label>
-              <select 
-                value={amortization} 
-                onChange={(e) => setAmortization(e.target.value)}
-                className="w-full bg-background border border-border rounded p-2 focus:outline-none focus:border-emerald-500 font-mono"
-              >
-                <option value="15">15 Years</option>
-                <option value="20">20 Years</option>
-                <option value="25">25 Years (Standard)</option>
-                <option value="30">30 Years (Uninsured)</option>
-              </select>
+              <label className="block text-muted-foreground font-medium mb-1.5">Amortization (Years)</label>
+              <div className="space-y-1.5">
+                <input 
+                  type="number"
+                  min="1"
+                  max="40"
+                  value={amortization || ""}
+                  onChange={(e) => setAmortization(Number(e.target.value))}
+                  placeholder="e.g. 18"
+                  className="w-full bg-background border border-border rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 font-mono font-bold text-foreground"
+                />
+                <div className="flex gap-1">
+                  {[15, 25, 30].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setAmortization(val)}
+                      className={`text-[9.5px] font-mono px-1.5 py-0.5 border rounded transition-all ${amortization === val ? "bg-secondary border-muted-foreground text-foreground font-bold" : "border-border text-muted-foreground hover:bg-secondary/40"}`}
+                    >
+                      {val}Y
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <div>
               <label className="block text-muted-foreground font-medium mb-1.5">Rate Program Structure</label>
@@ -231,15 +245,9 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Lender Management Dashboard Wrapper Component */}
+        {/* Lender Management Dashboard Component */}
         <div className="overflow-hidden">
-          {LenderManagement ? (
-            <LenderManagement />
-          ) : (
-            <div className="p-3 border border-red-200 bg-red-50 text-red-700 text-xs rounded-lg">
-              Lender Core Module Component Unresolved. Check dynamic local bindings.
-            </div>
-          )}
+          {LenderManagement ? <LenderManagement /> : <div className="p-3 border border-red-200 bg-red-50 text-red-700 text-xs rounded-lg">Lender Core Module Component Unresolved.</div>}
         </div>
 
         {/* Real Estate Owned (REO) Portfolio Control Engine */}
@@ -264,7 +272,7 @@ function Dashboard() {
           ) : (
             <div className="space-y-4">
               {additionalProperties.map((prop) => (
-                <div key={prop.id} className="p-3 bg-secondary/20 border border-border rounded-lg grid grid-cols-1 md:grid-cols-12 gap-3 items-end text-xs relative group">
+                <div key={prop.id} className="p-4 bg-secondary/20 border border-border rounded-lg grid grid-cols-1 md:grid-cols-12 gap-4 items-end text-xs relative group">
                   <div className="md:col-span-3">
                     <label className="block text-[11px] text-muted-foreground font-medium mb-1">Asset Street Address</label>
                     <input 
@@ -322,8 +330,8 @@ function Dashboard() {
                   </div>
 
                   {prop.usage === "rental" && (
-                    <>
-                      <div className="md:col-span-2">
+                    <div className="md:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-border/60 pt-3 mt-1 bg-background/40 p-2.5 rounded">
+                      <div>
                         <label className="block text-[11px] text-muted-foreground font-medium mb-1">Gross Monthly Rent ($)</label>
                         <input 
                           type="number" 
@@ -332,33 +340,38 @@ function Dashboard() {
                           className="w-full bg-background border border-border rounded px-2 py-1 font-mono text-emerald-600 font-bold" 
                         />
                       </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-[11px] text-muted-foreground font-medium mb-1">Calculation Method</label>
+                      <div>
+                        <label className="block text-[11px] text-muted-foreground font-medium mb-1">Calculation Offset Strategy</label>
                         <select 
                           value={prop.rentalCalculationMethod} 
                           onChange={(e) => updateProperty(prop.id, { rentalCalculationMethod: e.target.value as any })}
                           className="w-full bg-background border border-border rounded p-1 focus:outline-none"
                         >
-                          <option value="debt-service-offset">Rental Offset (TDS Reduction)</option>
-                          <option value="gross-add-to-income">Add to Gross Qualification</option>
+                          <option value="debt-service-offset">Rental Offset (TDS Matrix Deduction)</option>
+                          <option value="gross-add-to-income">Add Directly to Gross Qualification</option>
                         </select>
                       </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-[11px] text-muted-foreground font-medium mb-1">Lender Inclusion %</label>
-                        <select 
-                          value={prop.rentalInclusionPercentage} 
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="block text-[11px] text-muted-foreground font-medium flex items-center gap-1">
+                            <Sliders className="h-3 w-3 text-emerald-600" /> Inclusion Ratio
+                          </label>
+                          <span className="font-mono font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">{prop.rentalInclusionPercentage}%</span>
+                        </div>
+                        <input 
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="5"
+                          value={prop.rentalInclusionPercentage}
                           onChange={(e) => updateProperty(prop.id, { rentalInclusionPercentage: Number(e.target.value) })}
-                          className="w-full bg-background border border-border rounded p-1 focus:outline-none font-mono"
-                        >
-                          <option value="50">50% Standard Matrix</option>
-                          <option value="70">70% Extended Tier</option>
-                          <option value="100">100% Full Yield</option>
-                        </select>
+                          className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-emerald-600 mt-2"
+                        />
                       </div>
-                    </>
+                    </div>
                   )}
                   
-                  <div className="md:col-span-1 text-right">
+                  <div className="absolute top-2 right-2 md:relative md:top-auto md:right-auto md:col-span-1 text-right">
                     <button 
                       onClick={() => removeProperty(prop.id)}
                       className="p-1.5 text-muted-foreground hover:text-red-500 rounded border border-transparent hover:border-border transition-all"
@@ -372,43 +385,24 @@ function Dashboard() {
           )}
         </div>
 
-        {/* Global Action Sync Bar */}
+        {/* Action Sync Bar */}
         <div className="flex items-center justify-between border-b border-border bg-card">
           <div className="flex-1">
             <SandboxToggleBar enabled={sandbox} onToggle={(v) => { setSandbox(v); if (!v) setAnalysis(null); }} />
           </div>
           <div className="flex items-center gap-2 border-l border-border px-4 py-2.5">
-            <ExportAuditSheetButton
-              analysis={analysis}
-              applicationNumber={applicationNumber}
-              taxpayerName={taxpayerName}
-              gds={debtService.gds}
-              tds={debtService.tds}
-              aggregateRiskScore={aggregateRiskScore}
-            />
-            <SaveApplicationButton
-              analysis={analysis}
-              applicationNumber={applicationNumber}
-              gds={debtService.gds}
-              tds={debtService.tds}
-              aggregateRiskScore={aggregateRiskScore}
-            />
+            <ExportAuditSheetButton analysis={analysis} applicationNumber={applicationNumber} taxpayerName={taxpayerName} gds={debtService.gds} tds={debtService.tds} aggregateRiskScore={aggregateRiskScore} />
+            <SaveApplicationButton analysis={analysis} applicationNumber={applicationNumber} gds={debtService.gds} tds={debtService.tds} aggregateRiskScore={aggregateRiskScore} />
           </div>
         </div>
 
-        {/* Core Processing Component Modules */}
+        {/* Modules Block */}
         <CollateralPanel state={collateral} setState={setCollateral} onFlagsChange={setCollateralFlags} />
 
         {sandbox ? (
           <SandboxPanel onAnalyzed={setAnalysis} onClear={() => setAnalysis(null)} />
         ) : (
-          <NoaUploader
-            analysis={analysis}
-            analyzing={analyzing}
-            onAnalyzed={setAnalysis}
-            onAnalyzingChange={setAnalyzing}
-            onClear={() => setAnalysis(null)}
-          />
+          <NoaUploader analysis={analysis} analyzing={analyzing} onAnalyzed={setAnalysis} onAnalyzingChange={setAnalyzing} onClear={() => setAnalysis(null)} />
         )}
         
         <LiabilitiesPanel liabilities={liabilities} setLiabilities={setLiabilities} result={debtService} />
@@ -443,12 +437,10 @@ function Dashboard() {
   );
 }
 
-/* ────────────────────────── RESTORED ORIGINAL MASTER NAV BAR ────────────────────────── */
+/* ────────────────────────── NAVIGATION BAR ────────────────────────── */
 
 function GlobalHeader() {
-  const tabs = ["Pipeline", "Adjudication", "Conditions", "Compliance", "Reports"];
-  const [activeTab, setActiveTab] = useState("Adjudication");
-
+  const [activeTab, setActiveTab] = React.useState("Adjudication");
   return (
     <header className="bg-card border-b border-border h-14 px-6 flex items-center justify-between shadow-xs">
       <div className="flex items-center gap-8">
@@ -459,7 +451,7 @@ function GlobalHeader() {
           </span>
         </div>
         <nav className="hidden md:flex items-center gap-1 h-14">
-          {tabs.map((tab) => (
+          {["Pipeline", "Adjudication", "Conditions", "Compliance", "Reports"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -476,7 +468,7 @@ function GlobalHeader() {
           <input
             type="text"
             placeholder="Search applications, brokers, conditions..."
-            className="w-full bg-secondary/40 border border-border rounded-lg pl-8 pr-3 py-1.5 text-[11.5px] focus:outline-none focus:border-emerald-500 transition-all placeholder:text-muted-foreground"
+            className="w-full bg-secondary/40 border border-border rounded-lg pl-8 pr-3 py-1.5 text-[11.5px] focus:outline-none focus:border-emerald-500"
           />
         </div>
         <button className="p-1.5 text-muted-foreground hover:text-foreground transition-all relative">
@@ -488,7 +480,7 @@ function GlobalHeader() {
   );
 }
 
-/* ────────────────────────── BACKGROUND OVERLAYS AND MISC PANES ────────────────────────── */
+/* ────────────────────────── UTILITY WORKSPACE SUBCOMPONENTS ────────────────────────── */
 
 function AnalyzingOverlay({ label }: { label: string }) {
   return (
