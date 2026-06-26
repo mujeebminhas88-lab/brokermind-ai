@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Building2, ChevronDown } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const BASELINE_LENDERS = [
-  // --- Prime / A / Monolines (11 Lenders) ---
   { id: "b2b-bank-prime", name: "B2B Bank", tier: "prime" },
   { id: "bmo-authorized-brokers-prime", name: "BMO (Authorized Brokers Only)", tier: "prime" },
   { id: "cwb-optimum-a-prime", name: "CWB Optimum Mortgage A", tier: "prime" },
@@ -14,8 +15,6 @@ const BASELINE_LENDERS = [
   { id: "td-canada-trust-prime", name: "TD Canada Trust", tier: "prime" },
   { id: "meridian-credit-union-ltd-prime", name: "Meridian Credit Union Ltd", tier: "prime" },
   { id: "cibc-prime", name: "CIBC", tier: "prime" },
-
-  // --- Alternate / B Side (13 Lenders) ---
   { id: "wealth-one-1-alt", name: "Wealth One Bank of Canada", tier: "alt" },
   { id: "home-trust-alt", name: "Home Trust", tier: "alt" },
   { id: "eclipse-rmg-alt-alt", name: "Eclipse (RMG-alt)", tier: "alt" },
@@ -28,8 +27,6 @@ const BASELINE_LENDERS = [
   { id: "union-capital-lending-alt", name: "Union Capital Lending", tier: "alt" },
   { id: "wyth-financials-alt", name: "Wyth Financials", tier: "alt" },
   { id: "alpha-and-omega-inc-alt", name: "Alpha and Omega Inc.", tier: "alt" },
-
-  // --- Private (29 Lenders) ---
   { id: "advanced-mic-private", name: "Advanced MIC", tier: "private" },
   { id: "alta-west-capital-private", name: "Alta West Capital", tier: "private" },
   { id: "aria-savings-private", name: "Aria Savings", tier: "private" },
@@ -61,10 +58,49 @@ const BASELINE_LENDERS = [
   { id: "resco-private", name: "Resco", tier: "private" }
 ];
 
-export function LenderManagement() {
+export function LenderManagement({ applicationId }: { applicationId: string }) {
   const [lenders] = useState(BASELINE_LENDERS);
   const [activeTier, setActiveTier] = useState<"prime" | "alt" | "private">("prime");
   const [selectedLender, setSelectedLender] = useState("");
+  const { toast } = useToast();
+
+  // Load existing lender from database on mount
+  useEffect(() => {
+    async function fetchLender() {
+      const { data, error } = await supabase
+        .from('mortgage_applications')
+        .select('assigned_lender_id')
+        .eq('application_id', applicationId)
+        .single();
+      
+      if (data?.assigned_lender_id) {
+        setSelectedLender(data.assigned_lender_id);
+      }
+    }
+    fetchLender();
+  }, [applicationId]);
+
+  const handleLenderChange = async (lenderId: string) => {
+    setSelectedLender(lenderId);
+    
+    const { error } = await supabase
+      .from('mortgage_applications')
+      .update({ assigned_lender_id: lenderId })
+      .eq('application_id', applicationId);
+
+    if (error) {
+      toast({
+        title: "Error updating lender",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Lender assigned",
+        description: "Configuration saved to database.",
+      });
+    }
+  };
 
   const currentTierLenders = lenders
     .filter(item => item.tier === activeTier)
@@ -94,7 +130,7 @@ export function LenderManagement() {
               <button
                 key={tier}
                 type="button"
-                onClick={() => { setActiveTier(tier); setSelectedLender(""); }}
+                onClick={() => { setActiveTier(tier); }}
                 className={`py-1.5 px-3 text-xs font-medium rounded-md transition-all ${
                   activeTier === tier
                     ? "bg-card text-foreground shadow-sm border border-border"
@@ -114,7 +150,7 @@ export function LenderManagement() {
           <div className="relative">
             <select
               value={selectedLender}
-              onChange={(e) => setSelectedLender(e.target.value)}
+              onChange={(e) => handleLenderChange(e.target.value)}
               className="w-full bg-background border border-border rounded-lg py-2 pl-3 pr-10 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring appearance-none"
             >
               <option value="">-- Choose active platform options --</option>
