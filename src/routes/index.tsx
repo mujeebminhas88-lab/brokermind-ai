@@ -26,7 +26,7 @@ function Dashboard() {
       setError(null);
       
       const { data, error } = await supabase
-        .from('underwriting_applications')
+        .from('mortgage_applications')
         .select('application_id, applicant_full_name, amortization_months, requested_loan_amount');
       
       if (error) {
