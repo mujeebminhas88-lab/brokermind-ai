@@ -212,6 +212,40 @@ function Dashboard() {
             <Stat label="Avg Score" value={stats.average} />
           </div>
         </div>
+        <nav
+          className="mt-5 flex items-center justify-between gap-4"
+          aria-label="Tax slip sections"
+        >
+          <div className="flex items-center gap-px rounded-sm border border-border bg-border overflow-hidden">
+            {TAX_SLIP_TABS.map((t) => (
+              <button
+                key={t}
+                onClick={() => setActiveTab(t)}
+                className={`px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                  activeTab === t
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+                aria-pressed={activeTab === t}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {activeApplicant ? (
+              <>
+                Active applicant ·{" "}
+                <span className="font-mono text-foreground">
+                  {activeApplicant.application_number}
+                </span>{" "}
+                <span className="text-foreground">— {activeApplicant.taxpayer_name}</span>
+              </>
+            ) : (
+              "No applicant selected"
+            )}
+          </div>
+        </nav>
       </header>
 
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
