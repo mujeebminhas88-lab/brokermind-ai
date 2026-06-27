@@ -3,6 +3,10 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/supabase/client";
 import { TaxSlipSuite, TAX_SLIP_TABS, type TaxSlipTab } from "@/components/TaxSlipSuite";
 import { LoanTermsPanel, DEFAULT_LOAN_TERMS, type LoanTerms } from "@/components/LoanTermsPanel";
+import { ReoMatrix, type LenderStream } from "@/components/ReoMatrix";
+import { LenderManagement } from "@/components/LenderManagement";
+import { FlaskConical, Database } from "lucide-react";
+import { toast } from "sonner";
 import type { VarianceFlag } from "@/utils/taxSlipParser";
 
 interface ApplicationRecord {
