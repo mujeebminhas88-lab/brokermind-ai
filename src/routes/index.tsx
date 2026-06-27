@@ -313,8 +313,7 @@ function Dashboard() {
             <button
               type="button"
               onClick={handleCommit}
-              disabled={pendingChanges === 0}
-              className="rounded-sm bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-foreground disabled:opacity-40 hover:opacity-90"
+              className="rounded-sm bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-foreground hover:opacity-90"
             >
               Commit to Underwriting Log
             </button>
@@ -324,20 +323,19 @@ function Dashboard() {
           <button
             type="button"
             onClick={handleSave}
-            disabled={!activeApplicantId}
-            className="rounded-sm border border-primary bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-foreground disabled:opacity-40 hover:opacity-90"
+            className="rounded-sm border border-primary bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-foreground hover:opacity-90"
           >
             Save
           </button>
           <button
             type="button"
             onClick={handleDelete}
-            disabled={!activeApplicantId}
-            className="rounded-sm border border-destructive bg-card px-3 py-1 text-xs font-semibold uppercase tracking-wider text-destructive disabled:opacity-40 hover:bg-destructive/10"
+            className="rounded-sm border border-destructive bg-card px-3 py-1 text-xs font-semibold uppercase tracking-wider text-destructive hover:bg-destructive/10"
           >
             Delete
           </button>
         </div>
+
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-5">
