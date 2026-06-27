@@ -38,9 +38,17 @@ const defaultsFor = (specs: FieldSpec[]): FormValues => {
 interface Props {
   applicantId?: string | null;
   onVerdictChange?: (verdict: ComplianceVerdict | null) => void;
+  onApplicantNameChange?: (name: string) => void;
 }
 
-export function ComplianceIntakePanel({ applicantId, onVerdictChange }: Props) {
+const NAME_FIELDS = new Set([
+  "taxpayerName",
+  "corporationName",
+  "trustName",
+  "partnershipName",
+]);
+
+export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplicantNameChange }: Props) {
   const [docs, setDocs] = useState<ProcessedDocument[]>([]);
   const [selectedKind, setSelectedKind] = useState<DocumentKind>("T1");
   const grouped = useMemo(() => getRegistryByCategory(), []);
