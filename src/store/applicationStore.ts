@@ -54,46 +54,24 @@ export interface LoanInputs {
 }
 
 export const DEFAULT_LOAN_INPUTS: LoanInputs = {
-  propertyPrice: 875_000,
-  downPayment: 192_500,
-  interestRatePct: 5.24,
+  propertyPrice: 0,
+  downPayment: 0,
+  interestRatePct: 0,
   amortizationYears: 25,
   termMonths: 60,
-  roePct: 12,
-  primaryAnnualIncome: 145_000,
-  primaryOtherMonthlyDebt: 571.4,
+  roePct: 0,
+  primaryAnnualIncome: 0,
+  primaryOtherMonthlyDebt: 0,
   coApplicantEnabled: false,
   coAnnualIncome: 0,
   coOtherMonthlyDebt: 0,
-  annualPropertyTaxes: 4_200,
-  monthlyHeating: 115,
+  annualPropertyTaxes: 0,
+  monthlyHeating: 0,
   monthlyCondoFees: 0,
 };
 
-const DEFAULT_REO: ReoProperty[] = [
-  {
-    id: uid(),
-    address: "142 Roehampton Ave, Toronto ON",
-    marketValue: 925_000,
-    mortgageBalance: 612_000,
-    monthlyRent: 3200,
-    propertyTax: 4800,
-    insurance: 1450,
-    heating: 1800,
-    freeAndClear: false,
-  },
-  {
-    id: uid(),
-    address: "88 Stonebridge Blvd, Mississauga ON",
-    marketValue: 720_000,
-    mortgageBalance: 0,
-    monthlyRent: 2650,
-    propertyTax: 4100,
-    insurance: 1280,
-    heating: 1500,
-    freeAndClear: true,
-  },
-];
+const DEFAULT_REO: ReoProperty[] = [];
+
 
 // ─── Store shape ────────────────────────────────────────────────────────────
 interface ApplicationState {
