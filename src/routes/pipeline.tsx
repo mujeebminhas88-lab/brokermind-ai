@@ -22,7 +22,9 @@ interface AlertCount {
 }
 
 // Map UI columns -> DB review_status values (which are the source of truth).
-const COLUMNS: { key: string; label: string; statuses: string[]; accent: string }[] = [
+type ReviewStatus = "Draft" | "In Review" | "Ready for Review" | "Approved" | "Declined";
+
+const COLUMNS: { key: string; label: string; statuses: ReviewStatus[]; accent: string }[] = [
   {
     key: "collection",
     label: "Data Collection",
