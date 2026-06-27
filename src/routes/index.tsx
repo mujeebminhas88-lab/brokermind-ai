@@ -95,25 +95,18 @@ function Dashboard() {
   const [groupBy, setGroupBy] = useState<GroupKey>("none");
   const [variancePenalty, setVariancePenalty] = useState(0);
   const [varianceFlags, setVarianceFlags] = useState<VarianceFlag[]>([]);
-  const [loanTerms, setLoanTerms] = useState<LoanTerms>(DEFAULT_LOAN_TERMS);
   const [activeTab, setActiveTab] = useState<TaxSlipTab>("T1");
   const [activeApplicantId, setActiveApplicantId] = useState<string | null>(null);
-  const [lenderStream, setLenderStream] = useState<LenderStream>("A");
   const [sandboxMode, setSandboxMode] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(0);
   const [complianceVerdict, setComplianceVerdict] = useState<ComplianceVerdict | null>(null);
+  const derived = useDerivedFinancials();
+  const resetLoan = useApplicationStore((s) => s.resetLoan);
   const handleVariance = useCallback((penalty: number, flags: VarianceFlag[]) => {
     setVariancePenalty(penalty);
     setVarianceFlags(flags);
   }, []);
 
-  const handleLoanTermsChange: typeof setLoanTerms = useCallback((next) => {
-    setLoanTerms((prev) => {
-      const resolved = typeof next === "function" ? (next as (p: LoanTerms) => LoanTerms)(prev) : next;
-      if (sandboxMode) setPendingChanges((c) => c + 1);
-      return resolved;
-    });
-  }, [sandboxMode]);
 
   const handleCommit = useCallback(() => {
     toast.success("Sandbox committed to underwriting log", {
