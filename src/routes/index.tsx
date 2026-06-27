@@ -228,6 +228,50 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background p-6">
+      <div
+        className={`mb-4 flex items-center justify-between gap-4 rounded-sm border px-4 py-2.5 ${
+          sandboxMode ? "border-warning/50 bg-warning-bg" : "border-border bg-card"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSandboxToggle}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+              sandboxMode ? "bg-warning" : "bg-muted"
+            }`}
+            aria-pressed={sandboxMode}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-card shadow transition-transform ${
+                sandboxMode ? "translate-x-4" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+          <div className="flex items-center gap-2">
+            {sandboxMode ? <FlaskConical className="h-4 w-4 text-warning-fg" /> : <Database className="h-4 w-4 text-muted-foreground" />}
+            <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+              {sandboxMode ? "Sandbox Mode · Changes are not persisted" : "Live Mode · Edits write through"}
+            </span>
+          </div>
+        </div>
+        {sandboxMode && (
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] font-mono text-warning-fg">
+              {pendingChanges} pending edit{pendingChanges === 1 ? "" : "s"}
+            </span>
+            <button
+              type="button"
+              onClick={handleCommit}
+              disabled={pendingChanges === 0}
+              className="rounded-sm bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-foreground disabled:opacity-40 hover:opacity-90"
+            >
+              Commit to Underwriting Log
+            </button>
+          </div>
+        )}
+      </div>
+
       <header className="mb-8 border-b border-border pb-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
