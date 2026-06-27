@@ -100,8 +100,10 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplican
     }
   };
 
-  const setField = (name: string, v: string | number | boolean) =>
+  const setField = (name: string, v: string | number | boolean) => {
     setValues((prev) => ({ ...prev, [name]: v }));
+    if (NAME_FIELDS.has(name) && typeof v === "string") onApplicantNameChange?.(v);
+  };
 
   return (
     <section className="rounded-sm border border-border bg-card shadow-sm">
