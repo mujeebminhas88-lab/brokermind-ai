@@ -206,7 +206,7 @@ function Dashboard() {
     // Clear local state, deselect, redirect to list
     setActiveApplicantId(null);
     setApplications([]);
-    setLoanTerms(DEFAULT_LOAN_TERMS);
+    resetLoan();
     setVariancePenalty(0);
     setVarianceFlags([]);
     await fetchApplications();
