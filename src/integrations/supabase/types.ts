@@ -14,17 +14,100 @@ export type Database = {
   }
   public: {
     Tables: {
+      application_documents: {
+        Row: {
+          application_id: string
+          created_at: string
+          document_code: string
+          id: string
+          payload: Json
+          tax_year: number | null
+          updated_at: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          document_code: string
+          id?: string
+          payload?: Json
+          tax_year?: number | null
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          document_code?: string
+          id?: string
+          payload?: Json
+          tax_year?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_documents_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "underwriting_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "application_documents_document_code_fkey"
+            columns: ["document_code"]
+            isOneToOne: false
+            referencedRelation: "document_registry"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      document_registry: {
+        Row: {
+          category: string
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          required_fields: Json
+          updated_at: string
+          validation_rules: Json
+        }
+        Insert: {
+          category: string
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          required_fields?: Json
+          updated_at?: string
+          validation_rules?: Json
+        }
+        Update: {
+          category?: string
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          required_fields?: Json
+          updated_at?: string
+          validation_rules?: Json
+        }
+        Relationships: []
+      }
       underwriting_applications: {
         Row: {
           aggregate_risk_score: number
           application_number: string
           balance_owing: number
           created_at: string
+          employment_type: Database["public"]["Enums"]["employment_type"]
           gds: number
           has_arrears: boolean
           id: string
           line_15000_total_income: number
           line_23600_net_income: number
+          review_status: Database["public"]["Enums"]["review_status"]
           tax_year: number
           taxpayer_name: string
           tds: number
@@ -35,11 +118,13 @@ export type Database = {
           application_number: string
           balance_owing?: number
           created_at?: string
+          employment_type?: Database["public"]["Enums"]["employment_type"]
           gds?: number
           has_arrears?: boolean
           id?: string
           line_15000_total_income?: number
           line_23600_net_income?: number
+          review_status?: Database["public"]["Enums"]["review_status"]
           tax_year: number
           taxpayer_name: string
           tds?: number
@@ -50,11 +135,13 @@ export type Database = {
           application_number?: string
           balance_owing?: number
           created_at?: string
+          employment_type?: Database["public"]["Enums"]["employment_type"]
           gds?: number
           has_arrears?: boolean
           id?: string
           line_15000_total_income?: number
           line_23600_net_income?: number
+          review_status?: Database["public"]["Enums"]["review_status"]
           tax_year?: number
           taxpayer_name?: string
           tds?: number
@@ -70,7 +157,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      employment_type: "Salaried" | "Self-Employed" | "Incorporated"
+      review_status:
+        | "Draft"
+        | "In Review"
+        | "Ready for Review"
+        | "Approved"
+        | "Declined"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -197,6 +290,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      employment_type: ["Salaried", "Self-Employed", "Incorporated"],
+      review_status: [
+        "Draft",
+        "In Review",
+        "Ready for Review",
+        "Approved",
+        "Declined",
+      ],
+    },
   },
 } as const
