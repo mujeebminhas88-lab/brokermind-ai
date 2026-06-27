@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   reconcileTaxSlips,
   type T1,
@@ -11,21 +11,26 @@ import {
   type VarianceSeverity,
 } from "@/utils/taxSlipParser";
 
-
 /**
- * Phase 4 — Tax Slip Suite UI
+ * Phase 4 + 5 — Tax Slip Suite UI
  *
- * Tabbed intake for T4 / T1 / T2125 / T4A with a live cross-document forensic
- * variance panel. Fully reactive: any field edit re-runs reconcileTaxSlips()
- * and surfaces flags + a penalty roll-up. `onPenaltyChange` lets the parent
- * dashboard feed the penalty back into the aggregate risk score.
+ * Tabbed intake for T1 / T4 / T2125 / T4A / T2 with a live cross-document
+ * forensic variance panel. Fully reactive: any field edit re-runs
+ * reconcileTaxSlips() and surfaces flags + a penalty roll-up.
+ *
+ * Controllable surface:
+ *   - `activeTab` / `onTabChange`  → lifted tab state (header-driven nav)
+ *   - `applicantId`                → per-applicant form state is preserved
+ *                                    across tab switches AND applicant switches
+ *   - `onPenaltyChange`            → penalty + flags feed the parent risk roll-up
  */
 
-type DocTab = "T4" | "T1" | "T2125" | "T4A" | "T2";
+export type TaxSlipTab = "T1" | "T4" | "T2125" | "T4A" | "T2";
+export const TAX_SLIP_TABS: TaxSlipTab[] = ["T1", "T4", "T2125", "T4A", "T2"];
 
 const DEFAULT_YEAR = new Date().getFullYear() - 1;
 
-const initialT4: T4 = {
+const initialT4 = (): T4 => ({
   docType: "T4",
   taxYear: DEFAULT_YEAR,
   employerName: "",
@@ -34,9 +39,9 @@ const initialT4: T4 = {
   box18EI: 0,
   box22IncomeTaxDeducted: 0,
   box40OtherTaxableAllowances: 0,
-};
+});
 
-const initialT1: T1 = {
+const initialT1 = (): T1 => ({
   docType: "T1",
   taxYear: DEFAULT_YEAR,
   taxpayerName: "",
@@ -48,18 +53,18 @@ const initialT1: T1 = {
   line23600NetIncome: 0,
   line26000TaxableIncome: 0,
   balanceOwing: 0,
-};
+});
 
-const initialT2125: T2125 = {
+const initialT2125 = (): T2125 => ({
   docType: "T2125",
   taxYear: DEFAULT_YEAR,
   businessName: "",
   grossBusinessIncome: 0,
   totalBusinessExpenses: 0,
   netBusinessIncome: 0,
-};
+});
 
-const initialT4A: T4A = {
+const initialT4A = (): T4A => ({
   docType: "T4A",
   taxYear: DEFAULT_YEAR,
   payerName: "",
@@ -67,9 +72,9 @@ const initialT4A: T4A = {
   box020SelfEmpCommissions: 0,
   box048FeesForServices: 0,
   box105Scholarships: 0,
-};
+});
 
-const initialT2: T2 = {
+const initialT2 = (): T2 => ({
   docType: "T2",
   taxYear: DEFAULT_YEAR,
   corporationName: "",
@@ -81,8 +86,23 @@ const initialT2: T2 = {
   dividendsPaidToShareholder: 0,
   managementSalaryToOwner: 0,
   ownershipPct: 100,
-};
+});
 
+interface ApplicantState {
+  t1: T1;
+  t4s: T4[];
+  t2125s: T2125[];
+  t4as: T4A[];
+  t2s: T2[];
+}
+
+const blankApplicantState = (): ApplicantState => ({
+  t1: initialT1(),
+  t4s: [initialT4()],
+  t2125s: [initialT2125()],
+  t4as: [initialT4A()],
+  t2s: [],
+});
 
 const severityClass: Record<VarianceSeverity, string> = {
   INFO: "border-border bg-muted text-muted-foreground",
@@ -93,25 +113,54 @@ const severityClass: Record<VarianceSeverity, string> = {
 
 interface Props {
   onPenaltyChange?: (penalty: number, flags: VarianceFlag[]) => void;
+  activeTab?: TaxSlipTab;
+  onTabChange?: (tab: TaxSlipTab) => void;
+  /** Optional applicant context — form state is preserved per applicant. */
+  applicantId?: string;
+  /** Hide the internal tab bar when the header owns navigation. */
+  showInternalTabs?: boolean;
 }
 
-export function TaxSlipSuite({ onPenaltyChange }: Props) {
-  const [tab, setTab] = useState<DocTab>("T1");
-  const [t1, setT1] = useState<T1>(initialT1);
-  const [t4s, setT4s] = useState<T4[]>([initialT4]);
-  const [t2125s, setT2125s] = useState<T2125[]>([initialT2125]);
-  const [t4as, setT4as] = useState<T4A[]>([initialT4A]);
-  const [t2s, setT2s] = useState<T2[]>([]);
+const DEFAULT_KEY = "__default__";
+
+export function TaxSlipSuite({
+  onPenaltyChange,
+  activeTab,
+  onTabChange,
+  applicantId,
+  showInternalTabs = true,
+}: Props) {
+  const [internalTab, setInternalTab] = useState<TaxSlipTab>("T1");
+  const tab = activeTab ?? internalTab;
+  const setTab = (t: TaxSlipTab) => {
+    if (onTabChange) onTabChange(t);
+    else setInternalTab(t);
+  };
+
+  // Per-applicant form state preserved across applicant + tab switches.
+  const storeRef = useRef<Map<string, ApplicantState>>(new Map());
+  const key = applicantId ?? DEFAULT_KEY;
+  if (!storeRef.current.has(key)) storeRef.current.set(key, blankApplicantState());
+
+  // Force re-render on applicant switch / mutation by bumping a counter.
+  const [, setTick] = useState(0);
+  const bump = () => setTick((n) => n + 1);
+
+  const current = storeRef.current.get(key)!;
+
+  const patch = (next: Partial<ApplicantState>) => {
+    storeRef.current.set(key, { ...current, ...next });
+    bump();
+  };
 
   const allSlips = useMemo<TaxSlip[]>(
-    () => [t1, ...t4s, ...t2125s, ...t4as, ...t2s],
-    [t1, t4s, t2125s, t4as, t2s],
+    () => [current.t1, ...current.t4s, ...current.t2125s, ...current.t4as, ...current.t2s],
+    [current],
   );
 
   const report = useMemo(() => reconcileTaxSlips(allSlips), [allSlips]);
 
-  // Reactive feedback to parent (aggregate scoring matrix)
-  useMemo(() => {
+  useEffect(() => {
     onPenaltyChange?.(report.penaltyTotal, report.flags);
   }, [report.penaltyTotal, report.flags, onPenaltyChange]);
 
@@ -123,68 +172,70 @@ export function TaxSlipSuite({ onPenaltyChange }: Props) {
             Tax Slip Suite — Forensic Variance Engine
           </h2>
           <p className="text-xs text-muted-foreground">
-            T4 · T1 · T2125 · T4A · T2 · cross-document reconciliation
+            T1 · T4 · T2125 · T4A · T2 · cross-document reconciliation
+            {applicantId ? ` · applicant ${applicantId.slice(0, 8)}` : ""}
           </p>
         </div>
         <ReportSummary report={report} />
       </header>
 
-      <div className="flex gap-px border-b border-border bg-border">
-        {(["T1", "T4", "T2125", "T4A", "T2"] as DocTab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide ${
-              tab === t
-                ? "bg-card text-foreground"
-                : "bg-muted text-muted-foreground hover:bg-card/60"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+      {showInternalTabs && (
+        <div className="flex gap-px border-b border-border bg-border">
+          {TAX_SLIP_TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`flex-1 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide ${
+                tab === t
+                  ? "bg-card text-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-card/60"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="p-5">
-        {tab === "T1" && <T1Form value={t1} onChange={setT1} />}
+        {tab === "T1" && <T1Form value={current.t1} onChange={(t1) => patch({ t1 })} />}
         {tab === "T4" && (
           <SlipList
-            items={t4s}
-            onChange={setT4s}
+            items={current.t4s}
+            onChange={(t4s) => patch({ t4s })}
             label="T4 Statement"
-            blank={initialT4}
+            blank={initialT4()}
             render={(item, update) => <T4Form value={item} onChange={update} />}
           />
         )}
         {tab === "T2125" && (
           <SlipList
-            items={t2125s}
-            onChange={setT2125s}
+            items={current.t2125s}
+            onChange={(t2125s) => patch({ t2125s })}
             label="T2125 Activity"
-            blank={initialT2125}
+            blank={initialT2125()}
             render={(item, update) => <T2125Form value={item} onChange={update} />}
           />
         )}
         {tab === "T4A" && (
           <SlipList
-            items={t4as}
-            onChange={setT4as}
+            items={current.t4as}
+            onChange={(t4as) => patch({ t4as })}
             label="T4A Slip"
-            blank={initialT4A}
+            blank={initialT4A()}
             render={(item, update) => <T4AForm value={item} onChange={update} />}
           />
         )}
         {tab === "T2" && (
           <SlipList
-            items={t2s}
-            onChange={setT2s}
+            items={current.t2s}
+            onChange={(t2s) => patch({ t2s })}
             label="T2 Corporate Return"
-            blank={initialT2}
+            blank={initialT2()}
             render={(item, update) => <T2Form value={item} onChange={update} />}
           />
         )}
       </div>
-
 
       <FlagsPanel report={report} />
     </section>
@@ -196,14 +247,13 @@ export function TaxSlipSuite({ onPenaltyChange }: Props) {
 // ────────────────────────────────────────────────────────────────────────────────
 
 function ReportSummary({ report }: { report: ReturnType<typeof reconcileTaxSlips> }) {
-  const sev: VarianceSeverity =
-    report.flags.some((f) => f.severity === "CRITICAL")
-      ? "CRITICAL"
-      : report.flags.some((f) => f.severity === "MATERIAL")
-        ? "MATERIAL"
-        : report.flags.some((f) => f.severity === "MINOR")
-          ? "MINOR"
-          : "INFO";
+  const sev: VarianceSeverity = report.flags.some((f) => f.severity === "CRITICAL")
+    ? "CRITICAL"
+    : report.flags.some((f) => f.severity === "MATERIAL")
+      ? "MATERIAL"
+      : report.flags.some((f) => f.severity === "MINOR")
+        ? "MINOR"
+        : "INFO";
   return (
     <div className="flex items-center gap-4 text-xs">
       <span className="text-muted-foreground">
@@ -213,8 +263,7 @@ function ReportSummary({ report }: { report: ReturnType<typeof reconcileTaxSlips
         </strong>
       </span>
       <span className="text-muted-foreground">
-        Penalty{" "}
-        <strong className="font-mono text-foreground">+{report.penaltyTotal}</strong>
+        Penalty <strong className="font-mono text-foreground">+{report.penaltyTotal}</strong>
       </span>
       <span
         className={`inline-flex items-center rounded-sm border px-2 py-0.5 font-semibold uppercase tracking-wide ${severityClass[sev]}`}
@@ -296,9 +345,7 @@ function SlipList<T>({
               </button>
             )}
           </div>
-          {render(item, (patch) =>
-            onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it))),
-          )}
+          {render(item, (p) => onChange(items.map((it, i) => (i === idx ? { ...it, ...p } : it))))}
         </div>
       ))}
       <button
@@ -422,4 +469,3 @@ function T2Form({ value, onChange }: { value: T2; onChange: (patch: Partial<T2>)
     </FieldGrid>
   );
 }
-

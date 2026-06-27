@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/supabase/client";
-import { TaxSlipSuite } from "@/components/TaxSlipSuite";
+import { TaxSlipSuite, TAX_SLIP_TABS, type TaxSlipTab } from "@/components/TaxSlipSuite";
 import type { VarianceFlag } from "@/utils/taxSlipParser";
 
 interface ApplicationRecord {
@@ -86,6 +86,8 @@ function Dashboard() {
   const [groupBy, setGroupBy] = useState<GroupKey>("none");
   const [variancePenalty, setVariancePenalty] = useState(0);
   const [varianceFlags, setVarianceFlags] = useState<VarianceFlag[]>([]);
+  const [activeTab, setActiveTab] = useState<TaxSlipTab>("T1");
+  const [activeApplicantId, setActiveApplicantId] = useState<string | null>(null);
   const handleVariance = useCallback((penalty: number, flags: VarianceFlag[]) => {
     setVariancePenalty(penalty);
     setVarianceFlags(flags);
@@ -129,6 +131,17 @@ function Dashboard() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!activeApplicantId && applications.length > 0) {
+      setActiveApplicantId(applications[0].id);
+    }
+  }, [applications, activeApplicantId]);
+
+  const activeApplicant = useMemo(
+    () => applications.find((a) => a.id === activeApplicantId) ?? null,
+    [applications, activeApplicantId],
+  );
 
   const sortedApplications = useMemo(() => {
     const list = [...applications];
@@ -199,6 +212,40 @@ function Dashboard() {
             <Stat label="Avg Score" value={stats.average} />
           </div>
         </div>
+        <nav
+          className="mt-5 flex items-center justify-between gap-4"
+          aria-label="Tax slip sections"
+        >
+          <div className="flex items-center gap-px rounded-sm border border-border bg-border overflow-hidden">
+            {TAX_SLIP_TABS.map((t) => (
+              <button
+                key={t}
+                onClick={() => setActiveTab(t)}
+                className={`px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                  activeTab === t
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+                aria-pressed={activeTab === t}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {activeApplicant ? (
+              <>
+                Active applicant ·{" "}
+                <span className="font-mono text-foreground">
+                  {activeApplicant.application_number}
+                </span>{" "}
+                <span className="text-foreground">— {activeApplicant.taxpayer_name}</span>
+              </>
+            ) : (
+              "No applicant selected"
+            )}
+          </div>
+        </nav>
       </header>
 
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -259,7 +306,12 @@ function Dashboard() {
               )}
               <div className="grid gap-4">
                 {items.map((app) => (
-                  <ApplicationCard key={app.id} app={app} />
+                  <ApplicationCard
+                    key={app.id}
+                    app={app}
+                    active={app.id === activeApplicantId}
+                    onSelect={() => setActiveApplicantId(app.id)}
+                  />
                 ))}
               </div>
             </section>
@@ -278,7 +330,13 @@ function Dashboard() {
             </span>
           )}
         </div>
-        <TaxSlipSuite onPenaltyChange={handleVariance} />
+        <TaxSlipSuite
+          onPenaltyChange={handleVariance}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          applicantId={activeApplicantId ?? undefined}
+          showInternalTabs={false}
+        />
       </div>
     </div>
   );
@@ -307,13 +365,25 @@ function Stat({
   );
 }
 
-function ApplicationCard({ app }: { app: ApplicationRecord }) {
+function ApplicationCard({
+  app,
+  active = false,
+  onSelect,
+}: {
+  app: ApplicationRecord;
+  active?: boolean;
+  onSelect?: () => void;
+}) {
   const tier = getRiskTier(app.aggregate_risk_score);
   const scorePercent = Math.min(100, Math.max(0, app.aggregate_risk_score));
 
   return (
-    <div
-      className={`relative overflow-hidden rounded-sm border bg-card shadow-sm transition-shadow hover:shadow-md ${tier.border}`}
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`relative w-full overflow-hidden rounded-sm border bg-card text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring ${tier.border} ${
+        active ? "ring-2 ring-primary" : ""
+      }`}
     >
       <div className={`absolute left-0 top-0 h-full w-1 ${tier.bar}`} />
       <div className="p-5 pl-6">
@@ -352,6 +422,6 @@ function ApplicationCard({ app }: { app: ApplicationRecord }) {
           </div>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
