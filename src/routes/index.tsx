@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/supabase/client";
 import { TaxSlipSuite, TAX_SLIP_TABS, type TaxSlipTab } from "@/components/TaxSlipSuite";
+import { LoanTermsPanel, DEFAULT_LOAN_TERMS, type LoanTerms } from "@/components/LoanTermsPanel";
 import type { VarianceFlag } from "@/utils/taxSlipParser";
 
 interface ApplicationRecord {
@@ -86,6 +87,7 @@ function Dashboard() {
   const [groupBy, setGroupBy] = useState<GroupKey>("none");
   const [variancePenalty, setVariancePenalty] = useState(0);
   const [varianceFlags, setVarianceFlags] = useState<VarianceFlag[]>([]);
+  const [loanTerms, setLoanTerms] = useState<LoanTerms>(DEFAULT_LOAN_TERMS);
   const [activeTab, setActiveTab] = useState<TaxSlipTab>("T1");
   const [activeApplicantId, setActiveApplicantId] = useState<string | null>(null);
   const handleVariance = useCallback((penalty: number, flags: VarianceFlag[]) => {
@@ -318,6 +320,15 @@ function Dashboard() {
           ))}
         </div>
       )}
+
+      <div className="mt-10">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Loan Terms · Amortization · Co-Applicant
+          </h2>
+        </div>
+        <LoanTermsPanel state={loanTerms} setState={setLoanTerms} />
+      </div>
 
       <div className="mt-10">
         <div className="mb-3 flex items-center justify-between">
