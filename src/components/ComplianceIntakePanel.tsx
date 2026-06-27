@@ -28,17 +28,12 @@ type FormValues = Record<string, string | number | boolean>;
 const defaultsFor = (specs: FieldSpec[]): FormValues => {
   const out: FormValues = {};
   for (const f of specs) {
-    out[f.name] =
-      f.sample !== undefined
-        ? f.sample
-        : f.type === "number"
-          ? 0
-          : f.type === "boolean"
-            ? false
-            : "";
+    // Start every field blank — no seeded sample values bleeding into the UI.
+    out[f.name] = f.type === "number" ? 0 : f.type === "boolean" ? false : "";
   }
   return out;
 };
+
 
 interface Props {
   applicantId?: string | null;
