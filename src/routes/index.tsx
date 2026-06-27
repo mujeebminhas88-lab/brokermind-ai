@@ -431,6 +431,7 @@ function Dashboard() {
         <ComplianceIntakePanel
           applicantId={activeApplicantId}
           onVerdictChange={setComplianceVerdict}
+          onApplicantNameChange={(n) => setNameDraft(n)}
         />
       </div>
 

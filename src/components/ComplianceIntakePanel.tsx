@@ -38,9 +38,17 @@ const defaultsFor = (specs: FieldSpec[]): FormValues => {
 interface Props {
   applicantId?: string | null;
   onVerdictChange?: (verdict: ComplianceVerdict | null) => void;
+  onApplicantNameChange?: (name: string) => void;
 }
 
-export function ComplianceIntakePanel({ applicantId, onVerdictChange }: Props) {
+const NAME_FIELDS = new Set([
+  "taxpayerName",
+  "corporationName",
+  "trustName",
+  "partnershipName",
+]);
+
+export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplicantNameChange }: Props) {
   const [docs, setDocs] = useState<ProcessedDocument[]>([]);
   const [selectedKind, setSelectedKind] = useState<DocumentKind>("T1");
   const grouped = useMemo(() => getRegistryByCategory(), []);
@@ -92,8 +100,10 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange }: Props) {
     }
   };
 
-  const setField = (name: string, v: string | number | boolean) =>
+  const setField = (name: string, v: string | number | boolean) => {
     setValues((prev) => ({ ...prev, [name]: v }));
+    if (NAME_FIELDS.has(name) && typeof v === "string") onApplicantNameChange?.(v);
+  };
 
   return (
     <section className="rounded-sm border border-border bg-card shadow-sm">
