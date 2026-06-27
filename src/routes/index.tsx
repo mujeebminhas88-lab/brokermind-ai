@@ -277,7 +277,10 @@ function Dashboard() {
   if (error) return <div className="p-20 text-center text-destructive">Error: {error}</div>;
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background">
+      <AppHeader />
+      <div className="p-6">
+
       <div
         className={`mb-4 flex items-center justify-between gap-4 rounded-sm border px-4 py-2.5 ${
           sandboxMode ? "border-warning/50 bg-warning-bg" : "border-border bg-card"
