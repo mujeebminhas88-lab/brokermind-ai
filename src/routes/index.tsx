@@ -87,6 +87,7 @@ function Dashboard() {
   const [groupBy, setGroupBy] = useState<GroupKey>("none");
   const [variancePenalty, setVariancePenalty] = useState(0);
   const [varianceFlags, setVarianceFlags] = useState<VarianceFlag[]>([]);
+  const [loanTerms, setLoanTerms] = useState<LoanTerms>(DEFAULT_LOAN_TERMS);
   const [activeTab, setActiveTab] = useState<TaxSlipTab>("T1");
   const [activeApplicantId, setActiveApplicantId] = useState<string | null>(null);
   const handleVariance = useCallback((penalty: number, flags: VarianceFlag[]) => {
