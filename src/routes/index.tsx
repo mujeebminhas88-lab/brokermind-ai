@@ -324,6 +324,15 @@ function Dashboard() {
       <div className="mt-10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Loan Terms · Amortization · Co-Applicant
+          </h2>
+        </div>
+        <LoanTermsPanel state={loanTerms} setState={setLoanTerms} />
+      </div>
+
+      <div className="mt-10">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Phase 4 + 5 — Tax Slip Suite (T1 · T4 · T2125 · T4A · T2 Corporate)
           </h2>
           {variancePenalty > 0 && (
