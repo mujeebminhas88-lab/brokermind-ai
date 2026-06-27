@@ -101,10 +101,11 @@ export function TaxSlipSuite({ onPenaltyChange }: Props) {
   const [t4s, setT4s] = useState<T4[]>([initialT4]);
   const [t2125s, setT2125s] = useState<T2125[]>([initialT2125]);
   const [t4as, setT4as] = useState<T4A[]>([initialT4A]);
+  const [t2s, setT2s] = useState<T2[]>([]);
 
   const allSlips = useMemo<TaxSlip[]>(
-    () => [t1, ...t4s, ...t2125s, ...t4as],
-    [t1, t4s, t2125s, t4as],
+    () => [t1, ...t4s, ...t2125s, ...t4as, ...t2s],
+    [t1, t4s, t2125s, t4as, t2s],
   );
 
   const report = useMemo(() => reconcileTaxSlips(allSlips), [allSlips]);
@@ -122,14 +123,14 @@ export function TaxSlipSuite({ onPenaltyChange }: Props) {
             Tax Slip Suite — Forensic Variance Engine
           </h2>
           <p className="text-xs text-muted-foreground">
-            T4 · T1 · T2125 · T4A · cross-document reconciliation
+            T4 · T1 · T2125 · T4A · T2 · cross-document reconciliation
           </p>
         </div>
         <ReportSummary report={report} />
       </header>
 
       <div className="flex gap-px border-b border-border bg-border">
-        {(["T1", "T4", "T2125", "T4A"] as DocTab[]).map((t) => (
+        {(["T1", "T4", "T2125", "T4A", "T2"] as DocTab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -173,7 +174,17 @@ export function TaxSlipSuite({ onPenaltyChange }: Props) {
             render={(item, update) => <T4AForm value={item} onChange={update} />}
           />
         )}
+        {tab === "T2" && (
+          <SlipList
+            items={t2s}
+            onChange={setT2s}
+            label="T2 Corporate Return"
+            blank={initialT2}
+            render={(item, update) => <T2Form value={item} onChange={update} />}
+          />
+        )}
       </div>
+
 
       <FlagsPanel report={report} />
     </section>
