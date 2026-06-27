@@ -201,7 +201,7 @@ export function PipelineLedger({
           <thead>
             <tr className="border-b border-border bg-secondary/30 text-left">
               <Th>App ID</Th>
-              <Th>Taxpayer</Th>
+              <Th>Applicant</Th>
               <Th className="text-center">Tax Year</Th>
               <Th className="text-right">Income (L.15000)</Th>
               <Th className="text-center">Risk Score</Th>
