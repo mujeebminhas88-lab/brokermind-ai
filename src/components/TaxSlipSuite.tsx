@@ -69,6 +69,21 @@ const initialT4A: T4A = {
   box105Scholarships: 0,
 };
 
+const initialT2: T2 = {
+  docType: "T2",
+  taxYear: DEFAULT_YEAR,
+  corporationName: "",
+  grossRevenue: 0,
+  netIncomeBeforeTax: 0,
+  retainedEarnings: 0,
+  shareholderLoanReceivable: 0,
+  shareholderLoanPayable: 0,
+  dividendsPaidToShareholder: 0,
+  managementSalaryToOwner: 0,
+  ownershipPct: 100,
+};
+
+
 const severityClass: Record<VarianceSeverity, string> = {
   INFO: "border-border bg-muted text-muted-foreground",
   MINOR: "border-warning/40 bg-warning-bg text-warning-fg",
