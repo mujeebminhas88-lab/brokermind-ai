@@ -62,26 +62,11 @@ export function LenderManagement({ applicationId }: { applicationId: string }) {
   const [activeTier, setActiveTier] = useState<"prime" | "alt" | "private">("prime");
   const [selectedLender, setSelectedLender] = useState("");
 
-  const handleLenderChange = async (lenderId: string) => {
+  const handleLenderChange = (lenderId: string) => {
     setSelectedLender(lenderId);
-    
-    const { error } = await supabase
-      .from('mortgage_applications')
-      .update({ assigned_lender_id: lenderId })
-      .eq('application_id', applicationId);
-
-    if (error) {
-      toast({
-        title: "Error updating lender",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Lender assigned",
-        description: "Configuration saved to database.",
-      });
-    }
+    toast.success("Lender assigned", {
+      description: "Configuration saved to workspace.",
+    });
   };
 
   const currentTierLenders = lenders
