@@ -398,6 +398,21 @@ function Dashboard() {
         </nav>
       </header>
 
+      {complianceVerdict && complianceVerdict.alerts.length > 0 && (
+        <ComplianceAlertBanner
+          verdict={complianceVerdict}
+          applicantName={activeApplicant?.taxpayer_name}
+        />
+      )}
+
+      <div className="mb-6">
+        <ComplianceIntakePanel
+          applicantId={activeApplicantId}
+          onVerdictChange={setComplianceVerdict}
+        />
+      </div>
+
+
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <label htmlFor="sort" className="text-sm font-medium text-muted-foreground">
