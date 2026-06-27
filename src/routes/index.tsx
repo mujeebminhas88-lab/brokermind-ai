@@ -126,44 +126,95 @@ function Dashboard() {
     setPendingChanges(0);
   }, [sandboxMode, pendingChanges]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchApplications = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-    const fetchApplications = async () => {
-      setLoading(true);
-      setError(null);
+    const { data, error } = await supabase
+      .from("underwriting_applications")
+      .select(
+        "id, application_number, taxpayer_name, aggregate_risk_score, line_15000_total_income, created_at"
+      )
+      .order("created_at", { ascending: false });
 
-      const { data, error } = await supabase
-        .from("underwriting_applications")
-        .select(
-          "id, application_number, taxpayer_name, aggregate_risk_score, line_15000_total_income, created_at"
-        )
-        .order("created_at", { ascending: false });
-
-      if (cancelled) return;
-
-      if (error) {
-        console.error("Supabase Error:", error);
-        setError(error.message);
-      } else if (data) {
-        const seen = new Set<string>();
-        const deduped: ApplicationRecord[] = [];
-        for (const row of data as unknown as ApplicationRecord[]) {
-          if (!row?.application_number || seen.has(row.application_number)) continue;
-          seen.add(row.application_number);
-          deduped.push(row);
-        }
-        setApplications(deduped);
-      }
-
+    if (error) {
+      console.error("Supabase Error:", error);
+      setError(error.message);
       setLoading(false);
+      return;
+    }
+
+    const seen = new Set<string>();
+    const deduped: ApplicationRecord[] = [];
+    for (const row of (data ?? []) as unknown as ApplicationRecord[]) {
+      if (!row?.application_number || seen.has(row.application_number)) continue;
+      seen.add(row.application_number);
+      deduped.push(row);
+    }
+    setApplications(deduped);
+    setLoading(false);
+    return deduped;
+  }, []);
+
+  useEffect(() => {
+    fetchApplications();
+  }, [fetchApplications]);
+
+  const handleSave = useCallback(async () => {
+    if (!activeApplicantId) {
+      toast.error("No active applicant to save");
+      return;
+    }
+    const current = applications.find((a) => a.id === activeApplicantId);
+    if (!current) return;
+
+    const payload = {
+      id: current.id,
+      application_number: current.application_number,
+      taxpayer_name: current.taxpayer_name,
+      aggregate_risk_score: current.aggregate_risk_score + variancePenalty,
+      line_15000_total_income: current.line_15000_total_income,
+      tax_year: new Date().getFullYear(),
+      gds: 0,
+      tds: 0,
     };
 
-    fetchApplications();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    const { error } = await supabase
+      .from("underwriting_applications")
+      .upsert(payload, { onConflict: "id" });
+
+    if (error) {
+      toast.error("Save failed", { description: error.message });
+      return;
+    }
+    // Clear local cache + force re-fetch
+    setApplications([]);
+    await fetchApplications();
+    toast.success("Saved to underwriting log");
+  }, [activeApplicantId, applications, variancePenalty, fetchApplications]);
+
+  const handleDelete = useCallback(async () => {
+    if (!activeApplicantId) return;
+    const target = activeApplicantId;
+    const { error } = await supabase
+      .from("underwriting_applications")
+      .delete()
+      .eq("id", target);
+
+    if (error) {
+      toast.error("Delete failed", { description: error.message });
+      return;
+    }
+    // Clear local state, deselect, redirect to list
+    setActiveApplicantId(null);
+    setApplications([]);
+    setLoanTerms(DEFAULT_LOAN_TERMS);
+    setVariancePenalty(0);
+    setVarianceFlags([]);
+    await fetchApplications();
+    toast.success("Applicant deleted");
+  }, [activeApplicantId, fetchApplications]);
+
 
   useEffect(() => {
     if (!activeApplicantId && applications.length > 0) {
@@ -270,6 +321,24 @@ function Dashboard() {
             </button>
           </div>
         )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!activeApplicantId}
+            className="rounded-sm border border-primary bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-foreground disabled:opacity-40 hover:opacity-90"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={!activeApplicantId}
+            className="rounded-sm border border-destructive bg-card px-3 py-1 text-xs font-semibold uppercase tracking-wider text-destructive disabled:opacity-40 hover:bg-destructive/10"
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
       <header className="mb-8 border-b border-border pb-6">
