@@ -126,7 +126,7 @@ function PipelineBoard() {
     for (const col of COLUMNS) buckets[col.key] = [];
     const other: AppRow[] = [];
     for (const a of apps) {
-      const col = COLUMNS.find((c) => c.statuses.includes(a.review_status));
+      const col = COLUMNS.find((c) => c.statuses.includes(a.review_status as ReviewStatus));
       if (col) buckets[col.key].push(a);
       else other.push(a);
     }
