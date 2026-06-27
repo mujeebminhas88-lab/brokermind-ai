@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Building2, ChevronDown } from "lucide-react";
-import { supabase } from "@/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const BASELINE_LENDERS = [
   { id: "b2b-bank-prime", name: "B2B Bank", tier: "prime" },
