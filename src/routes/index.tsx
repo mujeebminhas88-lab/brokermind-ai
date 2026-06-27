@@ -8,6 +8,9 @@ import { LenderManagement } from "@/components/LenderManagement";
 import { FlaskConical, Database } from "lucide-react";
 import { toast } from "sonner";
 import type { VarianceFlag } from "@/utils/taxSlipParser";
+import { ComplianceIntakePanel } from "@/components/ComplianceIntakePanel";
+import { ComplianceAlertBanner } from "@/components/ComplianceAlertBanner";
+import type { ComplianceVerdict } from "@/utils/documentRegistry";
 
 interface ApplicationRecord {
   id: string;
@@ -97,6 +100,7 @@ function Dashboard() {
   const [lenderStream, setLenderStream] = useState<LenderStream>("A");
   const [sandboxMode, setSandboxMode] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(0);
+  const [complianceVerdict, setComplianceVerdict] = useState<ComplianceVerdict | null>(null);
   const handleVariance = useCallback((penalty: number, flags: VarianceFlag[]) => {
     setVariancePenalty(penalty);
     setVarianceFlags(flags);
