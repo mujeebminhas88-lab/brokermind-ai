@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Upload, Trash2 } from "lucide-react";
 import {
@@ -61,7 +61,7 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange }: Props) {
   const verdict = useMemo(() => aggregateCompliance(docs), [docs]);
 
   // Propagate verdict to parent.
-  useMemo(() => {
+  useEffect(() => {
     onVerdictChange?.(docs.length === 0 ? null : verdict);
   }, [verdict, docs.length, onVerdictChange]);
 
