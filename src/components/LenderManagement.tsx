@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Building2, ChevronDown } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const BASELINE_LENDERS = [

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Database, Save, Search, History, RefreshCw, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/supabase/client";
 import { analyzeNoticeOfAssessment, type NoaAnalysis } from "@/utils/noaParser";
 
 export type LedgerRow = {

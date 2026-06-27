@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import React from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/supabase/client";
 
 // This interface mirrors your database columns exactly
 interface ApplicationRecord {
