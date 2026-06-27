@@ -4,7 +4,7 @@ import { supabase } from "@/supabase/client";
 import { TaxSlipSuite, TAX_SLIP_TABS, type TaxSlipTab } from "@/components/TaxSlipSuite";
 import { LoanTermsPanel } from "@/components/LoanTermsPanel";
 import { ReoMatrix } from "@/components/ReoMatrix";
-import { useDerivedFinancials } from "@/store/applicationStore";
+import { useDerivedFinancials, useApplicationStore } from "@/store/applicationStore";
 import { LenderManagement } from "@/components/LenderManagement";
 import { FlaskConical, Database } from "lucide-react";
 import { toast } from "sonner";
