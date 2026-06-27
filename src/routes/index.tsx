@@ -2,8 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/supabase/client";
 import { TaxSlipSuite, TAX_SLIP_TABS, type TaxSlipTab } from "@/components/TaxSlipSuite";
-import { LoanTermsPanel, DEFAULT_LOAN_TERMS, type LoanTerms } from "@/components/LoanTermsPanel";
-import { ReoMatrix, type LenderStream } from "@/components/ReoMatrix";
+import { LoanTermsPanel } from "@/components/LoanTermsPanel";
+import { ReoMatrix } from "@/components/ReoMatrix";
+import { useDerivedFinancials, useApplicationStore } from "@/store/applicationStore";
 import { LenderManagement } from "@/components/LenderManagement";
 import { FlaskConical, Database } from "lucide-react";
 import { toast } from "sonner";
@@ -94,25 +95,18 @@ function Dashboard() {
   const [groupBy, setGroupBy] = useState<GroupKey>("none");
   const [variancePenalty, setVariancePenalty] = useState(0);
   const [varianceFlags, setVarianceFlags] = useState<VarianceFlag[]>([]);
-  const [loanTerms, setLoanTerms] = useState<LoanTerms>(DEFAULT_LOAN_TERMS);
   const [activeTab, setActiveTab] = useState<TaxSlipTab>("T1");
   const [activeApplicantId, setActiveApplicantId] = useState<string | null>(null);
-  const [lenderStream, setLenderStream] = useState<LenderStream>("A");
   const [sandboxMode, setSandboxMode] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(0);
   const [complianceVerdict, setComplianceVerdict] = useState<ComplianceVerdict | null>(null);
+  const derived = useDerivedFinancials();
+  const resetLoan = useApplicationStore((s) => s.resetLoan);
   const handleVariance = useCallback((penalty: number, flags: VarianceFlag[]) => {
     setVariancePenalty(penalty);
     setVarianceFlags(flags);
   }, []);
 
-  const handleLoanTermsChange: typeof setLoanTerms = useCallback((next) => {
-    setLoanTerms((prev) => {
-      const resolved = typeof next === "function" ? (next as (p: LoanTerms) => LoanTerms)(prev) : next;
-      if (sandboxMode) setPendingChanges((c) => c + 1);
-      return resolved;
-    });
-  }, [sandboxMode]);
 
   const handleCommit = useCallback(() => {
     toast.success("Sandbox committed to underwriting log", {
@@ -212,7 +206,7 @@ function Dashboard() {
     // Clear local state, deselect, redirect to list
     setActiveApplicantId(null);
     setApplications([]);
-    setLoanTerms(DEFAULT_LOAN_TERMS);
+    resetLoan();
     setVariancePenalty(0);
     setVarianceFlags([]);
     await fetchApplications();
@@ -343,6 +337,20 @@ function Dashboard() {
             Delete
           </button>
         </div>
+      </div>
+
+      <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-5">
+        <GlobalRatio label="LTV" value={`${derived.ltv.toFixed(2)}%`} warn={derived.ltv > 80} />
+        <GlobalRatio label="GDS" value={`${derived.ds.gds.toFixed(2)}%`} warn={derived.ds.gdsExceeded} />
+        <GlobalRatio label="TDS" value={`${derived.ds.tds.toFixed(2)}%`} warn={derived.ds.tdsExceeded} />
+        <GlobalRatio
+          label="Monthly P+I"
+          value={derived.monthlyPI.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
+        />
+        <GlobalRatio
+          label="Household Income"
+          value={derived.householdIncome.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
+        />
       </div>
 
       <header className="mb-8 border-b border-border pb-6">
@@ -505,7 +513,7 @@ function Dashboard() {
             Loan Terms · Amortization · Co-Applicant
           </h2>
         </div>
-        <LoanTermsPanel state={loanTerms} setState={handleLoanTermsChange} />
+        <LoanTermsPanel />
       </div>
 
       <div className="mt-10 grid gap-6 lg:grid-cols-[2fr_1fr]">
@@ -516,12 +524,9 @@ function Dashboard() {
             </h2>
           </div>
           <ReoMatrix
-            lenderStream={lenderStream}
-            onStreamChange={(s) => {
-              setLenderStream(s);
+            onStreamChange={() => {
               if (sandboxMode) setPendingChanges((c) => c + 1);
             }}
-            disabled={false}
           />
         </div>
         <div>
@@ -638,5 +643,18 @@ function ApplicationCard({
         </div>
       </div>
     </button>
+  );
+}
+
+function GlobalRatio({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div className={`flex flex-col gap-0.5 px-4 py-3 ${warn ? "bg-warning-bg" : "bg-card"}`}>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </span>
+      <span className={`font-mono text-lg font-bold tracking-tight ${warn ? "text-warning-fg" : "text-foreground"}`}>
+        {value}
+      </span>
+    </div>
   );
 }
