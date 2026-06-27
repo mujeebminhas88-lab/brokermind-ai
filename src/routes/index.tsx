@@ -339,6 +339,20 @@ function Dashboard() {
         </div>
       </div>
 
+      <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-5">
+        <GlobalRatio label="LTV" value={`${derived.ltv.toFixed(2)}%`} warn={derived.ltv > 80} />
+        <GlobalRatio label="GDS" value={`${derived.ds.gds.toFixed(2)}%`} warn={derived.ds.gdsExceeded} />
+        <GlobalRatio label="TDS" value={`${derived.ds.tds.toFixed(2)}%`} warn={derived.ds.tdsExceeded} />
+        <GlobalRatio
+          label="Monthly P+I"
+          value={derived.monthlyPI.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
+        />
+        <GlobalRatio
+          label="Household Income"
+          value={derived.householdIncome.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
+        />
+      </div>
+
       <header className="mb-8 border-b border-border pb-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
