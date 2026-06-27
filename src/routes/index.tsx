@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { AppHeader } from "@/components/AppHeader";
+
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/supabase/client";
 import { TaxSlipSuite, TAX_SLIP_TABS, type TaxSlipTab } from "@/components/TaxSlipSuite";
@@ -277,7 +279,10 @@ function Dashboard() {
   if (error) return <div className="p-20 text-center text-destructive">Error: {error}</div>;
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background">
+      <AppHeader />
+      <div className="p-6">
+
       <div
         className={`mb-4 flex items-center justify-between gap-4 rounded-sm border px-4 py-2.5 ${
           sandboxMode ? "border-warning/50 bg-warning-bg" : "border-border bg-card"
@@ -356,26 +361,11 @@ function Dashboard() {
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              BrokerMind AI
+              Underwriting Workspace
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Underwriter Workspace — Pipeline Ledger & Risk Prioritization
+              Document Registry, Forensic Lens, Scoring Matrix & Conditions
             </p>
-            <div className="mt-3 flex items-center gap-1 text-xs font-medium uppercase tracking-wider">
-              <span className="rounded-sm bg-foreground px-3 py-1.5 text-background">Workspace</span>
-              <Link
-                to="/compliance"
-                className="rounded-sm px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                Compliance
-              </Link>
-              <Link
-                to="/pipeline"
-                className="rounded-sm px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                Pipeline
-              </Link>
-            </div>
           </div>
           <div className="flex gap-6 text-sm">
             <Stat label="Applications" value={stats.total} />
@@ -384,6 +374,7 @@ function Dashboard() {
             <Stat label="Avg Score" value={stats.average} />
           </div>
         </div>
+
         <nav
           className="mt-5 flex items-center justify-between gap-4"
           aria-label="Tax slip sections"
@@ -557,9 +548,11 @@ function Dashboard() {
           showInternalTabs={false}
         />
       </div>
+      </div>
     </div>
   );
 }
+
 
 function Stat({
   label,

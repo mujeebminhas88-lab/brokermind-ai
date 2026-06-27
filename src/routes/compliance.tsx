@@ -1,7 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabase/client";
 import { AlertTriangle, ShieldAlert, RefreshCw, CheckCircle2 } from "lucide-react";
+import { AppHeader } from "@/components/AppHeader";
+
 
 interface ComplianceAlert {
   id: string;
@@ -126,7 +128,28 @@ function ComplianceDashboard() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header lastEvent={lastEvent} onRefresh={fetchData} />
+      <AppHeader
+        right={
+          <>
+            <span className="flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+              </span>
+              Live
+            </span>
+            {lastEvent && <span className="font-mono">last event {lastEvent}</span>}
+            <button
+              onClick={fetchData}
+              className="flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 hover:bg-muted"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Refresh
+            </button>
+          </>
+        }
+      />
+
 
       <div className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-end justify-between gap-4 px-6 py-5">
@@ -300,57 +323,5 @@ function FilterTab({
   );
 }
 
-function Header({
-  lastEvent,
-  onRefresh,
-}: {
-  lastEvent: string | null;
-  onRefresh: () => void;
-}) {
-  return (
-    <header className="border-b border-border bg-card">
-      <div className="mx-auto flex max-w-[1600px] items-center justify-between px-6 py-3">
-        <div className="flex items-center gap-6">
-          <Link to="/" className="font-semibold tracking-tight">
-            BrokerMind<span className="text-primary">AI</span>
-          </Link>
-          <nav className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider">
-            <NavLink to="/">Workspace</NavLink>
-            <NavLink to="/compliance">Compliance</NavLink>
-            <NavLink to="/pipeline">Pipeline</NavLink>
-          </nav>
-        </div>
-        <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-            </span>
-            Live subscription
-          </span>
-          {lastEvent && <span className="font-mono">last event {lastEvent}</span>}
-          <button
-            onClick={onRefresh}
-            className="flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 hover:bg-muted"
-          >
-            <RefreshCw className="h-3 w-3" />
-            Refresh
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-}
 
-function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
-  return (
-    <Link
-      to={to}
-      className="rounded-sm px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-      activeProps={{ className: "bg-foreground text-background hover:bg-foreground hover:text-background" }}
-      activeOptions={{ exact: true }}
-    >
-      {children}
-    </Link>
-  );
-}
+
