@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { AppHeader } from "@/components/AppHeader";
+
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/supabase/client";
 import { TaxSlipSuite, TAX_SLIP_TABS, type TaxSlipTab } from "@/components/TaxSlipSuite";
