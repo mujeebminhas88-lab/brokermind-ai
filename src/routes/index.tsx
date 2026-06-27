@@ -99,6 +99,8 @@ function Dashboard() {
   const [varianceFlags, setVarianceFlags] = useState<VarianceFlag[]>([]);
   const [activeTab, setActiveTab] = useState<TaxSlipTab>("T1");
   const [activeApplicantId, setActiveApplicantId] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+
   const [sandboxMode, setSandboxMode] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(0);
   const [complianceVerdict, setComplianceVerdict] = useState<ComplianceVerdict | null>(null);
@@ -159,18 +161,14 @@ function Dashboard() {
   const handleSave = useCallback(async () => {
     const current = applications.find((a) => a.id === activeApplicantId);
     const existingName = current?.taxpayer_name?.trim();
-    let name = existingName && existingName.toLowerCase() !== "unnamed applicant" ? existingName : "";
+    const draft = nameDraft.trim();
+    const name =
+      draft ||
+      (existingName && existingName.toLowerCase() !== "unnamed applicant" ? existingName : "");
 
     if (!name) {
-      const entered =
-        typeof window !== "undefined"
-          ? window.prompt("Applicant full name", "")?.trim()
-          : "";
-      if (!entered) {
-        toast.error("Applicant name is required");
-        return;
-      }
-      name = entered;
+      toast.error("Enter the applicant's full name before saving");
+      return;
     }
 
     const payload = {
@@ -199,8 +197,10 @@ function Dashboard() {
       const created = fresh.find((a) => a.application_number === payload.application_number);
       if (created) setActiveApplicantId(created.id);
     }
+    setNameDraft("");
     toast.success("Saved to underwriting log", { description: payload.taxpayer_name });
-  }, [activeApplicantId, applications, variancePenalty, derived.ds.gds, derived.ds.tds, fetchApplications]);
+  }, [activeApplicantId, applications, nameDraft, variancePenalty, derived.ds.gds, derived.ds.tds, fetchApplications]);
+
 
 
   const handleCommit = useCallback(async () => {
