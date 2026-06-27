@@ -1,7 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabase/client";
 import { AlertTriangle, ShieldAlert, RefreshCw, CheckCircle2 } from "lucide-react";
+import { AppHeader } from "@/components/AppHeader";
+
 
 interface ComplianceAlert {
   id: string;
