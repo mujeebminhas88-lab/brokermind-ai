@@ -2,55 +2,76 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 
 /**
- * Runtime-safe Supabase client for BrokerMindAI.
+ * BrokerMindAI Supabase client.
  *
- * Resolution order:
- * 1. Lovable Cloud runtime globals  (globalThis.SUPABASE_URL, globalThis.SUPABASE_PUBLISHABLE_KEY / SUPABASE_ANON_KEY)
- * 2. Vite build-time env           (import.meta.env.VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
- * 3. Server / SSR env              (process.env.SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY / SUPABASE_ANON_KEY)
+ * Credential resolution (strict order, per architecture spec):
+ *   1. Lovable Cloud runtime globals  — globalThis.SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY
+ *      (also honors SUPABASE_ANON_KEY + VITE_* mirrors that Lovable injects)
+ *   2. Vite build-time env            — import.meta.env.VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
+ *      (also honors VITE_SUPABASE_PUBLISHABLE_KEY which Lovable provisions on Vercel)
+ *   3. SSR/Node env                   — process.env.SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY
  *
- * This single client is used by both the browser UI and the auth-attacher middleware.
+ * Missing credentials log loudly at module init and THROW on first runtime use of the
+ * client (so SSR/prerender does not crash, but real API calls fail with a clear message).
+ * Never resolves a service-role key on the client.
  */
 
-const globalUrl =
-  (globalThis as typeof globalThis & { SUPABASE_URL?: string }).SUPABASE_URL ??
-  (globalThis as typeof globalThis & { VITE_SUPABASE_URL?: string }).VITE_SUPABASE_URL;
+type GlobalLike = typeof globalThis & {
+  SUPABASE_URL?: string;
+  SUPABASE_PUBLISHABLE_KEY?: string;
+  SUPABASE_ANON_KEY?: string;
+  VITE_SUPABASE_URL?: string;
+  VITE_SUPABASE_PUBLISHABLE_KEY?: string;
+  VITE_SUPABASE_ANON_KEY?: string;
+};
 
-const globalKey =
-  (globalThis as typeof globalThis & { SUPABASE_PUBLISHABLE_KEY?: string }).SUPABASE_PUBLISHABLE_KEY ??
-  (globalThis as typeof globalThis & { SUPABASE_ANON_KEY?: string }).SUPABASE_ANON_KEY ??
-  (globalThis as typeof globalThis & { VITE_SUPABASE_PUBLISHABLE_KEY?: string }).VITE_SUPABASE_PUBLISHABLE_KEY ??
-  (globalThis as typeof globalThis & { VITE_SUPABASE_ANON_KEY?: string }).VITE_SUPABASE_ANON_KEY;
+const g = globalThis as GlobalLike;
 
 const supabaseUrl =
-  globalUrl ??
+  g.SUPABASE_URL ??
+  g.VITE_SUPABASE_URL ??
   (import.meta.env?.VITE_SUPABASE_URL as string | undefined) ??
   (typeof process !== 'undefined' ? process.env?.SUPABASE_URL : undefined) ??
   (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_URL : undefined);
 
 const supabaseAnonKey =
-  globalKey ??
+  g.SUPABASE_PUBLISHABLE_KEY ??
+  g.SUPABASE_ANON_KEY ??
+  g.VITE_SUPABASE_PUBLISHABLE_KEY ??
+  g.VITE_SUPABASE_ANON_KEY ??
   (import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) ??
   (import.meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined) ??
   (typeof process !== 'undefined' ? process.env?.SUPABASE_PUBLISHABLE_KEY : undefined) ??
-  (typeof process !== 'undefined' ? process.env?.SUPABASE_ANON_KEY : undefined) ??
-  (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_PUBLISHABLE_KEY : undefined);
+  (typeof process !== 'undefined' ? process.env?.SUPABASE_ANON_KEY : undefined);
+
+const MISSING_MSG =
+  '[BrokerMindAI] Supabase credentials missing. Expected globalThis.SUPABASE_URL + ' +
+  'SUPABASE_PUBLISHABLE_KEY (Lovable runtime) or VITE_SUPABASE_URL + ' +
+  'VITE_SUPABASE_ANON_KEY/VITE_SUPABASE_PUBLISHABLE_KEY (Vite env). ' +
+  'Configure these in your Vercel project environment variables.';
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  // Avoid throwing at module-init (would crash SSR/prerender on Vercel).
-  // Log loudly instead; runtime calls will surface a clearer error.
   // eslint-disable-next-line no-console
-  console.error(
-    '[BrokerMindAI] Supabase client misconfigured: missing URL or publishable key. ' +
-    'Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in the Vercel project environment.'
-  );
+  console.error(MISSING_MSG);
 }
 
+// Build a real client when creds exist, otherwise a proxy that throws on first use.
+// This keeps SSR/prerender alive (no module-init throw) while still surfacing a clear error.
+function makeThrowingProxy(): ReturnType<typeof createClient<Database>> {
+  return new Proxy({} as ReturnType<typeof createClient<Database>>, {
+    get() {
+      throw new Error(MISSING_MSG);
+    },
+  });
+}
 
-export const supabase = createClient<Database>(supabaseUrl ?? '', supabaseAnonKey ?? '', {
-  auth: {
-    storage: typeof window !== 'undefined' ? localStorage : undefined,
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
+export const supabase =
+  supabaseUrl && supabaseAnonKey
+    ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      })
+    : makeThrowingProxy();

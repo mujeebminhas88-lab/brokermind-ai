@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/supabase/client";
+import { TaxSlipSuite } from "@/components/TaxSlipSuite";
+import type { VarianceFlag } from "@/utils/taxSlipParser";
 
 interface ApplicationRecord {
   id: string;
@@ -82,6 +84,12 @@ function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("risk-desc");
   const [groupBy, setGroupBy] = useState<GroupKey>("none");
+  const [variancePenalty, setVariancePenalty] = useState(0);
+  const [varianceFlags, setVarianceFlags] = useState<VarianceFlag[]>([]);
+  const handleVariance = useCallback((penalty: number, flags: VarianceFlag[]) => {
+    setVariancePenalty(penalty);
+    setVarianceFlags(flags);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -258,6 +266,20 @@ function Dashboard() {
           ))}
         </div>
       )}
+
+      <div className="mt-10">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Phase 4 — Tax Slip Suite
+          </h2>
+          {variancePenalty > 0 && (
+            <span className="inline-flex items-center rounded-sm border border-warning/40 bg-warning-bg px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-warning-fg">
+              +{variancePenalty} to aggregate risk · {varianceFlags.length} flag{varianceFlags.length === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
+        <TaxSlipSuite onPenaltyChange={handleVariance} />
+      </div>
     </div>
   );
 }
