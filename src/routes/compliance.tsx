@@ -128,7 +128,28 @@ function ComplianceDashboard() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header lastEvent={lastEvent} onRefresh={fetchData} />
+      <AppHeader
+        right={
+          <>
+            <span className="flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+              </span>
+              Live
+            </span>
+            {lastEvent && <span className="font-mono">last event {lastEvent}</span>}
+            <button
+              onClick={fetchData}
+              className="flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 hover:bg-muted"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Refresh
+            </button>
+          </>
+        }
+      />
+
 
       <div className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-end justify-between gap-4 px-6 py-5">
