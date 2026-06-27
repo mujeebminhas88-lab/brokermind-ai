@@ -132,6 +132,17 @@ function Dashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!activeApplicantId && applications.length > 0) {
+      setActiveApplicantId(applications[0].id);
+    }
+  }, [applications, activeApplicantId]);
+
+  const activeApplicant = useMemo(
+    () => applications.find((a) => a.id === activeApplicantId) ?? null,
+    [applications, activeApplicantId],
+  );
+
   const sortedApplications = useMemo(() => {
     const list = [...applications];
     switch (sortBy) {
