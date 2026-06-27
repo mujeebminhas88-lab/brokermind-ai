@@ -422,6 +422,6 @@ function ApplicationCard({
           </div>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
