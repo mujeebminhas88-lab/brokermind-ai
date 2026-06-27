@@ -9,7 +9,7 @@ interface ApplicationRecord {
   application_number: string;
   taxpayer_name: string;
   aggregate_risk_score: number;
-  requested_loan_amount: number;
+  line_15000_total_income: number;
 }
 
 export const Route = createFileRoute("/")({
