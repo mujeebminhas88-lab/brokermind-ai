@@ -330,7 +330,13 @@ function Dashboard() {
             </span>
           )}
         </div>
-        <TaxSlipSuite onPenaltyChange={handleVariance} />
+        <TaxSlipSuite
+          onPenaltyChange={handleVariance}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          applicantId={activeApplicantId ?? undefined}
+          showInternalTabs={false}
+        />
       </div>
     </div>
   );
