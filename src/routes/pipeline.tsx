@@ -39,6 +39,7 @@ function PipelineTable() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   async function fetchData() {
+    setLoading(true);
     const [appsRes, alertsRes] = await Promise.all([
       supabase
         .from("underwriting_applications")
