@@ -158,10 +158,22 @@ function Dashboard() {
 
   const handleSave = useCallback(async () => {
     const current = applications.find((a) => a.id === activeApplicantId);
+    let name = current?.taxpayer_name;
+    if (!current) {
+      const entered =
+        typeof window !== "undefined"
+          ? window.prompt("Applicant full name", "")?.trim()
+          : "";
+      if (!entered) {
+        toast.error("Applicant name is required");
+        return;
+      }
+      name = entered;
+    }
     const payload = {
       ...(current?.id ? { id: current.id } : {}),
       application_number: current?.application_number ?? `APP-${Date.now()}`,
-      taxpayer_name: current?.taxpayer_name ?? "Unnamed Applicant",
+      taxpayer_name: name ?? "Unnamed Applicant",
       aggregate_risk_score: (current?.aggregate_risk_score ?? 0) + variancePenalty,
       line_15000_total_income: current?.line_15000_total_income ?? 0,
       tax_year: new Date().getFullYear(),
@@ -179,9 +191,14 @@ function Dashboard() {
       return;
     }
     setApplications([]);
-    await fetchApplications();
-    toast.success("Saved to underwriting log");
+    const fresh = await fetchApplications();
+    if (!current && fresh) {
+      const created = fresh.find((a) => a.application_number === payload.application_number);
+      if (created) setActiveApplicantId(created.id);
+    }
+    toast.success("Saved to underwriting log", { description: payload.taxpayer_name });
   }, [activeApplicantId, applications, variancePenalty, derived.ds.gds, derived.ds.tds, fetchApplications]);
+
 
   const handleCommit = useCallback(async () => {
     await handleSave();
