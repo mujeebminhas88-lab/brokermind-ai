@@ -158,8 +158,10 @@ function Dashboard() {
 
   const handleSave = useCallback(async () => {
     const current = applications.find((a) => a.id === activeApplicantId);
-    let name = current?.taxpayer_name;
-    if (!current) {
+    const existingName = current?.taxpayer_name?.trim();
+    let name = existingName && existingName.toLowerCase() !== "unnamed applicant" ? existingName : "";
+
+    if (!name) {
       const entered =
         typeof window !== "undefined"
           ? window.prompt("Applicant full name", "")?.trim()
@@ -170,10 +172,11 @@ function Dashboard() {
       }
       name = entered;
     }
+
     const payload = {
       ...(current?.id ? { id: current.id } : {}),
       application_number: current?.application_number ?? `APP-${Date.now()}`,
-      taxpayer_name: name ?? "Unnamed Applicant",
+      taxpayer_name: name,
       aggregate_risk_score: (current?.aggregate_risk_score ?? 0) + variancePenalty,
       line_15000_total_income: current?.line_15000_total_income ?? 0,
       tax_year: new Date().getFullYear(),
