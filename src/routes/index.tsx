@@ -365,13 +365,25 @@ function Stat({
   );
 }
 
-function ApplicationCard({ app }: { app: ApplicationRecord }) {
+function ApplicationCard({
+  app,
+  active = false,
+  onSelect,
+}: {
+  app: ApplicationRecord;
+  active?: boolean;
+  onSelect?: () => void;
+}) {
   const tier = getRiskTier(app.aggregate_risk_score);
   const scorePercent = Math.min(100, Math.max(0, app.aggregate_risk_score));
 
   return (
-    <div
-      className={`relative overflow-hidden rounded-sm border bg-card shadow-sm transition-shadow hover:shadow-md ${tier.border}`}
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`relative w-full overflow-hidden rounded-sm border bg-card text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring ${tier.border} ${
+        active ? "ring-2 ring-primary" : ""
+      }`}
     >
       <div className={`absolute left-0 top-0 h-full w-1 ${tier.bar}`} />
       <div className="p-5 pl-6">
