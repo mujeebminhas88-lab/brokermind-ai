@@ -102,6 +102,30 @@ function Dashboard() {
     setVarianceFlags(flags);
   }, []);
 
+  const handleLoanTermsChange: typeof setLoanTerms = useCallback((next) => {
+    setLoanTerms((prev) => {
+      const resolved = typeof next === "function" ? (next as (p: LoanTerms) => LoanTerms)(prev) : next;
+      if (sandboxMode) setPendingChanges((c) => c + 1);
+      return resolved;
+    });
+  }, [sandboxMode]);
+
+  const handleCommit = useCallback(() => {
+    toast.success("Sandbox committed to underwriting log", {
+      description: `${pendingChanges} change${pendingChanges === 1 ? "" : "s"} persisted. Aggregate risk re-baselined.`,
+    });
+    setPendingChanges(0);
+    setSandboxMode(false);
+  }, [pendingChanges]);
+
+  const handleSandboxToggle = useCallback(() => {
+    if (sandboxMode && pendingChanges > 0) {
+      toast.info("Sandbox discarded", { description: `${pendingChanges} uncommitted change${pendingChanges === 1 ? "" : "s"} reverted.` });
+    }
+    setSandboxMode((m) => !m);
+    setPendingChanges(0);
+  }, [sandboxMode, pendingChanges]);
+
   useEffect(() => {
     let cancelled = false;
 
