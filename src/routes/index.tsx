@@ -306,7 +306,12 @@ function Dashboard() {
               )}
               <div className="grid gap-4">
                 {items.map((app) => (
-                  <ApplicationCard key={app.id} app={app} />
+                  <ApplicationCard
+                    key={app.id}
+                    app={app}
+                    active={app.id === activeApplicantId}
+                    onSelect={() => setActiveApplicantId(app.id)}
+                  />
                 ))}
               </div>
             </section>
