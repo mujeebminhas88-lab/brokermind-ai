@@ -108,34 +108,8 @@ function Dashboard() {
   }, []);
 
 
-  const handleCommit = useCallback(async () => {
-    const current = applications.find((a) => a.id === activeApplicantId);
-    const payload = {
-      ...(current?.id ? { id: current.id } : {}),
-      application_number: current?.application_number ?? `APP-${Date.now()}`,
-      taxpayer_name: current?.taxpayer_name ?? "Unnamed Applicant",
-      aggregate_risk_score: (current?.aggregate_risk_score ?? 0) + variancePenalty,
-      line_15000_total_income: current?.line_15000_total_income ?? 0,
-      tax_year: new Date().getFullYear(),
-      gds: derived.ds.gds,
-      tds: derived.ds.tds,
-    };
-    const { error } = await supabase
-      .from("underwriting_applications")
-      .upsert(payload, { onConflict: "id" });
-    if (error) {
-      console.error("Commit failed:", error);
-      toast.error("Commit failed", { description: error.message });
-      return;
-    }
-    toast.success("Sandbox committed to underwriting log", {
-      description: `${pendingChanges} change${pendingChanges === 1 ? "" : "s"} persisted.`,
-    });
-    setPendingChanges(0);
-    setSandboxMode(false);
-    setApplications([]);
-    await fetchApplications();
-  }, [pendingChanges, activeApplicantId, applications, variancePenalty, derived.ds.gds, derived.ds.tds, fetchApplications]);
+
+
 
 
   const handleSandboxToggle = useCallback(() => {
