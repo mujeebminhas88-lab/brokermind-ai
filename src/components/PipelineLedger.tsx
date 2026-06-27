@@ -54,7 +54,7 @@ export function SaveApplicationButton({
       };
       const { error } = await supabase
         .from("underwriting_applications")
-        .insert(row);
+        .insert(row as never);
       if (error) throw error;
       toast.success("Application saved to permanent ledger.", {
         description: `${row.application_number} · ${row.taxpayer_name}`,
