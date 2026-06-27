@@ -59,6 +59,53 @@ export type Database = {
           },
         ]
       }
+      compliance_alerts: {
+        Row: {
+          alert_code: string
+          application_id: string | null
+          created_at: string
+          details: Json
+          document_code: string | null
+          id: string
+          message: string
+          resolved: boolean
+          severity: string
+          updated_at: string
+        }
+        Insert: {
+          alert_code: string
+          application_id?: string | null
+          created_at?: string
+          details?: Json
+          document_code?: string | null
+          id?: string
+          message: string
+          resolved?: boolean
+          severity?: string
+          updated_at?: string
+        }
+        Update: {
+          alert_code?: string
+          application_id?: string | null
+          created_at?: string
+          details?: Json
+          document_code?: string | null
+          id?: string
+          message?: string
+          resolved?: boolean
+          severity?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_alerts_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "underwriting_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_registry: {
         Row: {
           category: string
