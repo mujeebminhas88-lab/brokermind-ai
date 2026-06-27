@@ -22,24 +22,47 @@ function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchApplications = async () => {
       setLoading(true);
       setError(null);
-      
+
+      // Order deterministically (newest first) so dedupe keeps the latest
+      // committed version of each application_number.
       const { data, error } = await supabase
         .from('underwriting_applications')
-        .select('id, application_number, taxpayer_name, aggregate_risk_score, line_15000_total_income');
-      
+        .select('id, application_number, taxpayer_name, aggregate_risk_score, line_15000_total_income, created_at')
+        .order('created_at', { ascending: false });
+
+      if (cancelled) return;
+
       if (error) {
         console.error("Supabase Error:", error);
         setError(error.message);
       } else if (data) {
-        setApplications(data as unknown as ApplicationRecord[]);
+        // The ledger stores an immutable audit trail: each "Commit to
+        // Underwriting Log" insert appends a new row for the same
+        // application_number, so the same App ID / taxpayer surfaced
+        // multiple times with different risk scores. Collapse to one row
+        // per application_number — the most recently committed version
+        // wins, giving a deterministic score per record.
+        const seen = new Set<string>();
+        const deduped: ApplicationRecord[] = [];
+        for (const row of data as unknown as ApplicationRecord[]) {
+          if (seen.has(row.application_number)) continue;
+          seen.add(row.application_number);
+          deduped.push(row);
+        }
+        setApplications(deduped);
       }
       setLoading(false);
     };
-    
+
     fetchApplications();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loading) return <div className="p-20 text-center">Loading from Database...</div>;
