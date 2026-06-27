@@ -67,18 +67,42 @@ export const t4aSchema = z.object({
   box105Scholarships: moneySchema.default(0),
 });
 
+/**
+ * T2 — Corporation Income Tax Return.
+ * Captures the corporate-side line items needed to forensically reconcile an
+ * incorporated borrower's personal declaration (T1) against the operating
+ * company's books, and to surface shadow debt via the shareholder loan account.
+ */
+export const t2Schema = z.object({
+  docType: z.literal("T2"),
+  taxYear: yearSchema,
+  corporationName: z.string().min(1),
+  businessNumber: z.string().optional(),
+  grossRevenue: moneySchema,
+  netIncomeBeforeTax: z.number().finite(), // GIFI 9970 — can be negative
+  retainedEarnings: z.number().finite(),   // GIFI 3849 — can be negative
+  shareholderLoanReceivable: z.number().finite().default(0), // GIFI 2360 (asset = corp lent TO shareholder)
+  shareholderLoanPayable: moneySchema.default(0),            // GIFI 3140 (liability = corp owes shareholder)
+  dividendsPaidToShareholder: moneySchema.default(0),
+  managementSalaryToOwner: moneySchema.default(0),
+  ownershipPct: z.number().min(0).max(100).default(100),
+});
+
 export const taxSlipSchema = z.discriminatedUnion("docType", [
   t4Schema,
   t1Schema,
   t2125Schema,
   t4aSchema,
+  t2Schema,
 ]);
 
 export type T4 = z.infer<typeof t4Schema>;
 export type T1 = z.infer<typeof t1Schema>;
 export type T2125 = z.infer<typeof t2125Schema>;
 export type T4A = z.infer<typeof t4aSchema>;
+export type T2 = z.infer<typeof t2Schema>;
 export type TaxSlip = z.infer<typeof taxSlipSchema>;
+
 
 // ────────────────────────────────────────────────────────────────────────────────
 // Variance engine
