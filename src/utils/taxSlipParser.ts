@@ -67,18 +67,42 @@ export const t4aSchema = z.object({
   box105Scholarships: moneySchema.default(0),
 });
 
+/**
+ * T2 — Corporation Income Tax Return.
+ * Captures the corporate-side line items needed to forensically reconcile an
+ * incorporated borrower's personal declaration (T1) against the operating
+ * company's books, and to surface shadow debt via the shareholder loan account.
+ */
+export const t2Schema = z.object({
+  docType: z.literal("T2"),
+  taxYear: yearSchema,
+  corporationName: z.string().min(1),
+  businessNumber: z.string().optional(),
+  grossRevenue: moneySchema,
+  netIncomeBeforeTax: z.number().finite(), // GIFI 9970 — can be negative
+  retainedEarnings: z.number().finite(),   // GIFI 3849 — can be negative
+  shareholderLoanReceivable: z.number().finite().default(0), // GIFI 2360 (asset = corp lent TO shareholder)
+  shareholderLoanPayable: moneySchema.default(0),            // GIFI 3140 (liability = corp owes shareholder)
+  dividendsPaidToShareholder: moneySchema.default(0),
+  managementSalaryToOwner: moneySchema.default(0),
+  ownershipPct: z.number().min(0).max(100).default(100),
+});
+
 export const taxSlipSchema = z.discriminatedUnion("docType", [
   t4Schema,
   t1Schema,
   t2125Schema,
   t4aSchema,
+  t2Schema,
 ]);
 
 export type T4 = z.infer<typeof t4Schema>;
 export type T1 = z.infer<typeof t1Schema>;
 export type T2125 = z.infer<typeof t2125Schema>;
 export type T4A = z.infer<typeof t4aSchema>;
+export type T2 = z.infer<typeof t2Schema>;
 export type TaxSlip = z.infer<typeof taxSlipSchema>;
+
 
 // ────────────────────────────────────────────────────────────────────────────────
 // Variance engine
@@ -141,6 +165,8 @@ export function reconcileTaxSlips(slips: TaxSlip[]): VarianceReport {
   const t4s = slips.filter((s): s is T4 => s.docType === "T4");
   const t2125s = slips.filter((s): s is T2125 => s.docType === "T2125");
   const t4as = slips.filter((s): s is T4A => s.docType === "T4A");
+  const t2s = slips.filter((s): s is T2 => s.docType === "T2");
+
 
   const declaredEmployment = t1?.line10100Employment ?? 0;
   const declaredSelfEmployment = t1?.line13500SelfEmployment ?? 0;
@@ -254,7 +280,87 @@ export function reconcileTaxSlips(slips: TaxSlip[]): VarianceReport {
     });
   }
 
+  // ── Phase 5 — T2 corporate reconciliation ────────────────────────────────
+  for (const t2 of t2s) {
+    const ownerShare = t2.ownershipPct / 100;
+
+    // Shadow debt: corp lent net funds TO shareholder (asset on corp BS).
+    const netLoanToShareholder = t2.shareholderLoanReceivable - t2.shareholderLoanPayable;
+    if (netLoanToShareholder > TOL_DOLLARS) {
+      const sev: VarianceSeverity = netLoanToShareholder > 50_000 ? "CRITICAL" : "MATERIAL";
+      flags.push({
+        code: "CORP-SHAREHOLDER-LOAN-DEBIT",
+        label: "Shareholder loan receivable — undeclared shadow debt",
+        severity: sev,
+        detail: `${t2.corporationName} carries ${fmt(netLoanToShareholder)} owed BY the shareholder. CRA s.15(2) deemed-income exposure; treat as personal liability.`,
+        penaltyPoints: penaltyFor(sev),
+        affectedDocs: ["T2"],
+      });
+    }
+
+    // Negative retained earnings — solvency / going-concern risk on the income source.
+    if (t2.retainedEarnings < 0) {
+      const sev: VarianceSeverity = t2.retainedEarnings < -100_000 ? "CRITICAL" : "MATERIAL";
+      flags.push({
+        code: "CORP-NEGATIVE-RETAINED-EARNINGS",
+        label: "Operating company in accumulated deficit",
+        severity: sev,
+        detail: `${t2.corporationName} retained earnings = ${fmt(t2.retainedEarnings)}. Income sustainability is impaired.`,
+        penaltyPoints: penaltyFor(sev),
+        affectedDocs: ["T2"],
+      });
+    }
+
+    // Net loss reported by the operating company.
+    if (t2.netIncomeBeforeTax < -TOL_DOLLARS) {
+      flags.push({
+        code: "CORP-NET-LOSS-YEAR",
+        label: "Corporation reported a net loss for the period",
+        severity: "MINOR",
+        detail: `${t2.corporationName} net income before tax = ${fmt(t2.netIncomeBeforeTax)}.`,
+        penaltyPoints: penaltyFor("MINOR"),
+        affectedDocs: ["T2"],
+      });
+    }
+
+    // Owner-draw reconciliation: dividends + management salary attributable to owner
+    // should be reflected on the personal T1 (line 10100 for salary, taxable dividends elsewhere).
+    if (t1) {
+      const ownerDraw =
+        (t2.dividendsPaidToShareholder + t2.managementSalaryToOwner) * ownerShare;
+      const personalDeclared = t1.line10100Employment + t1.line13500SelfEmployment;
+      const diff = ownerDraw - personalDeclared;
+      if (ownerDraw > TOL_DOLLARS && Math.abs(diff) > TOL_DOLLARS) {
+        const pct = ownerDraw > 0 ? diff / ownerDraw : 0;
+        const sev = severityFromVariance(pct);
+        if (sev) {
+          flags.push({
+            code: "FORENSIC-T2-T1-OWNER-DRAW-VARIANCE",
+            label: "Corporate owner-draw ≠ personal T1 declaration",
+            severity: sev,
+            detail: `T2 paid ${fmt(ownerDraw)} (salary + dividends @ ${t2.ownershipPct}%) vs T1 personal income ${fmt(personalDeclared)} (Δ ${fmt(diff)}).`,
+            penaltyPoints: penaltyFor(sev),
+            affectedDocs: ["T1", "T2"],
+          });
+        }
+      }
+    }
+  }
+
+  // T1 declares self-employment but no T2 OR T2125 backing — incorporated BFS missing the corporate return.
+  if (
+    t1 &&
+    declaredSelfEmployment > TOL_DOLLARS &&
+    t2125s.length === 0 &&
+    t2s.length === 0 &&
+    reconstructedSelfEmployment < TOL_DOLLARS
+  ) {
+    // Note: the DOC-MISSING-T2125 flag above already covered the unincorporated case.
+    // Suppress duplicate when both branches would fire — handled by the existing guard.
+  }
+
   const penaltyTotal = flags.reduce((sum, f) => sum + f.penaltyPoints, 0);
+
 
   return {
     taxYear: t1?.taxYear ?? slips[0]?.taxYear ?? null,

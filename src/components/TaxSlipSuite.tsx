@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   reconcileTaxSlips,
   type T1,
+  type T2,
   type T2125,
   type T4,
   type T4A,
@@ -9,6 +10,7 @@ import {
   type VarianceFlag,
   type VarianceSeverity,
 } from "@/utils/taxSlipParser";
+
 
 /**
  * Phase 4 — Tax Slip Suite UI
@@ -19,7 +21,7 @@ import {
  * dashboard feed the penalty back into the aggregate risk score.
  */
 
-type DocTab = "T4" | "T1" | "T2125" | "T4A";
+type DocTab = "T4" | "T1" | "T2125" | "T4A" | "T2";
 
 const DEFAULT_YEAR = new Date().getFullYear() - 1;
 
@@ -67,6 +69,21 @@ const initialT4A: T4A = {
   box105Scholarships: 0,
 };
 
+const initialT2: T2 = {
+  docType: "T2",
+  taxYear: DEFAULT_YEAR,
+  corporationName: "",
+  grossRevenue: 0,
+  netIncomeBeforeTax: 0,
+  retainedEarnings: 0,
+  shareholderLoanReceivable: 0,
+  shareholderLoanPayable: 0,
+  dividendsPaidToShareholder: 0,
+  managementSalaryToOwner: 0,
+  ownershipPct: 100,
+};
+
+
 const severityClass: Record<VarianceSeverity, string> = {
   INFO: "border-border bg-muted text-muted-foreground",
   MINOR: "border-warning/40 bg-warning-bg text-warning-fg",
@@ -84,10 +101,11 @@ export function TaxSlipSuite({ onPenaltyChange }: Props) {
   const [t4s, setT4s] = useState<T4[]>([initialT4]);
   const [t2125s, setT2125s] = useState<T2125[]>([initialT2125]);
   const [t4as, setT4as] = useState<T4A[]>([initialT4A]);
+  const [t2s, setT2s] = useState<T2[]>([]);
 
   const allSlips = useMemo<TaxSlip[]>(
-    () => [t1, ...t4s, ...t2125s, ...t4as],
-    [t1, t4s, t2125s, t4as],
+    () => [t1, ...t4s, ...t2125s, ...t4as, ...t2s],
+    [t1, t4s, t2125s, t4as, t2s],
   );
 
   const report = useMemo(() => reconcileTaxSlips(allSlips), [allSlips]);
@@ -105,14 +123,14 @@ export function TaxSlipSuite({ onPenaltyChange }: Props) {
             Tax Slip Suite — Forensic Variance Engine
           </h2>
           <p className="text-xs text-muted-foreground">
-            T4 · T1 · T2125 · T4A · cross-document reconciliation
+            T4 · T1 · T2125 · T4A · T2 · cross-document reconciliation
           </p>
         </div>
         <ReportSummary report={report} />
       </header>
 
       <div className="flex gap-px border-b border-border bg-border">
-        {(["T1", "T4", "T2125", "T4A"] as DocTab[]).map((t) => (
+        {(["T1", "T4", "T2125", "T4A", "T2"] as DocTab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -156,7 +174,17 @@ export function TaxSlipSuite({ onPenaltyChange }: Props) {
             render={(item, update) => <T4AForm value={item} onChange={update} />}
           />
         )}
+        {tab === "T2" && (
+          <SlipList
+            items={t2s}
+            onChange={setT2s}
+            label="T2 Corporate Return"
+            blank={initialT2}
+            render={(item, update) => <T2Form value={item} onChange={update} />}
+          />
+        )}
       </div>
+
 
       <FlagsPanel report={report} />
     </section>
@@ -375,3 +403,23 @@ function T4AForm({ value, onChange }: { value: T4A; onChange: (patch: Partial<T4
     </FieldGrid>
   );
 }
+
+function T2Form({ value, onChange }: { value: T2; onChange: (patch: Partial<T2>) => void }) {
+  const num = (v: string) => Number(v) || 0;
+  return (
+    <FieldGrid>
+      <Field label="Corporation name" type="text" value={value.corporationName} onChange={(v) => onChange({ corporationName: v })} />
+      <Field label="Business number" type="text" value={value.businessNumber ?? ""} onChange={(v) => onChange({ businessNumber: v })} />
+      <Field label="Tax year" value={value.taxYear} onChange={(v) => onChange({ taxYear: n(v) })} />
+      <Field label="Ownership %" value={value.ownershipPct} onChange={(v) => onChange({ ownershipPct: Math.max(0, Math.min(100, n(v))) })} />
+      <Field label="Gross revenue" value={value.grossRevenue} onChange={(v) => onChange({ grossRevenue: n(v) })} />
+      <Field label="Net income before tax (GIFI 9970)" value={value.netIncomeBeforeTax} onChange={(v) => onChange({ netIncomeBeforeTax: num(v) })} />
+      <Field label="Retained earnings (GIFI 3849)" value={value.retainedEarnings} onChange={(v) => onChange({ retainedEarnings: num(v) })} />
+      <Field label="Shareholder loan receivable (GIFI 2360)" value={value.shareholderLoanReceivable} onChange={(v) => onChange({ shareholderLoanReceivable: num(v) })} />
+      <Field label="Shareholder loan payable (GIFI 3140)" value={value.shareholderLoanPayable} onChange={(v) => onChange({ shareholderLoanPayable: n(v) })} />
+      <Field label="Dividends paid to shareholder" value={value.dividendsPaidToShareholder} onChange={(v) => onChange({ dividendsPaidToShareholder: n(v) })} />
+      <Field label="Management salary to owner" value={value.managementSalaryToOwner} onChange={(v) => onChange({ managementSalaryToOwner: n(v) })} />
+    </FieldGrid>
+  );
+}
+
