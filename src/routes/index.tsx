@@ -645,3 +645,16 @@ function ApplicationCard({
     </button>
   );
 }
+
+function GlobalRatio({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div className={`flex flex-col gap-0.5 px-4 py-3 ${warn ? "bg-warning-bg" : "bg-card"}`}>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </span>
+      <span className={`font-mono text-lg font-bold tracking-tight ${warn ? "text-warning-fg" : "text-foreground"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
