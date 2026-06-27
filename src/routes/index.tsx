@@ -94,6 +94,9 @@ function Dashboard() {
   const [loanTerms, setLoanTerms] = useState<LoanTerms>(DEFAULT_LOAN_TERMS);
   const [activeTab, setActiveTab] = useState<TaxSlipTab>("T1");
   const [activeApplicantId, setActiveApplicantId] = useState<string | null>(null);
+  const [lenderStream, setLenderStream] = useState<LenderStream>("A");
+  const [sandboxMode, setSandboxMode] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState(0);
   const handleVariance = useCallback((penalty: number, flags: VarianceFlag[]) => {
     setVariancePenalty(penalty);
     setVarianceFlags(flags);
