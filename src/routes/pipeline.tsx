@@ -51,7 +51,7 @@ const COLUMNS: { key: string; label: string; statuses: ReviewStatus[]; accent: s
   },
 ];
 
-const ALL_STATUSES = ["Draft", "In Review", "Ready for Review", "Approved", "Declined"];
+const ALL_STATUSES: ReviewStatus[] = ["Draft", "In Review", "Ready for Review", "Approved", "Declined"];
 
 export const Route = createFileRoute("/pipeline")({
   component: PipelineBoard,
