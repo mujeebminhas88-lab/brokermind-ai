@@ -1,52 +1,43 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Upload, Trash2 } from "lucide-react";
+import { Upload, Trash2, FileInput } from "lucide-react";
 import {
   DocumentRegistry,
   aggregateCompliance,
+  getRegistryByCategory,
+  CATEGORY_ORDER,
   processDocument,
   type ComplianceVerdict,
   type DocumentKind,
+  type FieldSpec,
   type ProcessedDocument,
   type RawDocument,
 } from "@/utils/documentRegistry";
 
 /**
- * Document Compliance Intake
+ * Document Compliance Intake — Master Registry surface.
  *
- * Lightweight ingest surface that exercises the DocumentRegistry without
- * touching the existing T1 / T2125 tabs. Each ingest call runs:
- *   1. registry extractor for the selected document kind
- *   2. registry validator
- *   3. runSuperPriorityChecks (payroll / GST-HST lien scan)
- *
- * Results are accumulated into a ComplianceVerdict surfaced upward so the
- * dashboard can render the alert banner next to the applicant.
+ * The dropdown groups every registered document by category and the form
+ * fields below it are rendered dynamically from each entry's `fields` spec.
+ * Adding a new tax form requires only a new entry in DocumentRegistry —
+ * no UI changes here.
  */
 
-const DOC_KINDS: DocumentKind[] = Object.keys(DocumentRegistry) as DocumentKind[];
+type FormValues = Record<string, string | number | boolean>;
 
-const SAMPLE_PAYLOADS: Record<DocumentKind, Record<string, unknown>> = {
-  T2: { corporationName: "Acme Holdings Ltd.", taxYear: 2024, businessNumber: "123456789RC0001" },
-  T2_SCH1: { line_9999: 84200 },
-  T2_SCH100: { field_2599: 2_450_000, field_3499: 1_980_000 },
-  T2_SCH125: { field_8299: 1_850_000, field_9369: 84200 },
-  T1: { taxpayerName: "Mujeeb Minhas", taxYear: 2024, line_13500: 62000, line_15000: 124500, line_23600: 118000 },
-  T2125: { businessName: "Minhas Consulting", part1Gross: 180000, part5Net: 62000 },
-  T5013: { box010: "P-2245-789", box020: 100, box116: 48500, box122: 0 },
-  T4A: { payerName: "Crown Holdings", box048: 24500 },
-  T1204: { box82: 38000, box84: 42000 },
-  NOA: {
-    taxpayer_name: "Mujeeb Minhas",
-    tax_year: 2024,
-    line_15000_total_income: 124500,
-    line_23600_net_income: 118000,
-    balance_owing_at_assessment: 4250,
-    has_unarranged_arrears: true,
-  },
-  PD7A: { payrollAccount: "123456789RP0001", outstandingDeductions: 12450, period: "2025-04" },
-  RC59: { businessNumber: "123456789", outstandingDeductions: 0 },
-  NET34: { businessNumber: "123456789RT0001", period: "2025-Q1", netTaxOwing: 31200 },
+const defaultsFor = (specs: FieldSpec[]): FormValues => {
+  const out: FormValues = {};
+  for (const f of specs) {
+    out[f.name] =
+      f.sample !== undefined
+        ? f.sample
+        : f.type === "number"
+          ? 0
+          : f.type === "boolean"
+            ? false
+            : "";
+  }
+  return out;
 };
 
 interface Props {
@@ -56,11 +47,18 @@ interface Props {
 
 export function ComplianceIntakePanel({ applicantId, onVerdictChange }: Props) {
   const [docs, setDocs] = useState<ProcessedDocument[]>([]);
-  const [selectedKind, setSelectedKind] = useState<DocumentKind>("PD7A");
+  const [selectedKind, setSelectedKind] = useState<DocumentKind>("T1");
+  const grouped = useMemo(() => getRegistryByCategory(), []);
+  const entry = DocumentRegistry[selectedKind];
+  const [values, setValues] = useState<FormValues>(() => defaultsFor(entry.fields));
+
+  // Reset the dynamic form whenever the user picks a new document kind.
+  useEffect(() => {
+    setValues(defaultsFor(DocumentRegistry[selectedKind].fields));
+  }, [selectedKind]);
 
   const verdict = useMemo(() => aggregateCompliance(docs), [docs]);
 
-  // Propagate verdict to parent.
   useEffect(() => {
     onVerdictChange?.(docs.length === 0 ? null : verdict);
   }, [verdict, docs.length, onVerdictChange]);
@@ -69,7 +67,7 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange }: Props) {
     const raw: RawDocument = {
       kind: selectedKind,
       applicantId: applicantId ?? undefined,
-      payload: payloadOverride ?? SAMPLE_PAYLOADS[selectedKind],
+      payload: payloadOverride ?? (values as Record<string, unknown>),
       source: `manual:${selectedKind}`,
     };
     const processed = processDocument(raw);
@@ -77,17 +75,14 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange }: Props) {
 
     const crit = processed.alerts.find((a) => a.severity === "CRITICAL");
     const high = processed.alerts.find((a) => a.severity === "HIGH");
-    if (crit) {
-      toast.error(`${crit.code} — ${crit.label}`, { description: crit.detail });
-    } else if (high) {
-      toast.warning(`${high.code} — ${high.label}`, { description: high.detail });
-    } else {
+    if (crit) toast.error(`${crit.code} — ${crit.label}`, { description: crit.detail });
+    else if (high) toast.warning(`${high.code} — ${high.label}`, { description: high.detail });
+    else
       toast.success(`${DocumentRegistry[selectedKind].label} processed`, {
         description: processed.alerts.length
           ? `${processed.alerts.length} finding(s) logged.`
           : "No compliance findings.",
       });
-    }
   };
 
   const onFile = async (file: File) => {
@@ -102,12 +97,15 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange }: Props) {
     }
   };
 
+  const setField = (name: string, v: string | number | boolean) =>
+    setValues((prev) => ({ ...prev, [name]: v }));
+
   return (
     <section className="rounded-sm border border-border bg-card shadow-sm">
       <header className="flex items-center justify-between border-b border-border px-5 py-4">
         <div>
           <h2 className="text-base font-semibold tracking-tight text-foreground">
-            Document Compliance Engine
+            Master Document Registry — Compliance Intake
           </h2>
           <p className="text-xs text-muted-foreground">
             Registry-driven extract → validate → super-priority lien scan
@@ -122,46 +120,101 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange }: Props) {
                 : "border-border bg-muted text-muted-foreground"
           }`}
         >
-          {verdict.blocking
-            ? "CROWN CHARGE — BLOCK"
-            : verdict.highestSeverity ?? "CLEAN"}
+          {verdict.blocking ? "CROWN CHARGE — BLOCK" : (verdict.highestSeverity ?? "CLEAN")}
           {" · +"}
           {verdict.totalPenalty} pts
         </span>
       </header>
 
-      <div className="grid gap-3 px-5 py-4 sm:grid-cols-[1fr_auto_auto]">
-        <select
-          value={selectedKind}
-          onChange={(e) => setSelectedKind(e.target.value as DocumentKind)}
-          className="rounded-sm border border-input bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        >
-          {DOC_KINDS.map((k) => (
-            <option key={k} value={k}>
-              {k} — {DocumentRegistry[k].label}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          onClick={() => ingest()}
-          className="inline-flex items-center gap-2 rounded-sm border border-primary bg-primary px-3 py-2 text-xs font-semibold uppercase tracking-wider text-primary-foreground hover:opacity-90"
-        >
-          <Upload className="h-3.5 w-3.5" /> Ingest Sample
-        </button>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-input bg-card px-3 py-2 text-xs font-semibold uppercase tracking-wider text-foreground hover:bg-muted">
-          <Upload className="h-3.5 w-3.5" /> Upload JSON
-          <input
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onFile(f);
-              e.target.value = "";
-            }}
-          />
-        </label>
+      <div className="grid gap-4 px-5 py-4 lg:grid-cols-[280px_1fr]">
+        {/* Categorized dropdown */}
+        <div className="flex flex-col gap-2">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Document Type
+          </label>
+          <select
+            value={selectedKind}
+            onChange={(e) => setSelectedKind(e.target.value as DocumentKind)}
+            className="rounded-sm border border-input bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            {CATEGORY_ORDER.filter((c) => grouped[c]?.length).map((cat) => (
+              <optgroup key={cat} label={cat}>
+                {grouped[cat].map((k) => (
+                  <option key={k} value={k}>
+                    {k.replace(/_/g, " ")} — {DocumentRegistry[k].label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <div className="rounded-sm border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+            <div className="font-semibold uppercase tracking-wider text-foreground">
+              {entry.category}
+            </div>
+            <div className="mt-1">{entry.label}</div>
+          </div>
+          <label className="mt-1 inline-flex cursor-pointer items-center justify-center gap-2 rounded-sm border border-input bg-card px-3 py-2 text-xs font-semibold uppercase tracking-wider text-foreground hover:bg-muted">
+            <Upload className="h-3.5 w-3.5" /> Upload JSON Payload
+            <input
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onFile(f);
+                e.target.value = "";
+              }}
+            />
+          </label>
+        </div>
+
+        {/* Dynamic form rendered from FieldSpec[] */}
+        <div className="flex flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {entry.fields.map((f) => (
+              <div key={f.name} className="flex flex-col gap-1">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {f.label}
+                </label>
+                {f.type === "boolean" ? (
+                  <label className="inline-flex h-9 items-center gap-2 rounded-sm border border-input bg-card px-3 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(values[f.name])}
+                      onChange={(e) => setField(f.name, e.target.checked)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {values[f.name] ? "Yes" : "No"}
+                    </span>
+                  </label>
+                ) : (
+                  <input
+                    type={f.type === "number" ? "number" : "text"}
+                    value={values[f.name] === undefined ? "" : String(values[f.name])}
+                    onChange={(e) =>
+                      setField(
+                        f.name,
+                        f.type === "number" ? Number(e.target.value || 0) : e.target.value,
+                      )
+                    }
+                    className="rounded-sm border border-input bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                )}
+                {f.hint && <span className="text-[10px] text-muted-foreground">{f.hint}</span>}
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => ingest()}
+              className="inline-flex items-center gap-2 rounded-sm border border-primary bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-wider text-primary-foreground hover:opacity-90"
+            >
+              <FileInput className="h-3.5 w-3.5" /> Ingest {selectedKind.replace(/_/g, " ")}
+            </button>
+          </div>
+        </div>
       </div>
 
       {docs.length > 0 && (
@@ -181,7 +234,7 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange }: Props) {
               <li key={i} className="flex items-center justify-between px-5 py-2 text-xs">
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {d.kind}
+                    {d.kind.replace(/_/g, " ")}
                   </span>
                   <span className="text-foreground">{DocumentRegistry[d.kind].label}</span>
                 </div>
