@@ -165,6 +165,8 @@ export function reconcileTaxSlips(slips: TaxSlip[]): VarianceReport {
   const t4s = slips.filter((s): s is T4 => s.docType === "T4");
   const t2125s = slips.filter((s): s is T2125 => s.docType === "T2125");
   const t4as = slips.filter((s): s is T4A => s.docType === "T4A");
+  const t2s = slips.filter((s): s is T2 => s.docType === "T2");
+
 
   const declaredEmployment = t1?.line10100Employment ?? 0;
   const declaredSelfEmployment = t1?.line13500SelfEmployment ?? 0;
