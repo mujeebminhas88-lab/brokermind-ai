@@ -131,7 +131,7 @@ function PipelineBoard() {
     return { buckets, other };
   }, [apps]);
 
-  async function moveTo(id: string, status: string) {
+  async function moveTo(id: string, status: ReviewStatus) {
     if (!ALL_STATUSES.includes(status)) return;
     // optimistic
     setApps((prev) => prev.map((a) => (a.id === id ? { ...a, review_status: status } : a)));
