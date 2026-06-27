@@ -54,13 +54,14 @@ export function SaveApplicationButton({
       };
       const { error } = await supabase
         .from("underwriting_applications")
-        .insert(row as never);
+        .upsert(row as never, { onConflict: "application_number" });
       if (error) throw error;
       toast.success("Application saved to permanent ledger.", {
         description: `${row.application_number} · ${row.taxpayer_name}`,
       });
       window.dispatchEvent(new Event(REFRESH_EVENT));
     } catch (e: any) {
+      console.error("Commit to ledger failed:", e);
       toast.error("Failed to commit to ledger", {
         description: e?.message ?? "Unknown error",
       });
@@ -72,8 +73,7 @@ export function SaveApplicationButton({
   return (
     <button
       onClick={save}
-      disabled={saving}
-      className="flex items-center gap-2 px-3 py-1.5 text-[11.5px] font-bold tracking-tight text-primary-foreground disabled:opacity-60"
+      className="flex items-center gap-2 px-3 py-1.5 text-[11.5px] font-bold tracking-tight text-primary-foreground hover:opacity-90"
       style={{ background: "var(--emerald-deep)" }}
     >
       <Save className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -81,6 +81,7 @@ export function SaveApplicationButton({
     </button>
   );
 }
+
 
 export function PipelineLedger({
   onLoadRecord,
