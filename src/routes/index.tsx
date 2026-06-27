@@ -3,11 +3,12 @@ import { useState, useEffect } from "react";
 import React from "react";
 import { supabase } from "@/supabase/client";
 
-// This interface mirrors your database columns exactly
+// This interface mirrors the underwriting_applications table exactly
 interface ApplicationRecord {
-  application_id: string;
-  applicant_full_name: string;
-  amortization_months: number;
+  id: string;
+  application_number: string;
+  taxpayer_name: string;
+  aggregate_risk_score: number;
   requested_loan_amount: number;
 }
 
