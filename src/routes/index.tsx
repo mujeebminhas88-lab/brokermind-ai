@@ -54,9 +54,10 @@ function Dashboard() {
           <p>No applications found. Add a record in your database.</p>
         ) : (
           applications.map((app) => (
-            <div key={app.application_id} className="p-4 border rounded-lg bg-card shadow-sm">
-              <h2 className="font-bold">{app.applicant_full_name}</h2>
-              <p className="text-sm text-muted-foreground">Loan: ${app.requested_loan_amount}</p>
+            <div key={app.id} className="p-4 border rounded-lg bg-card shadow-sm">
+              <h2 className="font-bold">{app.taxpayer_name}</h2>
+              <p className="text-sm text-muted-foreground">App: {app.application_number}</p>
+              <p className="text-sm text-muted-foreground">Risk Score: {app.aggregate_risk_score}</p>
             </div>
           ))
         )}
