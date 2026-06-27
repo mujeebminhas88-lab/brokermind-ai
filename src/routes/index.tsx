@@ -354,6 +354,21 @@ function Dashboard() {
             <p className="text-sm text-muted-foreground mt-1">
               Underwriter Workspace — Pipeline Ledger & Risk Prioritization
             </p>
+            <div className="mt-3 flex items-center gap-1 text-xs font-medium uppercase tracking-wider">
+              <span className="rounded-sm bg-foreground px-3 py-1.5 text-background">Workspace</span>
+              <Link
+                to="/compliance"
+                className="rounded-sm px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                Compliance
+              </Link>
+              <Link
+                to="/pipeline"
+                className="rounded-sm px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                Pipeline
+              </Link>
+            </div>
           </div>
           <div className="flex gap-6 text-sm">
             <Stat label="Applications" value={stats.total} />
