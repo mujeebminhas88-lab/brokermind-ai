@@ -499,7 +499,7 @@ function Dashboard() {
             Loan Terms · Amortization · Co-Applicant
           </h2>
         </div>
-        <LoanTermsPanel state={loanTerms} setState={handleLoanTermsChange} />
+        <LoanTermsPanel />
       </div>
 
       <div className="mt-10 grid gap-6 lg:grid-cols-[2fr_1fr]">
@@ -510,12 +510,9 @@ function Dashboard() {
             </h2>
           </div>
           <ReoMatrix
-            lenderStream={lenderStream}
-            onStreamChange={(s) => {
-              setLenderStream(s);
+            onStreamChange={() => {
               if (sandboxMode) setPendingChanges((c) => c + 1);
             }}
-            disabled={false}
           />
         </div>
         <div>
