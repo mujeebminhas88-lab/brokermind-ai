@@ -98,14 +98,18 @@
   --input: oklch(0.90 0.01 230);
   --ring: oklch(0.65 0.15 207);
 
-  --emerald: oklch(0.45 0.13 160);
-  --emerald-deep: oklch(0.30 0.09 160);
+  --emerald: oklch(0.74 0.13 207);
+  --emerald-deep: oklch(0.55 0.14 220);
   --slate-ink: oklch(0.30 0.02 250);
-  --success: oklch(0.55 0.15 155);
-  --info: oklch(0.55 0.13 235);
+  --success: oklch(0.62 0.16 155);
+  --info: oklch(0.65 0.14 220);
   --warning: oklch(0.82 0.16 90);
   --warning-bg: oklch(0.96 0.07 95);
   --warning-fg: oklch(0.40 0.10 75);
+  --brand-cyan: oklch(0.74 0.13 207);
+  --brand-magenta: oklch(0.58 0.24 358);
+  --brand-purple: oklch(0.48 0.22 320);
+
   --chart-1: oklch(0.45 0.13 160);
   --chart-2: oklch(0.6 0.118 184);
   --chart-3: oklch(0.55 0.13 235);
