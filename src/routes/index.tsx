@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/supabase/client";
 import { TaxSlipSuite, TAX_SLIP_TABS, type TaxSlipTab } from "@/components/TaxSlipSuite";
+import { LoanTermsPanel, DEFAULT_LOAN_TERMS, type LoanTerms } from "@/components/LoanTermsPanel";
 import type { VarianceFlag } from "@/utils/taxSlipParser";
 
 interface ApplicationRecord {
