@@ -181,7 +181,7 @@ function PipelineTable() {
             <thead>
               <tr className="border-b border-border bg-muted/40 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 <th className="px-4 py-3">Application</th>
-                <th className="px-4 py-3">Taxpayer</th>
+                <th className="px-4 py-3">Applicant</th>
                 <th className="px-4 py-3">Employment</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Risk</th>
