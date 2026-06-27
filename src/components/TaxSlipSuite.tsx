@@ -21,7 +21,7 @@ import {
  * dashboard feed the penalty back into the aggregate risk score.
  */
 
-type DocTab = "T4" | "T1" | "T2125" | "T4A";
+type DocTab = "T4" | "T1" | "T2125" | "T4A" | "T2";
 
 const DEFAULT_YEAR = new Date().getFullYear() - 1;
 
