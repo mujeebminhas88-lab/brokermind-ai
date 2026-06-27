@@ -403,3 +403,23 @@ function T4AForm({ value, onChange }: { value: T4A; onChange: (patch: Partial<T4
     </FieldGrid>
   );
 }
+
+function T2Form({ value, onChange }: { value: T2; onChange: (patch: Partial<T2>) => void }) {
+  const num = (v: string) => Number(v) || 0;
+  return (
+    <FieldGrid>
+      <Field label="Corporation name" type="text" value={value.corporationName} onChange={(v) => onChange({ corporationName: v })} />
+      <Field label="Business number" type="text" value={value.businessNumber ?? ""} onChange={(v) => onChange({ businessNumber: v })} />
+      <Field label="Tax year" value={value.taxYear} onChange={(v) => onChange({ taxYear: n(v) })} />
+      <Field label="Ownership %" value={value.ownershipPct} onChange={(v) => onChange({ ownershipPct: Math.max(0, Math.min(100, n(v))) })} />
+      <Field label="Gross revenue" value={value.grossRevenue} onChange={(v) => onChange({ grossRevenue: n(v) })} />
+      <Field label="Net income before tax (GIFI 9970)" value={value.netIncomeBeforeTax} onChange={(v) => onChange({ netIncomeBeforeTax: num(v) })} />
+      <Field label="Retained earnings (GIFI 3849)" value={value.retainedEarnings} onChange={(v) => onChange({ retainedEarnings: num(v) })} />
+      <Field label="Shareholder loan receivable (GIFI 2360)" value={value.shareholderLoanReceivable} onChange={(v) => onChange({ shareholderLoanReceivable: num(v) })} />
+      <Field label="Shareholder loan payable (GIFI 3140)" value={value.shareholderLoanPayable} onChange={(v) => onChange({ shareholderLoanPayable: n(v) })} />
+      <Field label="Dividends paid to shareholder" value={value.dividendsPaidToShareholder} onChange={(v) => onChange({ dividendsPaidToShareholder: n(v) })} />
+      <Field label="Management salary to owner" value={value.managementSalaryToOwner} onChange={(v) => onChange({ managementSalaryToOwner: n(v) })} />
+    </FieldGrid>
+  );
+}
+
