@@ -546,9 +546,11 @@ function Dashboard() {
           showInternalTabs={false}
         />
       </div>
+      </div>
     </div>
   );
 }
+
 
 function Stat({
   label,
