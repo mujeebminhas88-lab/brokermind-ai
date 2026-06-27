@@ -27,14 +27,14 @@ function Dashboard() {
       setError(null);
       
       const { data, error } = await supabase
-        .from('mortgage_applications')
-        .select('application_id, applicant_full_name, amortization_months, requested_loan_amount');
+        .from('underwriting_applications')
+        .select('id, application_number, taxpayer_name, aggregate_risk_score, line_15000_total_income');
       
       if (error) {
         console.error("Supabase Error:", error);
         setError(error.message);
       } else if (data) {
-        setApplications(data as ApplicationRecord[]);
+        setApplications(data as unknown as ApplicationRecord[]);
       }
       setLoading(false);
     };
