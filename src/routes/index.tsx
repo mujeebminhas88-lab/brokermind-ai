@@ -345,6 +345,14 @@ function Dashboard() {
           </div>
         )}
         <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            placeholder={activeApplicant?.taxpayer_name ?? "Applicant full name"}
+            className="rounded-sm border border-input bg-card px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            style={{ minWidth: 200 }}
+          />
           <button
             type="button"
             onClick={handleSave}
@@ -360,6 +368,7 @@ function Dashboard() {
             Delete
           </button>
         </div>
+
 
       </div>
 
@@ -395,40 +404,20 @@ function Dashboard() {
           </div>
         </div>
 
-        <nav
-          className="mt-5 flex items-center justify-between gap-4"
-          aria-label="Tax slip sections"
-        >
-          <div className="flex items-center gap-px rounded-sm border border-border bg-border overflow-hidden">
-            {TAX_SLIP_TABS.map((t) => (
-              <button
-                key={t}
-                onClick={() => setActiveTab(t)}
-                className={`px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-colors ${
-                  activeTab === t
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-                aria-pressed={activeTab === t}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {activeApplicant ? (
-              <>
-                Active applicant ·{" "}
-                <span className="font-mono text-foreground">
-                  {activeApplicant.application_number}
-                </span>{" "}
-                <span className="text-foreground">— {activeApplicant.taxpayer_name}</span>
-              </>
-            ) : (
-              "No applicant selected"
-            )}
-          </div>
-        </nav>
+        <div className="mt-5 text-xs text-muted-foreground">
+          {activeApplicant ? (
+            <>
+              Active applicant ·{" "}
+              <span className="font-mono text-foreground">
+                {activeApplicant.application_number}
+              </span>{" "}
+              <span className="text-foreground">— {activeApplicant.taxpayer_name}</span>
+            </>
+          ) : (
+            "No applicant selected"
+          )}
+        </div>
+
       </header>
 
       {complianceVerdict && complianceVerdict.alerts.length > 0 && (
