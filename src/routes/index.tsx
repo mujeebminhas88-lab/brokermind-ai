@@ -402,7 +402,33 @@ function Dashboard() {
             Loan Terms · Amortization · Co-Applicant
           </h2>
         </div>
-        <LoanTermsPanel state={loanTerms} setState={setLoanTerms} />
+        <LoanTermsPanel state={loanTerms} setState={handleLoanTermsChange} />
+      </div>
+
+      <div className="mt-10 grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              REO Matrix · Portfolio Grid
+            </h2>
+          </div>
+          <ReoMatrix
+            lenderStream={lenderStream}
+            onStreamChange={(s) => {
+              setLenderStream(s);
+              if (sandboxMode) setPendingChanges((c) => c + 1);
+            }}
+            disabled={false}
+          />
+        </div>
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Lender Management
+            </h2>
+          </div>
+          <LenderManagement applicationId={activeApplicantId ?? ""} />
+        </div>
       </div>
 
       <div className="mt-10">
