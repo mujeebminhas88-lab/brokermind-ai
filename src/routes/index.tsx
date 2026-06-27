@@ -105,13 +105,14 @@ function Dashboard() {
       } else if (data) {
         const seen = new Set<string>();
         const deduped: ApplicationRecord[] = [];
-        for (const row of data) {
-          if (seen.has(row.application_number)) continue;
+        for (const row of data as unknown as ApplicationRecord[]) {
+          if (!row?.application_number || seen.has(row.application_number)) continue;
           seen.add(row.application_number);
-          deduped.push(row as ApplicationRecord);
+          deduped.push(row);
         }
         setApplications(deduped);
       }
+
       setLoading(false);
     };
 
