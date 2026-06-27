@@ -554,8 +554,9 @@ function Dashboard() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           applicantId={activeApplicantId ?? undefined}
-          showInternalTabs={false}
+          showInternalTabs
         />
+
       </div>
       </div>
     </div>
