@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   reconcileTaxSlips,
   type T1,
+  type T2,
   type T2125,
   type T4,
   type T4A,
@@ -9,6 +10,7 @@ import {
   type VarianceFlag,
   type VarianceSeverity,
 } from "@/utils/taxSlipParser";
+
 
 /**
  * Phase 4 — Tax Slip Suite UI
