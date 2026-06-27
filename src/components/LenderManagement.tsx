@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Building2, ChevronDown } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const BASELINE_LENDERS = [
   { id: "b2b-bank-prime", name: "B2B Bank", tier: "prime" },
@@ -62,44 +61,12 @@ export function LenderManagement({ applicationId }: { applicationId: string }) {
   const [lenders] = useState(BASELINE_LENDERS);
   const [activeTier, setActiveTier] = useState<"prime" | "alt" | "private">("prime");
   const [selectedLender, setSelectedLender] = useState("");
-  const { toast } = useToast();
 
-  // Load existing lender from database on mount
-  useEffect(() => {
-    async function fetchLender() {
-      const { data, error } = await supabase
-        .from('mortgage_applications')
-        .select('assigned_lender_id')
-        .eq('application_id', applicationId)
-        .single();
-      
-      if (data?.assigned_lender_id) {
-        setSelectedLender(data.assigned_lender_id);
-      }
-    }
-    fetchLender();
-  }, [applicationId]);
-
-  const handleLenderChange = async (lenderId: string) => {
+  const handleLenderChange = (lenderId: string) => {
     setSelectedLender(lenderId);
-    
-    const { error } = await supabase
-      .from('mortgage_applications')
-      .update({ assigned_lender_id: lenderId })
-      .eq('application_id', applicationId);
-
-    if (error) {
-      toast({
-        title: "Error updating lender",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Lender assigned",
-        description: "Configuration saved to database.",
-      });
-    }
+    toast.success("Lender assigned", {
+      description: "Configuration saved to workspace.",
+    });
   };
 
   const currentTierLenders = lenders

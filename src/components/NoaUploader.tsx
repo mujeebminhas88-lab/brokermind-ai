@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Upload, FileCheck2, AlertTriangle, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/supabase/client";
 import {
   analyzeNoticeOfAssessment,
   NoaPayloadSchema,
