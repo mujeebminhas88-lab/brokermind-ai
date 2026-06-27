@@ -155,22 +155,16 @@ function Dashboard() {
   }, [fetchApplications]);
 
   const handleSave = useCallback(async () => {
-    if (!activeApplicantId) {
-      toast.error("No active applicant to save");
-      return;
-    }
     const current = applications.find((a) => a.id === activeApplicantId);
-    if (!current) return;
-
     const payload = {
-      id: current.id,
-      application_number: current.application_number,
-      taxpayer_name: current.taxpayer_name,
-      aggregate_risk_score: current.aggregate_risk_score + variancePenalty,
-      line_15000_total_income: current.line_15000_total_income,
+      ...(current?.id ? { id: current.id } : {}),
+      application_number: current?.application_number ?? `APP-${Date.now()}`,
+      taxpayer_name: current?.taxpayer_name ?? "Unnamed Applicant",
+      aggregate_risk_score: (current?.aggregate_risk_score ?? 0) + variancePenalty,
+      line_15000_total_income: current?.line_15000_total_income ?? 0,
       tax_year: new Date().getFullYear(),
-      gds: 0,
-      tds: 0,
+      gds: derived.ds.gds,
+      tds: derived.ds.tds,
     };
 
     const { error } = await supabase
@@ -178,28 +172,38 @@ function Dashboard() {
       .upsert(payload, { onConflict: "id" });
 
     if (error) {
+      console.error("Save failed:", error);
       toast.error("Save failed", { description: error.message });
       return;
     }
-    // Clear local cache + force re-fetch
     setApplications([]);
     await fetchApplications();
     toast.success("Saved to underwriting log");
-  }, [activeApplicantId, applications, variancePenalty, fetchApplications]);
+  }, [activeApplicantId, applications, variancePenalty, derived.ds.gds, derived.ds.tds, fetchApplications]);
+
+  const handleCommit = useCallback(async () => {
+    await handleSave();
+    setPendingChanges(0);
+    setSandboxMode(false);
+  }, [handleSave]);
 
   const handleDelete = useCallback(async () => {
-    if (!activeApplicantId) return;
-    const target = activeApplicantId;
+    if (!activeApplicantId) {
+      console.error("Delete attempted with no selected applicant");
+      toast.error("Select an applicant before deleting");
+      return;
+    }
+    const selectedId = activeApplicantId;
     const { error } = await supabase
       .from("underwriting_applications")
       .delete()
-      .eq("id", target);
+      .eq("id", selectedId);
 
     if (error) {
+      console.error("Delete failed:", error);
       toast.error("Delete failed", { description: error.message });
       return;
     }
-    // Clear local state, deselect, redirect to list
     setActiveApplicantId(null);
     setApplications([]);
     resetLoan();
@@ -207,7 +211,8 @@ function Dashboard() {
     setVarianceFlags([]);
     await fetchApplications();
     toast.success("Applicant deleted");
-  }, [activeApplicantId, fetchApplications]);
+  }, [activeApplicantId, fetchApplications, resetLoan]);
+
 
 
   useEffect(() => {
