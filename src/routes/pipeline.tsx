@@ -39,6 +39,7 @@ function PipelineTable() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   async function fetchData() {
+    setLoading(true);
     const [appsRes, alertsRes] = await Promise.all([
       supabase
         .from("underwriting_applications")
@@ -124,9 +125,13 @@ function PipelineTable() {
             {lastEvent && <span className="font-mono">last event {lastEvent}</span>}
             <button
               onClick={fetchData}
-              className="flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 hover:bg-muted"
+              className="flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white transition-colors hover:bg-white/10"
+              style={{
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: "rgba(255,255,255,0.04)",
+              }}
             >
-              <RefreshCw className="h-3 w-3" />
+              <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </button>
           </>

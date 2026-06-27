@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import logoAsset from "@/assets/brokermind-logo.png.asset.json";
+import logoUrl from "@/assets/brokermind-logo.png";
 
 const TABS: { to: "/pipeline" | "/" | "/compliance" | "/settings"; label: string }[] = [
   { to: "/pipeline", label: "Pipeline" },
@@ -17,22 +17,15 @@ export function AppHeader({ right }: { right?: React.ReactNode }) {
         borderColor: "rgba(255,255,255,0.08)",
       }}
     >
-      <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-6 px-6 py-3">
-        <div className="flex items-center gap-8">
-          <Link to="/" className="flex items-center gap-3">
+      <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-6 px-6 py-2.5">
+        <div className="flex items-center gap-10">
+          <Link to="/" className="flex items-center" aria-label="BrokerMind AI">
             <img
-              src={logoAsset.url}
+              src={logoUrl}
               alt="BrokerMind AI"
-              width={36}
-              height={36}
-              className="h-9 w-9 object-contain"
-              style={{ filter: "drop-shadow(0 0 8px rgba(0,188,212,0.35))" }}
+              className="h-12 w-auto object-contain"
+              style={{ filter: "drop-shadow(0 0 10px rgba(0,188,212,0.25))" }}
             />
-            <span className="font-display text-[15px] font-bold tracking-tight leading-none">
-              <span style={{ color: "#FFFFFF" }}>Broker</span>
-              <span style={{ color: "#00BCD4" }}>Mind</span>
-              <span style={{ color: "#E91E8C" }}>AI</span>
-            </span>
           </Link>
           <nav className="flex items-center gap-1" aria-label="Primary">
             {TABS.map((t) => (
@@ -40,15 +33,15 @@ export function AppHeader({ right }: { right?: React.ReactNode }) {
                 key={t.to}
                 to={t.to}
                 activeOptions={{ exact: true }}
-                className="rounded-sm px-3 py-1.5 text-[11.5px] font-semibold uppercase tracking-[0.14em] transition"
-                style={{ color: "rgba(255,255,255,0.55)" }}
+                className="relative rounded-sm px-3 py-2 text-[11.5px] font-semibold uppercase tracking-[0.14em] transition-colors"
+                style={{ color: "rgba(255,255,255,0.6)" }}
                 activeProps={{
                   className:
-                    "rounded-sm px-3 py-1.5 text-[11.5px] font-semibold uppercase tracking-[0.14em] text-white",
+                    "relative rounded-sm px-3 py-2 text-[11.5px] font-semibold uppercase tracking-[0.14em] text-white",
                   style: {
-                    background:
-                      "linear-gradient(90deg, #00BCD4 0%, #9C27B0 60%, #E91E8C 100%)",
-                    boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 6px 18px -8px #E91E8C",
+                    color: "#ffffff",
+                    background: "rgba(255,255,255,0.06)",
+                    boxShadow: "inset 0 -2px 0 0 #00BCD4",
                   },
                 }}
               >
@@ -58,7 +51,10 @@ export function AppHeader({ right }: { right?: React.ReactNode }) {
           </nav>
         </div>
         {right ? (
-          <div className="flex items-center gap-3 text-[11px]" style={{ color: "rgba(255,255,255,0.65)" }}>
+          <div
+            className="flex items-center gap-3 text-[11px]"
+            style={{ color: "rgba(255,255,255,0.75)" }}
+          >
             {right}
           </div>
         ) : null}
