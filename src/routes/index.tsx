@@ -8,6 +8,9 @@ import { LenderManagement } from "@/components/LenderManagement";
 import { FlaskConical, Database } from "lucide-react";
 import { toast } from "sonner";
 import type { VarianceFlag } from "@/utils/taxSlipParser";
+import { ComplianceIntakePanel } from "@/components/ComplianceIntakePanel";
+import { ComplianceAlertBanner } from "@/components/ComplianceAlertBanner";
+import type { ComplianceVerdict } from "@/utils/documentRegistry";
 
 interface ApplicationRecord {
   id: string;
@@ -97,6 +100,7 @@ function Dashboard() {
   const [lenderStream, setLenderStream] = useState<LenderStream>("A");
   const [sandboxMode, setSandboxMode] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(0);
+  const [complianceVerdict, setComplianceVerdict] = useState<ComplianceVerdict | null>(null);
   const handleVariance = useCallback((penalty: number, flags: VarianceFlag[]) => {
     setVariancePenalty(penalty);
     setVarianceFlags(flags);
@@ -393,6 +397,21 @@ function Dashboard() {
           </div>
         </nav>
       </header>
+
+      {complianceVerdict && complianceVerdict.alerts.length > 0 && (
+        <ComplianceAlertBanner
+          verdict={complianceVerdict}
+          applicantName={activeApplicant?.taxpayer_name}
+        />
+      )}
+
+      <div className="mb-6">
+        <ComplianceIntakePanel
+          applicantId={activeApplicantId}
+          onVerdictChange={setComplianceVerdict}
+        />
+      </div>
+
 
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
