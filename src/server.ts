@@ -1,3 +1,4 @@
+// Entry: bundled SSR handler via @tanstack/react-start/server-entry.
 import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
