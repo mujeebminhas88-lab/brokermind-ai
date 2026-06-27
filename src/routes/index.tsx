@@ -3,6 +3,10 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/supabase/client";
 import { TaxSlipSuite, TAX_SLIP_TABS, type TaxSlipTab } from "@/components/TaxSlipSuite";
 import { LoanTermsPanel, DEFAULT_LOAN_TERMS, type LoanTerms } from "@/components/LoanTermsPanel";
+import { ReoMatrix, type LenderStream } from "@/components/ReoMatrix";
+import { LenderManagement } from "@/components/LenderManagement";
+import { FlaskConical, Database } from "lucide-react";
+import { toast } from "sonner";
 import type { VarianceFlag } from "@/utils/taxSlipParser";
 
 interface ApplicationRecord {
@@ -90,10 +94,37 @@ function Dashboard() {
   const [loanTerms, setLoanTerms] = useState<LoanTerms>(DEFAULT_LOAN_TERMS);
   const [activeTab, setActiveTab] = useState<TaxSlipTab>("T1");
   const [activeApplicantId, setActiveApplicantId] = useState<string | null>(null);
+  const [lenderStream, setLenderStream] = useState<LenderStream>("A");
+  const [sandboxMode, setSandboxMode] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState(0);
   const handleVariance = useCallback((penalty: number, flags: VarianceFlag[]) => {
     setVariancePenalty(penalty);
     setVarianceFlags(flags);
   }, []);
+
+  const handleLoanTermsChange: typeof setLoanTerms = useCallback((next) => {
+    setLoanTerms((prev) => {
+      const resolved = typeof next === "function" ? (next as (p: LoanTerms) => LoanTerms)(prev) : next;
+      if (sandboxMode) setPendingChanges((c) => c + 1);
+      return resolved;
+    });
+  }, [sandboxMode]);
+
+  const handleCommit = useCallback(() => {
+    toast.success("Sandbox committed to underwriting log", {
+      description: `${pendingChanges} change${pendingChanges === 1 ? "" : "s"} persisted. Aggregate risk re-baselined.`,
+    });
+    setPendingChanges(0);
+    setSandboxMode(false);
+  }, [pendingChanges]);
+
+  const handleSandboxToggle = useCallback(() => {
+    if (sandboxMode && pendingChanges > 0) {
+      toast.info("Sandbox discarded", { description: `${pendingChanges} uncommitted change${pendingChanges === 1 ? "" : "s"} reverted.` });
+    }
+    setSandboxMode((m) => !m);
+    setPendingChanges(0);
+  }, [sandboxMode, pendingChanges]);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,6 +228,50 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background p-6">
+      <div
+        className={`mb-4 flex items-center justify-between gap-4 rounded-sm border px-4 py-2.5 ${
+          sandboxMode ? "border-warning/50 bg-warning-bg" : "border-border bg-card"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSandboxToggle}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+              sandboxMode ? "bg-warning" : "bg-muted"
+            }`}
+            aria-pressed={sandboxMode}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-card shadow transition-transform ${
+                sandboxMode ? "translate-x-4" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+          <div className="flex items-center gap-2">
+            {sandboxMode ? <FlaskConical className="h-4 w-4 text-warning-fg" /> : <Database className="h-4 w-4 text-muted-foreground" />}
+            <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+              {sandboxMode ? "Sandbox Mode · Changes are not persisted" : "Live Mode · Edits write through"}
+            </span>
+          </div>
+        </div>
+        {sandboxMode && (
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] font-mono text-warning-fg">
+              {pendingChanges} pending edit{pendingChanges === 1 ? "" : "s"}
+            </span>
+            <button
+              type="button"
+              onClick={handleCommit}
+              disabled={pendingChanges === 0}
+              className="rounded-sm bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-foreground disabled:opacity-40 hover:opacity-90"
+            >
+              Commit to Underwriting Log
+            </button>
+          </div>
+        )}
+      </div>
+
       <header className="mb-8 border-b border-border pb-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
@@ -327,7 +402,33 @@ function Dashboard() {
             Loan Terms · Amortization · Co-Applicant
           </h2>
         </div>
-        <LoanTermsPanel state={loanTerms} setState={setLoanTerms} />
+        <LoanTermsPanel state={loanTerms} setState={handleLoanTermsChange} />
+      </div>
+
+      <div className="mt-10 grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              REO Matrix · Portfolio Grid
+            </h2>
+          </div>
+          <ReoMatrix
+            lenderStream={lenderStream}
+            onStreamChange={(s) => {
+              setLenderStream(s);
+              if (sandboxMode) setPendingChanges((c) => c + 1);
+            }}
+            disabled={false}
+          />
+        </div>
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Lender Management
+            </h2>
+          </div>
+          <LenderManagement applicationId={activeApplicantId ?? ""} />
+        </div>
       </div>
 
       <div className="mt-10">
