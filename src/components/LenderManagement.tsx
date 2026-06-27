@@ -61,23 +61,6 @@ export function LenderManagement({ applicationId }: { applicationId: string }) {
   const [lenders] = useState(BASELINE_LENDERS);
   const [activeTier, setActiveTier] = useState<"prime" | "alt" | "private">("prime");
   const [selectedLender, setSelectedLender] = useState("");
-  const { toast } = useToast();
-
-  // Load existing lender from database on mount
-  useEffect(() => {
-    async function fetchLender() {
-      const { data, error } = await supabase
-        .from('mortgage_applications')
-        .select('assigned_lender_id')
-        .eq('application_id', applicationId)
-        .single();
-      
-      if (data?.assigned_lender_id) {
-        setSelectedLender(data.assigned_lender_id);
-      }
-    }
-    fetchLender();
-  }, [applicationId]);
 
   const handleLenderChange = async (lenderId: string) => {
     setSelectedLender(lenderId);
