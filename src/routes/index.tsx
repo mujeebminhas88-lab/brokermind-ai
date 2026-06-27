@@ -321,6 +321,24 @@ function Dashboard() {
             </button>
           </div>
         )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!activeApplicantId}
+            className="rounded-sm border border-primary bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-foreground disabled:opacity-40 hover:opacity-90"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={!activeApplicantId}
+            className="rounded-sm border border-destructive bg-card px-3 py-1 text-xs font-semibold uppercase tracking-wider text-destructive disabled:opacity-40 hover:bg-destructive/10"
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
       <header className="mb-8 border-b border-border pb-6">
