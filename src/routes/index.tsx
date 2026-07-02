@@ -302,8 +302,10 @@ function Dashboard() {
   if (loading) return <div className="p-20 text-center">Loading from Database...</div>;
   if (error) return <div className="p-20 text-center text-destructive">Error: {error}</div>;
 
+  const loanState = useApplicationStore((s) => s.loan);
   const employmentComplete =
-    derived.householdIncome > 0 && loan.propertyPrice > 0 && loan.amortizationYears > 0;
+    derived.householdIncome > 0 && loanState.propertyPrice > 0 && loanState.amortizationYears > 0;
+
 
   return (
     <div className="min-h-screen bg-background">
