@@ -144,7 +144,8 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplican
   };
 
   return (
-    <section className="rounded-sm border border-border bg-card shadow-sm">
+    <section id="compliance-intake" className="scroll-mt-24 rounded-sm border border-border bg-card shadow-sm">
+
       <header className="flex items-center justify-between border-b border-border px-5 py-4">
         <div>
           <h2 className="text-base font-semibold tracking-tight text-foreground">
