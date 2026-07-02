@@ -59,6 +59,11 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplican
   const grouped = useMemo(() => getRegistryByCategory(), []);
   const entry = DocumentRegistry[selectedKind];
   const [values, setValues] = useState<FormValues>(() => defaultsFor(entry.fields));
+  const verificationDocs = useVerificationStore((s) => s.docs);
+  const addVerificationDoc = useVerificationStore((s) => s.addDoc);
+  const removeVerificationDoc = useVerificationStore((s) => s.remove);
+  const clearVerification = useVerificationStore((s) => s.clear);
+  const [openDocId, setOpenDocId] = useState<string | null>(null);
 
   // Reset the dynamic form whenever the user picks a new document kind.
   useEffect(() => {
@@ -80,6 +85,34 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplican
     };
     const processed = processDocument(raw);
     setDocs((prev) => [...prev, processed]);
+
+    // Register in verification store with seeded per-field confidence.
+    const payload = (payloadOverride ?? values) as Record<string, unknown>;
+    const specEntry = DocumentRegistry[selectedKind];
+    const verifId = addVerificationDoc({
+      kind: selectedKind,
+      label: specEntry.label,
+      mandatory: MANDATORY_KINDS.has(selectedKind),
+      fields: specEntry.fields.map((f) => {
+        const confidence = seedConfidence(selectedKind, f.name);
+        const raw = payload[f.name];
+        const value =
+          f.type === "number"
+            ? Number(raw ?? 0)
+            : f.type === "boolean"
+              ? Boolean(raw)
+              : String(raw ?? "");
+        return { name: f.name, label: f.label, type: f.type, value, confidence };
+      }),
+      status: "pending",
+    });
+    // Move to "review" if any confidence < 95, else "uploaded".
+    setTimeout(() => {
+      const state = useVerificationStore.getState();
+      const d = state.docs.find((x) => x.id === verifId);
+      if (d) state.setStatus(verifId, docHasReviewRequired(d) ? "review" : "uploaded");
+    }, 400);
+
 
     const crit = processed.alerts.find((a) => a.severity === "CRITICAL");
     const high = processed.alerts.find((a) => a.severity === "HIGH");
