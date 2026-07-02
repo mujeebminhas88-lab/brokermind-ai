@@ -384,9 +384,45 @@ function Dashboard() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-5">
-        <GlobalRatio label="LTV" value={`${derived.ltv.toFixed(2)}%`} warn={derived.ltv > 80} />
-        <GlobalRatio label="GDS" value={`${derived.ds.gds.toFixed(2)}%`} warn={derived.ds.gdsExceeded} />
-        <GlobalRatio label="TDS" value={`${derived.ds.tds.toFixed(2)}%`} warn={derived.ds.tdsExceeded} />
+        <RatioBreakdownPopover
+          title="Loan-to-Value"
+          formula="LTV = Loan Amount ÷ Property Price × 100"
+          accent="cyan"
+          rows={[
+            { label: "Property Price", value: `$${loanState.propertyPrice.toLocaleString()}` },
+            { label: "Down Payment", value: `$${loanState.downPayment.toLocaleString()}` },
+            { label: "Loan Amount", value: `$${Math.max(0, loanState.propertyPrice - loanState.downPayment).toLocaleString()}`, emphasis: true },
+          ]}
+          result={`${derived.ltv.toFixed(2)}%`}
+        >
+          <GlobalRatio label="LTV" value={`${derived.ltv.toFixed(2)}%`} warn={derived.ltv > 80} />
+        </RatioBreakdownPopover>
+        <RatioBreakdownPopover
+          title="Gross Debt Service"
+          formula="GDS = (P+I + Property Tax + Heating + ½ Condo) ÷ Gross Annual Income × 100"
+          accent="magenta"
+          rows={[
+            { label: "Monthly P+I", value: `$${derived.monthlyPI.toFixed(2)}` },
+            { label: "Gross Annual Income", value: `$${derived.householdIncome.toLocaleString()}` },
+            { label: "GDS Ratio", value: `${derived.ds.gds.toFixed(2)}%`, emphasis: true },
+          ]}
+          result={`${derived.ds.gds.toFixed(2)}%`}
+        >
+          <GlobalRatio label="GDS" value={`${derived.ds.gds.toFixed(2)}%`} warn={derived.ds.gdsExceeded} />
+        </RatioBreakdownPopover>
+        <RatioBreakdownPopover
+          title="Total Debt Service"
+          formula="TDS = (GDS Costs + All Other Debt Payments) ÷ Gross Annual Income × 100"
+          accent="magenta"
+          rows={[
+            { label: "GDS", value: `${derived.ds.gds.toFixed(2)}%` },
+            { label: "Household Income", value: `$${derived.householdIncome.toLocaleString()}` },
+            { label: "TDS Ratio", value: `${derived.ds.tds.toFixed(2)}%`, emphasis: true },
+          ]}
+          result={`${derived.ds.tds.toFixed(2)}%`}
+        >
+          <GlobalRatio label="TDS" value={`${derived.ds.tds.toFixed(2)}%`} warn={derived.ds.tdsExceeded} />
+        </RatioBreakdownPopover>
         <GlobalRatio
           label="Monthly P+I"
           value={derived.monthlyPI.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
@@ -396,6 +432,7 @@ function Dashboard() {
           value={derived.householdIncome.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
         />
       </div>
+
 
       <header className="mb-8 border-b border-border pb-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
