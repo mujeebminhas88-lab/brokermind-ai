@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Upload, Trash2, FileInput } from "lucide-react";
+import { Upload, Trash2, FileInput, Eye } from "lucide-react";
 import {
   DocumentRegistry,
   aggregateCompliance,
@@ -13,6 +13,11 @@ import {
   type ProcessedDocument,
   type RawDocument,
 } from "@/utils/documentRegistry";
+import { useVerificationStore, seedConfidence, docHasReviewRequired } from "@/store/verificationStore";
+import { StatusBadge } from "./StatusBadge";
+import { DocumentVerificationModal } from "./DocumentVerificationModal";
+
+const MANDATORY_KINDS = new Set<DocumentKind>(["T1", "NOA", "T4"]);
 
 /**
  * Document Compliance Intake — Master Registry surface.
