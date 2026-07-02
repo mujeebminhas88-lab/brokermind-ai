@@ -568,10 +568,22 @@ function Dashboard() {
         />
 
       </div>
+
+          <DossierGate
+            verdict={complianceVerdict}
+            employmentComplete={employmentComplete}
+            derived={derived}
+            applicantName={nameDraft || activeApplicant?.applicantName || "Applicant"}
+          />
+        </div>
+        <aside className="hidden w-[300px] shrink-0 xl:block">
+          <ComplianceHealthSidebar verdict={complianceVerdict} employmentComplete={employmentComplete} />
+        </aside>
       </div>
     </div>
   );
 }
+
 
 
 function Stat({
