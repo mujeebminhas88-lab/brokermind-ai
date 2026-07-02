@@ -302,10 +302,15 @@ function Dashboard() {
   if (loading) return <div className="p-20 text-center">Loading from Database...</div>;
   if (error) return <div className="p-20 text-center text-destructive">Error: {error}</div>;
 
+  const employmentComplete =
+    derived.householdIncome > 0 && loan.propertyPrice > 0 && loan.amortizationYears > 0;
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <div className="p-6">
+      <div className="flex gap-4 p-6">
+        <div className="min-w-0 flex-1">
+
 
       <div
         className={`mb-4 flex items-center justify-between gap-4 rounded-sm border px-4 py-2.5 ${
