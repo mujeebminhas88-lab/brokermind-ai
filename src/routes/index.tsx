@@ -14,6 +14,10 @@ import type { VarianceFlag } from "@/utils/taxSlipParser";
 import { ComplianceIntakePanel } from "@/components/ComplianceIntakePanel";
 import { ComplianceAlertBanner } from "@/components/ComplianceAlertBanner";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
+import { RatioBreakdownPopover } from "@/components/RatioBreakdownPopover";
+import { ComplianceHealthSidebar } from "@/components/ComplianceHealthSidebar";
+import { DossierGate } from "@/components/DossierGate";
+
 
 interface ApplicationRecord {
   id: string;
