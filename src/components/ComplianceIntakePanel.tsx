@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Upload, Trash2, FileInput } from "lucide-react";
+import { Upload, Trash2, FileInput, Eye } from "lucide-react";
 import {
   DocumentRegistry,
   aggregateCompliance,
@@ -13,6 +13,11 @@ import {
   type ProcessedDocument,
   type RawDocument,
 } from "@/utils/documentRegistry";
+import { useVerificationStore, seedConfidence, docHasReviewRequired } from "@/store/verificationStore";
+import { StatusBadge } from "./StatusBadge";
+import { DocumentVerificationModal } from "./DocumentVerificationModal";
+
+const MANDATORY_KINDS = new Set<DocumentKind>(["T1", "NOA", "T4"]);
 
 /**
  * Document Compliance Intake — Master Registry surface.
@@ -54,6 +59,11 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplican
   const grouped = useMemo(() => getRegistryByCategory(), []);
   const entry = DocumentRegistry[selectedKind];
   const [values, setValues] = useState<FormValues>(() => defaultsFor(entry.fields));
+  const verificationDocs = useVerificationStore((s) => s.docs);
+  const addVerificationDoc = useVerificationStore((s) => s.addDoc);
+  const removeVerificationDoc = useVerificationStore((s) => s.remove);
+  const clearVerification = useVerificationStore((s) => s.clear);
+  const [openDocId, setOpenDocId] = useState<string | null>(null);
 
   // Reset the dynamic form whenever the user picks a new document kind.
   useEffect(() => {
@@ -75,6 +85,34 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplican
     };
     const processed = processDocument(raw);
     setDocs((prev) => [...prev, processed]);
+
+    // Register in verification store with seeded per-field confidence.
+    const payload = (payloadOverride ?? values) as Record<string, unknown>;
+    const specEntry = DocumentRegistry[selectedKind];
+    const verifId = addVerificationDoc({
+      kind: selectedKind,
+      label: specEntry.label,
+      mandatory: MANDATORY_KINDS.has(selectedKind),
+      fields: specEntry.fields.map((f) => {
+        const confidence = seedConfidence(selectedKind, f.name);
+        const raw = payload[f.name];
+        const value =
+          f.type === "number"
+            ? Number(raw ?? 0)
+            : f.type === "boolean"
+              ? Boolean(raw)
+              : String(raw ?? "");
+        return { name: f.name, label: f.label, type: f.type, value, confidence };
+      }),
+      status: "pending",
+    });
+    // Move to "review" if any confidence < 95, else "uploaded".
+    setTimeout(() => {
+      const state = useVerificationStore.getState();
+      const d = state.docs.find((x) => x.id === verifId);
+      if (d) state.setStatus(verifId, docHasReviewRequired(d) ? "review" : "uploaded");
+    }, 400);
+
 
     const crit = processed.alerts.find((a) => a.severity === "CRITICAL");
     const high = processed.alerts.find((a) => a.severity === "HIGH");
@@ -106,7 +144,8 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplican
   };
 
   return (
-    <section className="rounded-sm border border-border bg-card shadow-sm">
+    <section id="compliance-intake" className="scroll-mt-24 rounded-sm border border-border bg-card shadow-sm">
+
       <header className="flex items-center justify-between border-b border-border px-5 py-4">
         <div>
           <h2 className="text-base font-semibold tracking-tight text-foreground">
@@ -222,43 +261,90 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplican
         </div>
       </div>
 
-      {docs.length > 0 && (
+      {verificationDocs.length > 0 && (
         <div className="border-t border-border">
           <div className="flex items-center justify-between px-5 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <span>Ingested documents ({docs.length})</span>
+            <span>Registry ({verificationDocs.length})</span>
             <button
               type="button"
-              onClick={() => setDocs([])}
+              onClick={() => {
+                clearVerification();
+                setDocs([]);
+              }}
               className="inline-flex items-center gap-1 text-destructive hover:underline"
             >
               <Trash2 className="h-3 w-3" /> Clear
             </button>
           </div>
-          <ul className="divide-y divide-border">
-            {docs.map((d, i) => (
-              <li key={i} className="flex items-center justify-between px-5 py-2 text-xs">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {d.kind.replace(/_/g, " ")}
-                  </span>
-                  <span className="text-foreground">{DocumentRegistry[d.kind].label}</span>
-                </div>
-                <span
-                  className={`font-mono text-[11px] ${
-                    d.alerts.some((a) => a.severity === "CRITICAL")
-                      ? "text-destructive"
-                      : d.alerts.some((a) => a.severity === "HIGH")
-                        ? "text-warning-fg"
-                        : "text-muted-foreground"
-                  }`}
-                >
-                  {d.alerts.length === 0 ? "clean" : `${d.alerts.length} finding(s)`}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-5 py-2 text-left font-semibold">Kind</th>
+                  <th className="px-3 py-2 text-left font-semibold">Label</th>
+                  <th className="px-3 py-2 text-left font-semibold">Status</th>
+                  <th className="px-3 py-2 text-left font-semibold">Findings</th>
+                  <th className="px-5 py-2 text-right font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {verificationDocs.map((v, i) => {
+                  const processed = docs[i];
+                  const findings = processed?.alerts.length ?? 0;
+                  return (
+                    <tr
+                      key={v.id}
+                      onClick={() => setOpenDocId(v.id)}
+                      className="cursor-pointer hover:bg-muted/40"
+                    >
+                      <td className="px-5 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {v.kind.replace(/_/g, " ")}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">{v.label}</td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={v.status} />
+                      </td>
+                      <td
+                        className={`px-3 py-2 font-mono text-[11px] ${
+                          findings === 0 ? "text-muted-foreground" : "text-warning-fg"
+                        }`}
+                      >
+                        {findings === 0 ? "clean" : `${findings} finding(s)`}
+                      </td>
+                      <td className="px-5 py-2 text-right">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenDocId(v.id);
+                          }}
+                          className="mr-2 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--brand-cyan,187_100%_42%))] hover:underline"
+                        >
+                          <Eye className="h-3 w-3" /> Verify
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeVerificationDoc(v.id);
+                            setDocs((prev) => prev.filter((_, idx) => idx !== i));
+                          }}
+                          className="text-[10px] font-semibold uppercase tracking-wider text-destructive hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
+
+      <DocumentVerificationModal docId={openDocId} onClose={() => setOpenDocId(null)} />
     </section>
   );
 }
+

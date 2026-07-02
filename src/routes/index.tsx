@@ -14,6 +14,10 @@ import type { VarianceFlag } from "@/utils/taxSlipParser";
 import { ComplianceIntakePanel } from "@/components/ComplianceIntakePanel";
 import { ComplianceAlertBanner } from "@/components/ComplianceAlertBanner";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
+import { RatioBreakdownPopover } from "@/components/RatioBreakdownPopover";
+import { ComplianceHealthSidebar } from "@/components/ComplianceHealthSidebar";
+import { DossierGate } from "@/components/DossierGate";
+
 
 interface ApplicationRecord {
   id: string;
@@ -298,10 +302,17 @@ function Dashboard() {
   if (loading) return <div className="p-20 text-center">Loading from Database...</div>;
   if (error) return <div className="p-20 text-center text-destructive">Error: {error}</div>;
 
+  const loanState = useApplicationStore((s) => s.loan);
+  const employmentComplete =
+    derived.householdIncome > 0 && loanState.propertyPrice > 0 && loanState.amortizationYears > 0;
+
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <div className="p-6">
+      <div className="flex gap-4 p-6">
+        <div className="min-w-0 flex-1">
+
 
       <div
         className={`mb-4 flex items-center justify-between gap-4 rounded-sm border px-4 py-2.5 ${
@@ -373,9 +384,45 @@ function Dashboard() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-5">
-        <GlobalRatio label="LTV" value={`${derived.ltv.toFixed(2)}%`} warn={derived.ltv > 80} />
-        <GlobalRatio label="GDS" value={`${derived.ds.gds.toFixed(2)}%`} warn={derived.ds.gdsExceeded} />
-        <GlobalRatio label="TDS" value={`${derived.ds.tds.toFixed(2)}%`} warn={derived.ds.tdsExceeded} />
+        <RatioBreakdownPopover
+          title="Loan-to-Value"
+          formula="LTV = Loan Amount ÷ Property Price × 100"
+          accent="cyan"
+          rows={[
+            { label: "Property Price", value: `$${loanState.propertyPrice.toLocaleString()}` },
+            { label: "Down Payment", value: `$${loanState.downPayment.toLocaleString()}` },
+            { label: "Loan Amount", value: `$${Math.max(0, loanState.propertyPrice - loanState.downPayment).toLocaleString()}`, emphasis: true },
+          ]}
+          result={`${derived.ltv.toFixed(2)}%`}
+        >
+          <GlobalRatio label="LTV" value={`${derived.ltv.toFixed(2)}%`} warn={derived.ltv > 80} />
+        </RatioBreakdownPopover>
+        <RatioBreakdownPopover
+          title="Gross Debt Service"
+          formula="GDS = (P+I + Property Tax + Heating + ½ Condo) ÷ Gross Annual Income × 100"
+          accent="magenta"
+          rows={[
+            { label: "Monthly P+I", value: `$${derived.monthlyPI.toFixed(2)}` },
+            { label: "Gross Annual Income", value: `$${derived.householdIncome.toLocaleString()}` },
+            { label: "GDS Ratio", value: `${derived.ds.gds.toFixed(2)}%`, emphasis: true },
+          ]}
+          result={`${derived.ds.gds.toFixed(2)}%`}
+        >
+          <GlobalRatio label="GDS" value={`${derived.ds.gds.toFixed(2)}%`} warn={derived.ds.gdsExceeded} />
+        </RatioBreakdownPopover>
+        <RatioBreakdownPopover
+          title="Total Debt Service"
+          formula="TDS = (GDS Costs + All Other Debt Payments) ÷ Gross Annual Income × 100"
+          accent="magenta"
+          rows={[
+            { label: "GDS", value: `${derived.ds.gds.toFixed(2)}%` },
+            { label: "Household Income", value: `$${derived.householdIncome.toLocaleString()}` },
+            { label: "TDS Ratio", value: `${derived.ds.tds.toFixed(2)}%`, emphasis: true },
+          ]}
+          result={`${derived.ds.tds.toFixed(2)}%`}
+        >
+          <GlobalRatio label="TDS" value={`${derived.ds.tds.toFixed(2)}%`} warn={derived.ds.tdsExceeded} />
+        </RatioBreakdownPopover>
         <GlobalRatio
           label="Monthly P+I"
           value={derived.monthlyPI.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
@@ -385,6 +432,7 @@ function Dashboard() {
           value={derived.householdIncome.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
         />
       </div>
+
 
       <header className="mb-8 border-b border-border pb-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -513,7 +561,7 @@ function Dashboard() {
             Loan Terms · Amortization · Co-Applicant
           </h2>
         </div>
-        <LoanTermsPanel />
+        <div id="loan-terms" className="scroll-mt-24"><LoanTermsPanel /></div>
       </div>
 
       <div className="mt-10 grid gap-6 lg:grid-cols-[2fr_1fr]">
@@ -559,10 +607,23 @@ function Dashboard() {
         />
 
       </div>
+
+          <DossierGate
+            verdict={complianceVerdict}
+            employmentComplete={employmentComplete}
+            applicantName={nameDraft || activeApplicant?.taxpayer_name || ""}
+            applicationNumber={activeApplicant?.application_number}
+          />
+
+        </div>
+        <aside className="hidden w-[300px] shrink-0 xl:block">
+          <ComplianceHealthSidebar verdict={complianceVerdict} employmentComplete={employmentComplete} />
+        </aside>
       </div>
     </div>
   );
 }
+
 
 
 function Stat({
