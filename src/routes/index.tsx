@@ -561,7 +561,7 @@ function Dashboard() {
             Loan Terms · Amortization · Co-Applicant
           </h2>
         </div>
-        <LoanTermsPanel />
+        <div id="loan-terms" className="scroll-mt-24"><LoanTermsPanel /></div>
       </div>
 
       <div className="mt-10 grid gap-6 lg:grid-cols-[2fr_1fr]">
