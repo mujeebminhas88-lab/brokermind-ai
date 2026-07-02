@@ -574,9 +574,10 @@ function Dashboard() {
           <DossierGate
             verdict={complianceVerdict}
             employmentComplete={employmentComplete}
-            derived={derived}
-            applicantName={nameDraft || activeApplicant?.applicantName || "Applicant"}
+            applicantName={nameDraft || activeApplicant?.taxpayer_name || ""}
+            applicationNumber={activeApplicant?.application_number}
           />
+
         </div>
         <aside className="hidden w-[300px] shrink-0 xl:block">
           <ComplianceHealthSidebar verdict={complianceVerdict} employmentComplete={employmentComplete} />
