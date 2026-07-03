@@ -614,12 +614,18 @@ function Dashboard() {
             employmentComplete={employmentComplete}
             applicantName={nameDraft || activeApplicant?.taxpayer_name || ""}
             applicationNumber={activeApplicant?.application_number}
+            applicantId={activeApplicantId}
           />
 
         </div>
         <aside className="hidden w-[300px] shrink-0 xl:block">
-          <ComplianceHealthSidebar verdict={complianceVerdict} employmentComplete={employmentComplete} />
+          <ComplianceHealthSidebar
+            verdict={complianceVerdict}
+            employmentComplete={employmentComplete}
+            applicantId={activeApplicantId}
+          />
         </aside>
+
       </div>
     </div>
   );
