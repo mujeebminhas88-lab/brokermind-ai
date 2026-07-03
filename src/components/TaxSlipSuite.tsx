@@ -420,8 +420,8 @@ function Field({
 
 const n = (v: string) => (v === "" ? 0 : Number(v) || 0);
 
-function T1Form({ value, onChange }: { value: T1; onChange: (next: T1) => void }) {
-  const upd = (patch: Partial<T1>) => onChange({ ...value, ...patch });
+function T1Form({ value, onChange }: { value: T1; onChange: (patch: Partial<T1>) => void }) {
+  const upd = (patch: Partial<T1>) => onChange(patch);
   return (
     <FieldGrid>
       <Field label="Taxpayer name" type="text" value={value.taxpayerName} onChange={(v) => upd({ taxpayerName: v })} />
@@ -430,13 +430,24 @@ function T1Form({ value, onChange }: { value: T1; onChange: (next: T1) => void }
       <Field label="Line 13500 — Self-employment" value={value.line13500SelfEmployment} onChange={(v) => upd({ line13500SelfEmployment: n(v) })} />
       <Field label="Line 12600 — Rental (net)" value={value.line12600RentalNet} onChange={(v) => upd({ line12600RentalNet: n(v) })} />
       <Field label="Line 11500 — Pension" value={value.line11500Pension} onChange={(v) => upd({ line11500Pension: n(v) })} />
-      <Field label="Line 15000 — Total income" value={value.line15000TotalIncome} onChange={(v) => upd({ line15000TotalIncome: n(v) })} />
+      <Field
+        id={`t1-line15000-${value.taxYear}`}
+        label="Line 15000 — Total income"
+        value={value.line15000TotalIncome}
+        onChange={(v) => upd({ line15000TotalIncome: n(v) })}
+      />
       <Field label="Line 23600 — Net income" value={value.line23600NetIncome} onChange={(v) => upd({ line23600NetIncome: n(v) })} />
       <Field label="Line 26000 — Taxable income" value={value.line26000TaxableIncome} onChange={(v) => upd({ line26000TaxableIncome: n(v) })} />
-      <Field label="Balance owing" value={value.balanceOwing} onChange={(v) => upd({ balanceOwing: n(v) })} />
+      <Field
+        id={`t1-balance-${value.taxYear}`}
+        label="Line 26000 — Balance owing"
+        value={value.balanceOwing}
+        onChange={(v) => upd({ balanceOwing: n(v) })}
+      />
     </FieldGrid>
   );
 }
+
 
 function T4Form({ value, onChange }: { value: T4; onChange: (patch: Partial<T4>) => void }) {
   return (
