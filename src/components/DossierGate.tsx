@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FileCheck2, Lock, AlertTriangle, ShieldAlert } from "lucide-react";
+import { FileCheck2, Lock, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
 import { useVerificationStore } from "@/store/verificationStore";
@@ -13,11 +13,31 @@ interface Props {
   applicantId?: string | null;
   verdict: ComplianceVerdict | null;
   employmentComplete: boolean;
+  employmentType?: string | null;
 }
 
 const CYAN = "#00BCD4";
 const MAGENTA = "#E91E8C";
 const PURPLE = "#9C27B0";
+
+interface Check {
+  id: string;
+  label: string;
+  done: boolean;
+  jumpTo: string;
+}
+
+function jumpToAnchor(anchor: string) {
+  const el = document.getElementById(anchor);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  const input = el.querySelector<HTMLInputElement>("input, select, textarea");
+  input?.focus();
+  el.classList.add("ring-2", "ring-[hsl(var(--brand-magenta,328_82%_51%))]");
+  window.setTimeout(() => {
+    el.classList.remove("ring-2", "ring-[hsl(var(--brand-magenta,328_82%_51%))]");
+  }, 1800);
+}
 
 export function DossierGate({
   applicantName,
@@ -25,6 +45,7 @@ export function DossierGate({
   applicantId,
   verdict,
   employmentComplete,
+  employmentType,
 }: Props) {
   const docs = useVerificationStore((s) => s.docs);
   const derived = useDerivedFinancials();
@@ -37,6 +58,75 @@ export function DossierGate({
     if (!applicantName) extra.push("Applicant name required");
     return computeGateStatus(alerts, extra);
   }, [alerts, applicantName]);
+
+  const checks = useMemo<Check[]>(() => {
+    const unresolvedCritical = alerts.filter((a) => a.severity === "CRITICAL" && a.blocking);
+    const unresolvedAml = alerts.some(
+      (a) => a.blocking && /AML|IDV|FINTRAC/i.test(a.code),
+    );
+    const unresolvedCra = alerts.filter(
+      (a) => a.blocking && a.code.startsWith("CRA-ARREARS"),
+    );
+    const craAnchor = unresolvedCra[0]?.jumpTo ?? "compliance-intake";
+
+    return [
+      {
+        id: "mandatory-doc",
+        label: "At least one mandatory document uploaded and Verified",
+        done: docs.some((d) => d.mandatory && d.status === "verified"),
+        jumpTo: "compliance-intake",
+      },
+      {
+        id: "employment-type",
+        label: "Employment type selected (Salaried / Self-Employed / Incorporated)",
+        done: !!employmentType,
+        jumpTo: "compliance-intake",
+      },
+      {
+        id: "loan-terms",
+        label: "Loan Terms complete (property price, down payment, contract rate)",
+        done: loan.propertyPrice > 0 && loan.downPayment > 0 && loan.interestRatePct > 0,
+        jumpTo: "loan-terms",
+      },
+      {
+        id: "primary-income",
+        label: "Primary annual income entered",
+        done: loan.primaryAnnualIncome > 0,
+        jumpTo: "loan-terms",
+      },
+      {
+        id: "critical-clear",
+        label: "All CRITICAL compliance flags resolved or overridden",
+        done: unresolvedCritical.length === 0,
+        jumpTo: unresolvedCritical[0]?.jumpTo ?? "compliance-intake",
+      },
+      {
+        id: "stress-test",
+        label: "Stress test calculated (contract rate entered)",
+        done: loan.interestRatePct > 0,
+        jumpTo: "loan-terms",
+      },
+      {
+        id: "aml-idv",
+        label: "Applicant identity verification complete (AML)",
+        done: !unresolvedAml,
+        jumpTo: "compliance-intake",
+      },
+      {
+        id: "cra-arrears",
+        label: "CRA Balance Owing resolved or overridden",
+        done: unresolvedCra.length === 0,
+        jumpTo: craAnchor,
+      },
+    ];
+  }, [alerts, docs, employmentType, loan]);
+
+  const completedCount = checks.filter((c) => c.done).length;
+  const totalCount = checks.length;
+  const allComplete = completedCount === totalCount;
+  const progressPct = (completedCount / totalCount) * 100;
+
+
 
   const generate = () => {
     const doc = new jsPDF({ unit: "pt", format: "letter" });
