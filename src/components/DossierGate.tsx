@@ -1,11 +1,11 @@
-import { useMemo } from "react";
-import { FileCheck2, Lock } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FileCheck2, Lock, AlertTriangle, ShieldAlert } from "lucide-react";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
 import { useVerificationStore } from "@/store/verificationStore";
 import { useDerivedFinancials, useApplicationStore } from "@/store/applicationStore";
-import { useTaxComplianceAlerts } from "@/store/taxSlipStore";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
+import { useComplianceAlerts, computeGateStatus } from "@/hooks/useComplianceAlerts";
 
 interface Props {
   applicantName?: string | null;
@@ -14,7 +14,6 @@ interface Props {
   verdict: ComplianceVerdict | null;
   employmentComplete: boolean;
 }
-
 
 const CYAN = "#00BCD4";
 const MAGENTA = "#E91E8C";
@@ -30,31 +29,20 @@ export function DossierGate({
   const docs = useVerificationStore((s) => s.docs);
   const derived = useDerivedFinancials();
   const loan = useApplicationStore((s) => s.loan);
-  const taxAlerts = useTaxComplianceAlerts(applicantId ?? null);
+  const alerts = useComplianceAlerts({ verdict, employmentComplete, applicantId });
+  const [highWarningOpen, setHighWarningOpen] = useState(false);
 
   const gate = useMemo(() => {
-    const reasons: string[] = [];
-    const mandatory = docs.filter((d) => d.mandatory);
-    if (mandatory.length === 0) reasons.push("At least one mandatory document required");
-    else if (mandatory.some((d) => d.status !== "verified"))
-      reasons.push("All mandatory documents must be Verified");
-    if (verdict?.blocking) reasons.push("Blocking compliance alerts must be resolved");
-    if (!employmentComplete) reasons.push("Employment / loan terms incomplete");
-    if (!applicantName) reasons.push("Applicant name required");
-    const blockingTax = taxAlerts.filter((a) => a.blocking && !a.overridden);
-    for (const t of blockingTax) {
-      reasons.push(`${t.label}: resolve or override with broker note`);
-    }
-    return { ready: reasons.length === 0, reasons };
-  }, [docs, verdict, employmentComplete, applicantName, taxAlerts]);
-
+    const extra: string[] = [];
+    if (!applicantName) extra.push("Applicant name required");
+    return computeGateStatus(alerts, extra);
+  }, [alerts, applicantName]);
 
   const generate = () => {
     const doc = new jsPDF({ unit: "pt", format: "letter" });
     const W = doc.internal.pageSize.getWidth();
     let y = 40;
 
-    // Header band
     doc.setFillColor(15, 23, 42);
     doc.rect(0, 0, W, 70, "F");
     doc.setFillColor(CYAN);
@@ -68,7 +56,6 @@ export function DossierGate({
     doc.text("Credit Qualification Dossier", 40, 55);
     y = 100;
 
-    // Applicant
     doc.setTextColor("#0f172a");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
@@ -133,15 +120,20 @@ export function DossierGate({
     section("Compliance Status", MAGENTA);
     row("Highest Severity", verdict?.highestSeverity ?? "CLEAN");
     row("Total Penalty Points", String(verdict?.totalPenalty ?? 0));
-    row("Blocking Alerts", verdict?.blocking ? "YES" : "No");
+    row("Critical (blocking)", String(gate.criticalCount));
+    row("High (warned)", String(gate.highCount));
     row("Documents Verified", `${docs.filter((d) => d.status === "verified").length} / ${docs.length}`);
     y += 10;
 
     section("Scorecard", CYAN);
     const score = Math.max(
       0,
-      100 - (verdict?.totalPenalty ?? 0) - (derived.ds.gdsExceeded ? 10 : 0) -
-        (derived.ds.tdsExceeded ? 10 : 0) - (derived.ltv > 80 ? 5 : 0),
+      100 -
+        (verdict?.totalPenalty ?? 0) -
+        (derived.ds.gdsExceeded ? 10 : 0) -
+        (derived.ds.tdsExceeded ? 10 : 0) -
+        (derived.ltv > 80 ? 5 : 0) -
+        gate.highCount * 3,
     );
     row("Composite Adjudication Score", `${score} / 100`);
     row(
@@ -149,7 +141,6 @@ export function DossierGate({
       score >= 75 ? "APPROVE" : score >= 55 ? "CONDITIONAL" : "DECLINE / MANUAL",
     );
 
-    // Footer
     doc.setDrawColor(CYAN);
     doc.setLineWidth(1);
     doc.line(40, 760, W - 40, 760);
@@ -163,37 +154,161 @@ export function DossierGate({
     toast.success("Dossier generated");
   };
 
+  const handleClick = () => {
+    if (gate.hasCritical) return; // hard block
+    if (gate.hasHigh) {
+      setHighWarningOpen(true);
+      return;
+    }
+    generate();
+  };
+
+  const disabled = gate.hasCritical;
+  const tooltip = disabled
+    ? `Blocked by ${gate.criticalCount} CRITICAL alert${gate.criticalCount === 1 ? "" : "s"}: ${gate.criticalReasons.join(" · ")}`
+    : undefined;
+
   return (
-    <div className="rounded-sm border border-border bg-card p-4 shadow-sm">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-[10px] font-bold uppercase tracking-widest text-[hsl(var(--brand-cyan,187_100%_42%))]">
-            Dossier Readiness Gate
+    <>
+      <div className="rounded-sm border border-border bg-card p-4 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-[hsl(var(--brand-cyan,187_100%_42%))]">
+              Dossier Readiness Gate
+            </div>
+            <div className="text-sm font-semibold text-foreground">
+              Generate Credit Qualification Dossier
+            </div>
+            <div className="mt-1.5 flex items-center gap-3 text-[11px]">
+              <span
+                className={
+                  gate.criticalCount > 0
+                    ? "flex items-center gap-1 rounded-sm bg-[#E91E8C] px-1.5 py-0.5 font-bold text-white"
+                    : "flex items-center gap-1 text-muted-foreground"
+                }
+              >
+                <ShieldAlert className="h-3 w-3" /> {gate.criticalCount} critical
+              </span>
+              <span className={gate.highCount > 0 ? "text-orange-600 font-semibold" : "text-muted-foreground"}>
+                {gate.highCount} high
+              </span>
+              <span className={gate.warnCount > 0 ? "text-yellow-700" : "text-muted-foreground"}>
+                {gate.warnCount} warn
+              </span>
+            </div>
+            {gate.criticalReasons.length > 0 && (
+              <ul className="mt-2 list-inside list-disc text-[11px] text-destructive">
+                {gate.criticalReasons.map((r) => (
+                  <li key={r}>{r}</li>
+                ))}
+              </ul>
+            )}
           </div>
-          <div className="text-sm font-semibold text-foreground">
-            Generate Credit Qualification Dossier
+          <div className="relative">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={handleClick}
+              title={tooltip}
+              className={`inline-flex items-center gap-2 rounded-sm px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-all ${
+                disabled
+                  ? "cursor-not-allowed bg-slate-400 opacity-60"
+                  : gate.hasHigh
+                    ? "bg-gradient-to-r from-orange-500 via-[#E91E8C] to-[#9C27B0] shadow-lg hover:opacity-90"
+                    : "bg-gradient-to-r from-[#00BCD4] via-[#9C27B0] to-[#E91E8C] shadow-lg hover:opacity-90"
+              }`}
+            >
+              {disabled ? (
+                <Lock className="h-4 w-4" />
+              ) : gate.hasHigh ? (
+                <AlertTriangle className="h-4 w-4" />
+              ) : (
+                <FileCheck2 className="h-4 w-4" />
+              )}
+              Generate Dossier
+            </button>
+            {disabled && tooltip && (
+              <div className="pointer-events-none absolute right-0 top-full z-10 mt-1 w-72 rounded-sm border border-destructive/40 bg-destructive/10 p-2 text-[10px] font-semibold text-destructive opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                {tooltip}
+              </div>
+            )}
           </div>
-          {!gate.ready && (
-            <ul className="mt-2 list-inside list-disc text-[11px] text-muted-foreground">
-              {gate.reasons.map((r) => (
-                <li key={r}>{r}</li>
-              ))}
-            </ul>
-          )}
         </div>
-        <button
-          type="button"
-          disabled={!gate.ready}
-          onClick={generate}
-          className={`inline-flex items-center gap-2 rounded-sm px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-all ${
-            gate.ready
-              ? "bg-gradient-to-r from-[#00BCD4] via-[#9C27B0] to-[#E91E8C] shadow-lg hover:opacity-90"
-              : "cursor-not-allowed bg-slate-400 opacity-60"
-          }`}
-        >
-          {gate.ready ? <FileCheck2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-          Generate Dossier
-        </button>
+      </div>
+
+      {highWarningOpen && (
+        <HighWarningModal
+          reasons={gate.highReasons}
+          onCancel={() => setHighWarningOpen(false)}
+          onProceed={() => {
+            setHighWarningOpen(false);
+            generate();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function HighWarningModal({
+  reasons,
+  onCancel,
+  onProceed,
+}: {
+  reasons: string[];
+  onCancel: () => void;
+  onProceed: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-md rounded-sm border border-orange-400 bg-card shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="border-b border-border bg-orange-500 px-4 py-3 text-white">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-white/80">
+                High-Severity Warning
+              </div>
+              <div className="text-sm font-semibold">
+                {reasons.length} unresolved HIGH alert{reasons.length === 1 ? "" : "s"}
+              </div>
+            </div>
+          </div>
+        </header>
+        <div className="space-y-3 p-4">
+          <p className="text-xs leading-snug text-muted-foreground">
+            The following HIGH-severity items are unresolved. You may proceed, but the dossier
+            will carry these flags and lenders may request remediation before instruction.
+          </p>
+          <ul className="max-h-48 overflow-y-auto rounded-sm border border-orange-300 bg-orange-50 p-2 text-[11px] text-orange-900 dark:bg-orange-950/30 dark:text-orange-200">
+            {reasons.map((r) => (
+              <li key={r} className="flex items-start gap-1.5 py-0.5">
+                <AlertTriangle className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={onCancel}
+              className="rounded-sm border border-border bg-card px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onProceed}
+              className="rounded-sm bg-gradient-to-r from-orange-500 via-[#E91E8C] to-[#9C27B0] px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white hover:opacity-90"
+            >
+              Proceed anyway
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
