@@ -394,14 +394,16 @@ function Field({
   value,
   onChange,
   type = "number",
+  id,
 }: {
   label: string;
   value: string | number;
   onChange: (v: string) => void;
   type?: "text" | "number";
+  id?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1">
+    <label className="flex flex-col gap-1" id={id}>
       <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
@@ -414,6 +416,7 @@ function Field({
     </label>
   );
 }
+
 
 const n = (v: string) => (v === "" ? 0 : Number(v) || 0);
 
