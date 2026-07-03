@@ -21,7 +21,7 @@ export interface ComplianceOverride {
 
 export interface TaxComplianceAlert {
   code: string;
-  severity: "HIGH" | "WARN";
+  severity: "CRITICAL" | "HIGH" | "WARN";
   label: string;
   message: string;
   taxYear: number;
@@ -32,6 +32,7 @@ export interface TaxComplianceAlert {
   blocking: boolean;
   amount?: number;
 }
+
 
 interface State {
   t1sByApplicant: Record<string, T1[]>;
@@ -83,9 +84,9 @@ export function computeTaxComplianceAlerts(
       const ov = overrides[code];
       out.push({
         code,
-        severity: "HIGH",
+        severity: "CRITICAL",
         label: `CRA arrears — ${t1.taxYear}`,
-        message: `CRA balance owing of ${money(bal)} detected on ${t1.taxYear} T1. Lender will require proof of payment or CRA payment arrangement prior to instruction.`,
+        message: `CRA balance owing of ${money(bal)} detected on ${t1.taxYear} T1. HARD BLOCK: proof of payment or CRA payment arrangement required before dossier can be generated.`,
         taxYear: t1.taxYear,
         jumpAnchor: `t1-balance-${t1.taxYear}`,
         overridable: true,
@@ -93,6 +94,7 @@ export function computeTaxComplianceAlerts(
         blocking: !ov,
         amount: bal,
       });
+
     }
   }
 
