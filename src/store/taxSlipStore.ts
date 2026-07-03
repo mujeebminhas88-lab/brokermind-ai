@@ -21,7 +21,7 @@ export interface ComplianceOverride {
 
 export interface TaxComplianceAlert {
   code: string;
-  severity: "HIGH" | "WARN";
+  severity: "CRITICAL" | "HIGH" | "WARN";
   label: string;
   message: string;
   taxYear: number;
@@ -32,6 +32,7 @@ export interface TaxComplianceAlert {
   blocking: boolean;
   amount?: number;
 }
+
 
 interface State {
   t1sByApplicant: Record<string, T1[]>;
