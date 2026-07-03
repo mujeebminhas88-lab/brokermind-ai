@@ -26,7 +26,9 @@ interface ApplicationRecord {
   aggregate_risk_score: number;
   line_15000_total_income: number;
   created_at: string;
+  employment_type?: string | null;
 }
+
 
 type SortKey = "risk-desc" | "risk-asc" | "name" | "app" | "income-desc";
 type GroupKey = "none" | "tier";
@@ -612,10 +614,12 @@ function Dashboard() {
           <DossierGate
             verdict={complianceVerdict}
             employmentComplete={employmentComplete}
+            employmentType={activeApplicant?.employment_type ?? null}
             applicantName={nameDraft || activeApplicant?.taxpayer_name || ""}
             applicationNumber={activeApplicant?.application_number}
             applicantId={activeApplicantId}
           />
+
 
         </div>
         <aside className="hidden w-[300px] shrink-0 xl:block">
