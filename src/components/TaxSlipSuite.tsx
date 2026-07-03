@@ -10,6 +10,8 @@ import {
   type VarianceFlag,
   type VarianceSeverity,
 } from "@/utils/taxSlipParser";
+import { useTaxSlipStore } from "@/store/taxSlipStore";
+
 
 /**
  * Phase 4 + 5 — Tax Slip Suite UI
@@ -89,7 +91,7 @@ const initialT2 = (): T2 => ({
 });
 
 interface ApplicantState {
-  t1: T1;
+  t1s: T1[];
   t4s: T4[];
   t2125s: T2125[];
   t4as: T4A[];
@@ -97,12 +99,13 @@ interface ApplicantState {
 }
 
 const blankApplicantState = (): ApplicantState => ({
-  t1: initialT1(),
+  t1s: [initialT1()],
   t4s: [initialT4()],
   t2125s: [initialT2125()],
   t4as: [initialT4A()],
   t2s: [],
 });
+
 
 const severityClass: Record<VarianceSeverity, string> = {
   INFO: "border-border bg-muted text-muted-foreground",
@@ -154,15 +157,21 @@ export function TaxSlipSuite({
   };
 
   const allSlips = useMemo<TaxSlip[]>(
-    () => [current.t1, ...current.t4s, ...current.t2125s, ...current.t4as, ...current.t2s],
+    () => [...current.t1s, ...current.t4s, ...current.t2125s, ...current.t4as, ...current.t2s],
     [current],
   );
 
   const report = useMemo(() => reconcileTaxSlips(allSlips), [allSlips]);
 
+  const publishT1s = useTaxSlipStore((s) => s.setT1s);
+  useEffect(() => {
+    if (applicantId) publishT1s(applicantId, current.t1s);
+  }, [applicantId, current.t1s, publishT1s]);
+
   useEffect(() => {
     onPenaltyChange?.(report.penaltyTotal, report.flags);
   }, [report.penaltyTotal, report.flags, onPenaltyChange]);
+
 
   return (
     <section className="rounded-sm border border-border bg-card shadow-sm">
@@ -198,7 +207,21 @@ export function TaxSlipSuite({
       )}
 
       <div className="p-5">
-        {tab === "T1" && <T1Form value={current.t1} onChange={(t1) => patch({ t1 })} />}
+        {tab === "T1" && (
+          <SlipList
+            items={current.t1s}
+            onChange={(t1s) => patch({ t1s })}
+            label="T1 Return"
+            blank={initialT1()}
+            render={(item, update) => (
+              <T1Form
+                value={item}
+                onChange={(next) => update(next as Partial<T1>)}
+              />
+            )}
+          />
+        )}
+
         {tab === "T4" && (
           <SlipList
             items={current.t4s}
