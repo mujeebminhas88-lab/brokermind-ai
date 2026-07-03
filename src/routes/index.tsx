@@ -612,10 +612,12 @@ function Dashboard() {
           <DossierGate
             verdict={complianceVerdict}
             employmentComplete={employmentComplete}
+            employmentType={activeApplicant?.employment_type ?? null}
             applicantName={nameDraft || activeApplicant?.taxpayer_name || ""}
             applicationNumber={activeApplicant?.application_number}
             applicantId={activeApplicantId}
           />
+
 
         </div>
         <aside className="hidden w-[300px] shrink-0 xl:block">
