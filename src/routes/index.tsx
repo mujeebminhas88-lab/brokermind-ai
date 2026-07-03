@@ -26,7 +26,9 @@ interface ApplicationRecord {
   aggregate_risk_score: number;
   line_15000_total_income: number;
   created_at: string;
+  employment_type?: string | null;
 }
+
 
 type SortKey = "risk-desc" | "risk-asc" | "name" | "app" | "income-desc";
 type GroupKey = "none" | "tier";
