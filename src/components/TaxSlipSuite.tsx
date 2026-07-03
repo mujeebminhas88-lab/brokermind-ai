@@ -10,6 +10,8 @@ import {
   type VarianceFlag,
   type VarianceSeverity,
 } from "@/utils/taxSlipParser";
+import { useTaxSlipStore } from "@/store/taxSlipStore";
+
 
 /**
  * Phase 4 + 5 — Tax Slip Suite UI
@@ -89,7 +91,7 @@ const initialT2 = (): T2 => ({
 });
 
 interface ApplicantState {
-  t1: T1;
+  t1s: T1[];
   t4s: T4[];
   t2125s: T2125[];
   t4as: T4A[];
@@ -97,12 +99,13 @@ interface ApplicantState {
 }
 
 const blankApplicantState = (): ApplicantState => ({
-  t1: initialT1(),
+  t1s: [initialT1()],
   t4s: [initialT4()],
   t2125s: [initialT2125()],
   t4as: [initialT4A()],
   t2s: [],
 });
+
 
 const severityClass: Record<VarianceSeverity, string> = {
   INFO: "border-border bg-muted text-muted-foreground",
@@ -154,15 +157,21 @@ export function TaxSlipSuite({
   };
 
   const allSlips = useMemo<TaxSlip[]>(
-    () => [current.t1, ...current.t4s, ...current.t2125s, ...current.t4as, ...current.t2s],
+    () => [...current.t1s, ...current.t4s, ...current.t2125s, ...current.t4as, ...current.t2s],
     [current],
   );
 
   const report = useMemo(() => reconcileTaxSlips(allSlips), [allSlips]);
 
+  const publishT1s = useTaxSlipStore((s) => s.setT1s);
+  useEffect(() => {
+    if (applicantId) publishT1s(applicantId, current.t1s);
+  }, [applicantId, current.t1s, publishT1s]);
+
   useEffect(() => {
     onPenaltyChange?.(report.penaltyTotal, report.flags);
   }, [report.penaltyTotal, report.flags, onPenaltyChange]);
+
 
   return (
     <section className="rounded-sm border border-border bg-card shadow-sm">
@@ -198,7 +207,21 @@ export function TaxSlipSuite({
       )}
 
       <div className="p-5">
-        {tab === "T1" && <T1Form value={current.t1} onChange={(t1) => patch({ t1 })} />}
+        {tab === "T1" && (
+          <SlipList
+            items={current.t1s}
+            onChange={(t1s) => patch({ t1s })}
+            label="T1 Return"
+            blank={initialT1()}
+            render={(item, update) => (
+              <T1Form
+                value={item}
+                onChange={(next) => update(next as Partial<T1>)}
+              />
+            )}
+          />
+        )}
+
         {tab === "T4" && (
           <SlipList
             items={current.t4s}
@@ -371,14 +394,16 @@ function Field({
   value,
   onChange,
   type = "number",
+  id,
 }: {
   label: string;
   value: string | number;
   onChange: (v: string) => void;
   type?: "text" | "number";
+  id?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1">
+    <label className="flex flex-col gap-1" id={id}>
       <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
@@ -392,10 +417,11 @@ function Field({
   );
 }
 
+
 const n = (v: string) => (v === "" ? 0 : Number(v) || 0);
 
-function T1Form({ value, onChange }: { value: T1; onChange: (next: T1) => void }) {
-  const upd = (patch: Partial<T1>) => onChange({ ...value, ...patch });
+function T1Form({ value, onChange }: { value: T1; onChange: (patch: Partial<T1>) => void }) {
+  const upd = (patch: Partial<T1>) => onChange(patch);
   return (
     <FieldGrid>
       <Field label="Taxpayer name" type="text" value={value.taxpayerName} onChange={(v) => upd({ taxpayerName: v })} />
@@ -404,13 +430,24 @@ function T1Form({ value, onChange }: { value: T1; onChange: (next: T1) => void }
       <Field label="Line 13500 — Self-employment" value={value.line13500SelfEmployment} onChange={(v) => upd({ line13500SelfEmployment: n(v) })} />
       <Field label="Line 12600 — Rental (net)" value={value.line12600RentalNet} onChange={(v) => upd({ line12600RentalNet: n(v) })} />
       <Field label="Line 11500 — Pension" value={value.line11500Pension} onChange={(v) => upd({ line11500Pension: n(v) })} />
-      <Field label="Line 15000 — Total income" value={value.line15000TotalIncome} onChange={(v) => upd({ line15000TotalIncome: n(v) })} />
+      <Field
+        id={`t1-line15000-${value.taxYear}`}
+        label="Line 15000 — Total income"
+        value={value.line15000TotalIncome}
+        onChange={(v) => upd({ line15000TotalIncome: n(v) })}
+      />
       <Field label="Line 23600 — Net income" value={value.line23600NetIncome} onChange={(v) => upd({ line23600NetIncome: n(v) })} />
       <Field label="Line 26000 — Taxable income" value={value.line26000TaxableIncome} onChange={(v) => upd({ line26000TaxableIncome: n(v) })} />
-      <Field label="Balance owing" value={value.balanceOwing} onChange={(v) => upd({ balanceOwing: n(v) })} />
+      <Field
+        id={`t1-balance-${value.taxYear}`}
+        label="Line 26000 — Balance owing"
+        value={value.balanceOwing}
+        onChange={(v) => upd({ balanceOwing: n(v) })}
+      />
     </FieldGrid>
   );
 }
+
 
 function T4Form({ value, onChange }: { value: T4; onChange: (patch: Partial<T4>) => void }) {
   return (

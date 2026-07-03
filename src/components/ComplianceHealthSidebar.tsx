@@ -6,9 +6,18 @@ import {
   ChevronLeft,
   Activity,
   CheckCircle2,
+  Unlock,
+  Lock,
 } from "lucide-react";
 import { useVerificationStore, docHasReviewRequired } from "@/store/verificationStore";
 import { useApplicationStore, useDerivedFinancials } from "@/store/applicationStore";
+import {
+  useTaxComplianceAlerts,
+  useTaxSlipStore,
+  type TaxComplianceAlert,
+} from "@/store/taxSlipStore";
+import { supabase } from "@/supabase/client";
+import { toast } from "sonner";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
 
 interface Alert {
@@ -17,6 +26,7 @@ interface Alert {
   detail: string;
   severity: "CRITICAL" | "HIGH" | "WARN";
   jumpTo?: string;
+  override?: TaxComplianceAlert;
 }
 
 function jumpTo(anchor: string) {
@@ -40,19 +50,24 @@ const sevStyle = {
 export function ComplianceHealthSidebar({
   verdict,
   employmentComplete,
+  applicantId,
 }: {
   verdict: ComplianceVerdict | null;
   employmentComplete: boolean;
+  applicantId?: string | null;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [overrideTarget, setOverrideTarget] = useState<TaxComplianceAlert | null>(null);
   const docs = useVerificationStore((s) => s.docs);
   const loan = useApplicationStore((s) => s.loan);
   const derived = useDerivedFinancials();
+  const taxAlerts = useTaxComplianceAlerts(applicantId ?? null);
+  const setOverride = useTaxSlipStore((s) => s.setOverride);
+  const clearOverride = useTaxSlipStore((s) => s.clearOverride);
 
   const alerts = useMemo<Alert[]>(() => {
     const out: Alert[] = [];
 
-    // From verification pipeline
     for (const d of docs.filter(docHasReviewRequired)) {
       if (d.status === "verified") continue;
       out.push({
@@ -64,7 +79,6 @@ export function ComplianceHealthSidebar({
       });
     }
 
-    // From the compliance verdict
     if (verdict) {
       for (const a of verdict.alerts.slice(0, 8)) {
         out.push({
@@ -78,7 +92,20 @@ export function ComplianceHealthSidebar({
       }
     }
 
-    // Missing employment info
+    // Tax slip forensic flags (CRA arrears + YoY drop)
+    for (const t of taxAlerts) {
+      out.push({
+        code: t.code,
+        label: t.label,
+        detail: t.overridden
+          ? `${t.message} · OVERRIDE: "${t.overridden.note}"`
+          : t.message,
+        severity: t.severity,
+        jumpTo: t.jumpAnchor,
+        override: t,
+      });
+    }
+
     if (!employmentComplete) {
       out.push({
         code: "EMPL-INCOMPLETE",
@@ -89,7 +116,6 @@ export function ComplianceHealthSidebar({
       });
     }
 
-    // Ratio breaches
     if (derived.ds.gdsExceeded) {
       out.push({
         code: "GDS-BREACH",
@@ -117,8 +143,6 @@ export function ComplianceHealthSidebar({
         jumpTo: "loan-terms",
       });
     }
-
-    // Missing mandatory docs
     if (loan.propertyPrice === 0) {
       out.push({
         code: "MISSING-PRICE",
@@ -130,7 +154,7 @@ export function ComplianceHealthSidebar({
     }
 
     return out;
-  }, [docs, verdict, employmentComplete, derived, loan.propertyPrice]);
+  }, [docs, verdict, employmentComplete, derived, loan.propertyPrice, taxAlerts]);
 
   if (collapsed) {
     return (
@@ -151,71 +175,198 @@ export function ComplianceHealthSidebar({
   const high = alerts.filter((a) => a.severity === "HIGH").length;
 
   return (
-    <aside className="sticky top-4 flex h-[calc(100vh-2rem)] w-80 flex-col rounded-sm border border-border bg-card shadow-sm">
-      <header className="flex items-center justify-between border-b border-border bg-slate-900 px-4 py-3 text-white">
-        <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-[hsl(var(--brand-cyan,187_100%_42%))]" />
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-300">
-              Compliance Health
+    <>
+      <aside className="sticky top-4 flex h-[calc(100vh-2rem)] w-80 flex-col rounded-sm border border-border bg-card shadow-sm">
+        <header className="flex items-center justify-between border-b border-border bg-slate-900 px-4 py-3 text-white">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-[hsl(var(--brand-cyan,187_100%_42%))]" />
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-300">
+                Compliance Health
+              </div>
+              <div className="text-xs font-semibold">
+                {critical} critical · {high} high · {alerts.length} total
+              </div>
             </div>
-            <div className="text-xs font-semibold">
-              {critical} critical · {high} high · {alerts.length} total
+          </div>
+          <button
+            onClick={() => setCollapsed(true)}
+            className="rounded-sm p-1 text-slate-300 hover:bg-slate-800 hover:text-white"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-3">
+          {alerts.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+              <CheckCircle2 className="h-10 w-10 text-emerald-500" />
+              <div className="text-sm font-semibold text-foreground">All Clear</div>
+              <div className="max-w-[16rem] text-xs text-muted-foreground">
+                No compliance flags detected. Continue verifying documents to unlock the dossier.
+              </div>
             </div>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {alerts.map((a, i) => (
+                <li
+                  key={`${a.code}-${i}`}
+                  className={`rounded-sm border p-2.5 ${sevStyle[a.severity]} ${a.override?.overridden ? "opacity-60" : ""}`}
+                >
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      {a.severity === "CRITICAL" ? (
+                        <ShieldAlert className="h-3.5 w-3.5" />
+                      ) : (
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                      )}
+                      <span className="font-mono text-[10px] font-bold">{a.code}</span>
+                    </div>
+                    <span className="text-[9px] font-bold uppercase">
+                      {a.override?.overridden ? "OVERRIDDEN" : a.severity}
+                    </span>
+                  </div>
+                  <div className="text-xs font-semibold leading-snug text-foreground">
+                    {a.label}
+                  </div>
+                  <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                    {a.detail}
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-3">
+                    {a.jumpTo && (
+                      <button
+                        onClick={() => jumpTo(a.jumpTo!)}
+                        className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--brand-magenta,328_82%_51%))] hover:underline"
+                      >
+                        → Jump to field
+                      </button>
+                    )}
+                    {a.override?.overridable && !a.override.overridden && (
+                      <button
+                        onClick={() => setOverrideTarget(a.override!)}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--brand-cyan,187_100%_42%))] hover:underline"
+                      >
+                        <Unlock className="h-3 w-3" /> Override
+                      </button>
+                    )}
+                    {a.override?.overridden && (
+                      <button
+                        onClick={() => {
+                          clearOverride(a.override!.code);
+                          toast.info("Override cleared");
+                        }}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:underline"
+                      >
+                        <Lock className="h-3 w-3" /> Clear override
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </aside>
+
+      {overrideTarget && (
+        <OverrideModal
+          alert={overrideTarget}
+          applicantId={applicantId ?? null}
+          onClose={() => setOverrideTarget(null)}
+          onSubmit={async (note) => {
+            setOverride(overrideTarget.code, note);
+            // Mirror to compliance_alerts as audit trail
+            try {
+              await supabase.from("compliance_alerts").insert({
+                application_id: applicantId ?? null,
+                alert_code: `${overrideTarget.code}:OVERRIDE`,
+                severity: "INFO",
+                message: `Override on ${overrideTarget.code}: ${note}`,
+                details: {
+                  original_code: overrideTarget.code,
+                  tax_year: overrideTarget.taxYear,
+                  amount: overrideTarget.amount ?? null,
+                  note,
+                  at: new Date().toISOString(),
+                },
+                resolved: true,
+              });
+            } catch (err) {
+              console.warn("Audit log write failed", err);
+            }
+            toast.success("Override logged to audit trail");
+            setOverrideTarget(null);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function OverrideModal({
+  alert,
+  onClose,
+  onSubmit,
+}: {
+  alert: TaxComplianceAlert;
+  applicantId: string | null;
+  onClose: () => void;
+  onSubmit: (note: string) => void;
+}) {
+  const [note, setNote] = useState("");
+  const trimmed = note.trim();
+  const valid = trimmed.length >= 10;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-sm border border-border bg-card shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="border-b border-border bg-slate-900 px-4 py-3 text-white">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-[hsl(var(--brand-cyan,187_100%_42%))]">
+            Compliance Override
+          </div>
+          <div className="text-sm font-semibold">{alert.label}</div>
+        </header>
+        <div className="p-4 space-y-3">
+          <p className="text-xs text-muted-foreground leading-snug">{alert.message}</p>
+          <label className="block">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Broker note (required, min 10 chars)
+            </span>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={4}
+              placeholder='e.g. "Client has entered payment arrangement, confirmation attached."'
+              className="mt-1 w-full rounded-sm border border-input bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={onClose}
+              className="rounded-sm border border-border bg-card px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={!valid}
+              onClick={() => onSubmit(trimmed)}
+              className={`rounded-sm px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white ${
+                valid
+                  ? "bg-gradient-to-r from-[#00BCD4] via-[#9C27B0] to-[#E91E8C] hover:opacity-90"
+                  : "cursor-not-allowed bg-slate-400 opacity-60"
+              }`}
+            >
+              Log Override
+            </button>
           </div>
         </div>
-        <button
-          onClick={() => setCollapsed(true)}
-          className="rounded-sm p-1 text-slate-300 hover:bg-slate-800 hover:text-white"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </header>
-
-      <div className="flex-1 overflow-y-auto p-3">
-        {alerts.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-            <CheckCircle2 className="h-10 w-10 text-emerald-500" />
-            <div className="text-sm font-semibold text-foreground">All Clear</div>
-            <div className="max-w-[16rem] text-xs text-muted-foreground">
-              No compliance flags detected. Continue verifying documents to unlock the dossier.
-            </div>
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {alerts.map((a, i) => (
-              <li
-                key={`${a.code}-${i}`}
-                className={`rounded-sm border p-2.5 ${sevStyle[a.severity]}`}
-              >
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    {a.severity === "CRITICAL" ? (
-                      <ShieldAlert className="h-3.5 w-3.5" />
-                    ) : (
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                    )}
-                    <span className="font-mono text-[10px] font-bold">{a.code}</span>
-                  </div>
-                  <span className="text-[9px] font-bold uppercase">{a.severity}</span>
-                </div>
-                <div className="text-xs font-semibold leading-snug text-foreground">{a.label}</div>
-                <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                  {a.detail}
-                </div>
-                {a.jumpTo && (
-                  <button
-                    onClick={() => jumpTo(a.jumpTo!)}
-                    className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--brand-magenta,328_82%_51%))] hover:underline"
-                  >
-                    → Jump to field
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
-    </aside>
+    </div>
   );
 }

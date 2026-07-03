@@ -4,14 +4,17 @@ import jsPDF from "jspdf";
 import { toast } from "sonner";
 import { useVerificationStore } from "@/store/verificationStore";
 import { useDerivedFinancials, useApplicationStore } from "@/store/applicationStore";
+import { useTaxComplianceAlerts } from "@/store/taxSlipStore";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
 
 interface Props {
   applicantName?: string | null;
   applicationNumber?: string | null;
+  applicantId?: string | null;
   verdict: ComplianceVerdict | null;
   employmentComplete: boolean;
 }
+
 
 const CYAN = "#00BCD4";
 const MAGENTA = "#E91E8C";
@@ -20,12 +23,14 @@ const PURPLE = "#9C27B0";
 export function DossierGate({
   applicantName,
   applicationNumber,
+  applicantId,
   verdict,
   employmentComplete,
 }: Props) {
   const docs = useVerificationStore((s) => s.docs);
   const derived = useDerivedFinancials();
   const loan = useApplicationStore((s) => s.loan);
+  const taxAlerts = useTaxComplianceAlerts(applicantId ?? null);
 
   const gate = useMemo(() => {
     const reasons: string[] = [];
@@ -36,8 +41,13 @@ export function DossierGate({
     if (verdict?.blocking) reasons.push("Blocking compliance alerts must be resolved");
     if (!employmentComplete) reasons.push("Employment / loan terms incomplete");
     if (!applicantName) reasons.push("Applicant name required");
+    const blockingTax = taxAlerts.filter((a) => a.blocking && !a.overridden);
+    for (const t of blockingTax) {
+      reasons.push(`${t.label}: resolve or override with broker note`);
+    }
     return { ready: reasons.length === 0, reasons };
-  }, [docs, verdict, employmentComplete, applicantName]);
+  }, [docs, verdict, employmentComplete, applicantName, taxAlerts]);
+
 
   const generate = () => {
     const doc = new jsPDF({ unit: "pt", format: "letter" });
