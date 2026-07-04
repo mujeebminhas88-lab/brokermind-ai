@@ -159,6 +159,7 @@ export type Database = {
           taxpayer_name: string
           tds: number
           updated_at: string
+          user_id: string
         }
         Insert: {
           aggregate_risk_score?: number
@@ -176,6 +177,7 @@ export type Database = {
           taxpayer_name: string
           tds?: number
           updated_at?: string
+          user_id?: string
         }
         Update: {
           aggregate_risk_score?: number
@@ -193,6 +195,7 @@ export type Database = {
           taxpayer_name?: string
           tds?: number
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
