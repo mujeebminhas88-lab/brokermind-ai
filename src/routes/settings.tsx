@@ -1,8 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppHeader } from "@/components/AppHeader";
+import { AuthGate } from "@/components/AuthGate";
 
 export const Route = createFileRoute("/settings")({
-  component: SettingsPage,
+  component: () => (
+    <AuthGate>
+      <SettingsPage />
+    </AuthGate>
+  ),
   head: () => ({
     meta: [
       { title: "Settings — BrokerMind AI" },

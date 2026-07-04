@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabase/client";
 import { AlertTriangle, ShieldAlert, RefreshCw, CheckCircle2 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { AuthGate } from "@/components/AuthGate";
 
 
 interface ComplianceAlert {
@@ -25,7 +26,11 @@ interface AppRow {
 }
 
 export const Route = createFileRoute("/compliance")({
-  component: ComplianceDashboard,
+  component: () => (
+    <AuthGate>
+      <ComplianceDashboard />
+    </AuthGate>
+  ),
   errorComponent: ({ error }) => (
     <div className="p-8 text-sm text-destructive">{error.message}</div>
   ),

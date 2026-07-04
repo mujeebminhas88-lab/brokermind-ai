@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import logoUrl from "@/assets/brokermind-logo.png";
+import { useUser } from "@/hooks/useUser";
+import { LogOut } from "lucide-react";
 
 const TABS: { to: "/pipeline" | "/" | "/compliance" | "/settings"; label: string }[] = [
   { to: "/pipeline", label: "Pipeline" },
@@ -9,6 +11,7 @@ const TABS: { to: "/pipeline" | "/" | "/compliance" | "/settings"; label: string
 ];
 
 export function AppHeader({ right }: { right?: React.ReactNode }) {
+  const { user, signOut } = useUser();
   return (
     <header
       className="sticky top-0 z-30 border-b backdrop-blur"
@@ -50,14 +53,36 @@ export function AppHeader({ right }: { right?: React.ReactNode }) {
             ))}
           </nav>
         </div>
-        {right ? (
-          <div
-            className="flex items-center gap-3 text-[11px]"
-            style={{ color: "rgba(255,255,255,0.75)" }}
-          >
-            {right}
-          </div>
-        ) : null}
+        <div
+          className="flex items-center gap-3 text-[11px]"
+          style={{ color: "rgba(255,255,255,0.75)" }}
+        >
+          {right}
+          {user ? (
+            <>
+              <span
+                className="hidden max-w-[200px] truncate md:inline"
+                style={{ color: "rgba(255,255,255,0.55)" }}
+                title={user.email ?? undefined}
+              >
+                {user.email}
+              </span>
+              <button
+                onClick={() => void signOut()}
+                className="inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 text-[10.5px] font-semibold uppercase tracking-[0.16em] transition-colors hover:text-white"
+                style={{
+                  color: "rgba(255,255,255,0.75)",
+                  borderColor: "rgba(255,255,255,0.12)",
+                  background: "rgba(233,30,140,0.08)",
+                }}
+                aria-label="Sign out"
+              >
+                <LogOut size={12} />
+                Sign Out
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
     </header>
   );
