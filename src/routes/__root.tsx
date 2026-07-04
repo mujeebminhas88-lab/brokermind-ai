@@ -11,7 +11,9 @@ import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
+import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { UserProvider } from "@/hooks/useUser";
 
 function NotFoundComponent() {
   return (
