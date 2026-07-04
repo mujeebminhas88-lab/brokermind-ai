@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import logoUrl from "@/assets/brokermind-logo.png";
+import { useUser } from "@/hooks/useUser";
+import { LogOut } from "lucide-react";
 
 const TABS: { to: "/pipeline" | "/" | "/compliance" | "/settings"; label: string }[] = [
   { to: "/pipeline", label: "Pipeline" },
@@ -9,6 +11,7 @@ const TABS: { to: "/pipeline" | "/" | "/compliance" | "/settings"; label: string
 ];
 
 export function AppHeader({ right }: { right?: React.ReactNode }) {
+  const { user, signOut } = useUser();
   return (
     <header
       className="sticky top-0 z-30 border-b backdrop-blur"
