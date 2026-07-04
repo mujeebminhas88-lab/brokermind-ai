@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabase/client";
 import { RefreshCw, ArrowUpRight, Search } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { AuthGate } from "@/components/AuthGate";
 
 interface AppRow {
   id: string;
@@ -23,7 +24,11 @@ interface AlertCount {
 }
 
 export const Route = createFileRoute("/pipeline")({
-  component: PipelineTable,
+  component: () => (
+    <AuthGate>
+      <PipelineTable />
+    </AuthGate>
+  ),
   errorComponent: ({ error }) => (
     <div className="p-8 text-sm text-destructive">{error.message}</div>
   ),

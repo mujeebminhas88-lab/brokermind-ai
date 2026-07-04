@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppHeader } from "@/components/AppHeader";
+import { AuthGate } from "@/components/AuthGate";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/supabase/client";
@@ -92,7 +93,11 @@ function formatCurrency(value: number): string {
 }
 
 export const Route = createFileRoute("/")({
-  component: Dashboard,
+  component: () => (
+    <AuthGate>
+      <Dashboard />
+    </AuthGate>
+  ),
 });
 
 function Dashboard() {
