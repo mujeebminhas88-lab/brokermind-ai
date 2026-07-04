@@ -59,6 +59,94 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          application_id: string | null
+          created_at: string
+          details: Json
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          application_id?: string | null
+          created_at?: string
+          details?: Json
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id?: string
+        }
+        Update: {
+          action?: string
+          application_id?: string | null
+          created_at?: string
+          details?: Json
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "underwriting_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communications_log: {
+        Row: {
+          application_id: string | null
+          body: string | null
+          channel: string
+          contact: string | null
+          created_at: string
+          direction: string
+          id: string
+          subject: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          application_id?: string | null
+          body?: string | null
+          channel: string
+          contact?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          subject?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          application_id?: string | null
+          body?: string | null
+          channel?: string
+          contact?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          subject?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communications_log_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "underwriting_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compliance_alerts: {
         Row: {
           alert_code: string
@@ -106,6 +194,97 @@ export type Database = {
           },
         ]
       }
+      compliance_flags: {
+        Row: {
+          application_id: string | null
+          code: string
+          created_at: string
+          id: string
+          message: string
+          note: string | null
+          severity: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          application_id?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          message: string
+          note?: string | null
+          severity?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          application_id?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          message?: string
+          note?: string | null
+          severity?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_flags_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "underwriting_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conditions: {
+        Row: {
+          application_id: string
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          label: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          label: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          label?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conditions_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "underwriting_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_registry: {
         Row: {
           category: string
@@ -141,6 +320,144 @@ export type Database = {
           validation_rules?: Json
         }
         Relationships: []
+      }
+      parsed_documents: {
+        Row: {
+          application_id: string | null
+          confidence: number
+          created_at: string
+          document_code: string
+          id: string
+          parsed_payload: Json
+          source_path: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          application_id?: string | null
+          confidence?: number
+          created_at?: string
+          document_code: string
+          id?: string
+          parsed_payload?: Json
+          source_path?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          application_id?: string | null
+          confidence?: number
+          created_at?: string
+          document_code?: string
+          id?: string
+          parsed_payload?: Json
+          source_path?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parsed_documents_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "underwriting_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rate_holds: {
+        Row: {
+          application_id: string | null
+          created_at: string
+          expiry_date: string
+          id: string
+          lender: string
+          notes: string | null
+          product: string | null
+          rate: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          application_id?: string | null
+          created_at?: string
+          expiry_date: string
+          id?: string
+          lender: string
+          notes?: string | null
+          product?: string | null
+          rate: number
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          application_id?: string | null
+          created_at?: string
+          expiry_date?: string
+          id?: string
+          lender?: string
+          notes?: string | null
+          product?: string | null
+          rate?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_holds_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "underwriting_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      renewals: {
+        Row: {
+          application_id: string | null
+          created_at: string
+          current_rate: number | null
+          id: string
+          lender: string
+          maturity_date: string | null
+          notes: string | null
+          renewal_status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          application_id?: string | null
+          created_at?: string
+          current_rate?: number | null
+          id?: string
+          lender: string
+          maturity_date?: string | null
+          notes?: string | null
+          renewal_status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          application_id?: string | null
+          created_at?: string
+          current_rate?: number | null
+          id?: string
+          lender?: string
+          maturity_date?: string | null
+          notes?: string | null
+          renewal_status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewals_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "underwriting_applications"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       underwriting_applications: {
         Row: {
