@@ -88,12 +88,12 @@ export const useRateHoldStore = create<State>((set, get) => ({
       lender: h.lender ?? "",
       rate: h.rate ?? 0,
       product: h.product ?? "",
-      expiry_date: h.expiry_date ?? null,
+      expiry_date: h.expiry_date ?? new Date().toISOString().slice(0, 10),
       notes: extras,
     };
     const { data, error } = await supabase
       .from("rate_holds")
-      .upsert(payload, { onConflict: "id" })
+      .upsert(payload as never, { onConflict: "id" })
       .select()
       .single();
     if (error) {
