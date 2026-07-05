@@ -23,6 +23,7 @@ import { SourceOfFundsPanel } from "@/components/SourceOfFundsPanel";
 import { StressTestPanel } from "@/components/StressTestPanel";
 import { CmhcPanel } from "@/components/CmhcPanel";
 import { RentalOffsetPanel } from "@/components/RentalOffsetPanel";
+import { CreditProfilePanel } from "@/components/CreditProfilePanel";
 
 
 interface ApplicationRecord {
