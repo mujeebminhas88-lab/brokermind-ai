@@ -21,7 +21,7 @@ const selectCls = inputCls;
 const money = (n: number) =>
   n.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
 
-export function ExitStrategyPanel({ visible }: { visible: boolean }) {
+export function ExitStrategyPanel({ visible: visibleProp }: { visible?: boolean } = {}) {
   const st = useExitStrategyStore();
   const financials = useDerivedFinancials();
   const loan = useApplicationStore((s) => s.loan);
