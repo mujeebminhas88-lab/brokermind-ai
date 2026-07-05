@@ -267,6 +267,13 @@ function Dashboard() {
 
 
 
+  const { app: appParam } = Route.useSearch();
+  useEffect(() => {
+    if (appParam && appParam !== activeApplicantId) {
+      setActiveApplicantId(appParam);
+    }
+  }, [appParam, activeApplicantId]);
+
   useEffect(() => {
     if (!activeApplicantId && applications.length > 0) {
       setActiveApplicantId(applications[0].id);
