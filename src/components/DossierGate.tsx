@@ -55,8 +55,13 @@ export function DossierGate({
   const docs = useVerificationStore((s) => s.docs);
   const derived = useDerivedFinancials();
   const loan = useApplicationStore((s) => s.loan);
+  const conditions = useConditionsStore((s) => s.conditions);
+  const credit = useCreditProfileStore();
+  const property = usePropertyStore();
+  const broker = useBrokerSettingsStore();
   const alerts = useComplianceAlerts({ verdict, employmentComplete, applicantId });
   const [highWarningOpen, setHighWarningOpen] = useState(false);
+
 
   const gate = useMemo(() => {
     const extra: string[] = [];
