@@ -79,6 +79,8 @@ export function useComplianceAlerts({
   const aml = useAmlStore();
   const funds = useFundsStore();
   const cfg = useUnderwritingConfigStore();
+  const credit = useCreditProfileStore();
+
 
   return useMemo<UnifiedAlert[]>(() => {
     const out: UnifiedAlert[] = [];
