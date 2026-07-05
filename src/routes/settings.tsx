@@ -48,6 +48,10 @@ function SettingsPage() {
         </section>
 
         <section className="mt-10">
+          <BrokerSettingsPanel />
+        </section>
+
+        <section className="mt-10">
           <h2 className="font-display text-lg font-bold tracking-tight text-foreground">
             Audit Trail
           </h2>
