@@ -43,6 +43,7 @@ export function NewApplicationModal({
         loan_amount: Number(loanAmount) || 0,
         deal_type: dealType,
         review_status: "New",
+        firm_id: firmId,
       })
       .select("id")
       .single();
