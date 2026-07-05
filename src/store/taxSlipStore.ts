@@ -11,7 +11,7 @@
  * gate and are mirrored to compliance_alerts as an immutable audit trail.
  */
 import { create } from "zustand";
-import type { T1 } from "@/utils/taxSlipParser";
+import type { T1, T2 } from "@/utils/taxSlipParser";
 
 export interface ComplianceOverride {
   code: string;
@@ -36,17 +36,22 @@ export interface TaxComplianceAlert {
 
 interface State {
   t1sByApplicant: Record<string, T1[]>;
+  t2sByApplicant: Record<string, T2[]>;
   overrides: Record<string, ComplianceOverride>;
   setT1s: (applicantId: string, t1s: T1[]) => void;
+  setT2s: (applicantId: string, t2s: T2[]) => void;
   setOverride: (code: string, note: string) => void;
   clearOverride: (code: string) => void;
 }
 
 export const useTaxSlipStore = create<State>((set) => ({
   t1sByApplicant: {},
+  t2sByApplicant: {},
   overrides: {},
   setT1s: (applicantId, t1s) =>
     set((s) => ({ t1sByApplicant: { ...s.t1sByApplicant, [applicantId]: t1s } })),
+  setT2s: (applicantId, t2s) =>
+    set((s) => ({ t2sByApplicant: { ...s.t2sByApplicant, [applicantId]: t2s } })),
   setOverride: (code, note) =>
     set((s) => ({
       overrides: {
