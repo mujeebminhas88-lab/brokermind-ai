@@ -44,12 +44,13 @@ export function CommunicationsPanel({
   useEffect(() => { broker.load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const missingDocs = useMemo(
-    () => docs.filter((d) => d.status !== "verified").map((d) => d.label ?? d.code),
+    () => docs.filter((d) => d.status !== "verified").map((d) => d.label ?? d.name),
     [docs],
   );
   const outstandingConditions = useMemo(
-    () => conditions.filter((c) => c.status !== "satisfied" && c.status !== "waived").map((c) => c.title),
+    () => conditions.filter((c) => c.status !== "Satisfied" && c.status !== "Waived").map((c) => c.label),
     [conditions],
+  );
   );
 
   const context: TemplateContext = useMemo(() => {
