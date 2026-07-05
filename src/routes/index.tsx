@@ -34,6 +34,7 @@ import { LenderSuitabilityPanel } from "@/components/LenderSuitabilityPanel";
 import { LenderGuidelineLibrary } from "@/components/LenderGuidelineLibrary";
 import { ExitStrategyPanel } from "@/components/ExitStrategyPanel";
 import { CommunicationsPanel } from "@/components/CommunicationsPanel";
+import { FileNotesPanel } from "@/components/FileNotesPanel";
 
 
 interface ApplicationRecord {
