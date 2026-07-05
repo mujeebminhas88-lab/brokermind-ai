@@ -27,6 +27,9 @@ import { CreditProfilePanel } from "@/components/CreditProfilePanel";
 import { IncomeAdjustmentsPanel } from "@/components/IncomeAdjustmentsPanel";
 import { RateHoldPanel } from "@/components/RateHoldPanel";
 import { ConditionsBoard } from "@/components/ConditionsBoard";
+import { SubjectPropertyPanel } from "@/components/SubjectPropertyPanel";
+import { PrepaymentPrivilegesPanel } from "@/components/PrepaymentPrivilegesPanel";
+import { CoApplicantPanel } from "@/components/CoApplicantPanel";
 
 
 interface ApplicationRecord {
@@ -640,11 +643,14 @@ function Dashboard() {
       </div>
 
       <div className="mt-6 space-y-4">
+        <SubjectPropertyPanel />
+        <CoApplicantPanel />
         <StressTestPanel />
         <CmhcPanel />
         <RentalOffsetPanel />
         <CreditProfilePanel />
         <IncomeAdjustmentsPanel applicantId={activeApplicantId} />
+        <PrepaymentPrivilegesPanel />
       </div>
 
 
