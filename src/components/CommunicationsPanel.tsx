@@ -51,7 +51,6 @@ export function CommunicationsPanel({
     () => conditions.filter((c) => c.status !== "Satisfied" && c.status !== "Waived").map((c) => c.label),
     [conditions],
   );
-  );
 
   const context: TemplateContext = useMemo(() => {
     const addr = [property.street, property.city, property.province].filter(Boolean).join(", ");
