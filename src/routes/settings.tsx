@@ -74,15 +74,18 @@ function SettingsPage() {
             {tab === "team" && <TeamPanel />}
             {tab === "preferences" && <UserPreferencesPanel />}
             {tab === "audit" && (
-              <section className="rounded-sm border border-border bg-card p-5">
-                <h2 className="font-display text-base font-bold tracking-tight text-foreground">Audit Trail</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Immutable append-only log of every sensitive operation.
-                </p>
-                <div className="mt-4">
-                  <AuditLogViewer />
-                </div>
-              </section>
+              <div className="space-y-6">
+                <SettingsAuditPanel />
+                <section className="rounded-sm border border-border bg-card p-5">
+                  <h2 className="font-display text-base font-bold tracking-tight text-foreground">Full Audit Trail</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Immutable append-only log of every sensitive operation.
+                  </p>
+                  <div className="mt-4">
+                    <AuditLogViewer />
+                  </div>
+                </section>
+              </div>
             )}
           </div>
         </div>
