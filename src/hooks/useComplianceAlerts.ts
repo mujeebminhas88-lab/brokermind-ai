@@ -70,11 +70,13 @@ export function useComplianceAlerts({
 }): UnifiedAlert[] {
   const docs = useVerificationStore((s) => s.docs);
   const loan = useApplicationStore((s) => s.loan);
+  const reo = useApplicationStore((s) => s.reo);
   const derived = useDerivedFinancials();
   const taxAlerts = useTaxComplianceAlerts(applicantId ?? null);
   const overrides = useTaxSlipStore((s) => s.overrides);
   const aml = useAmlStore();
   const funds = useFundsStore();
+  const cfg = useUnderwritingConfigStore();
 
   return useMemo<UnifiedAlert[]>(() => {
     const out: UnifiedAlert[] = [];
