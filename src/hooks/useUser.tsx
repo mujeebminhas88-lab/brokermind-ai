@@ -10,6 +10,9 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/supabase/client";
+import { logAuditEvent } from "@/lib/auditLog";
+
+
 
 interface UserContextValue {
   user: User | null;
