@@ -189,6 +189,14 @@ export function ComplianceHealthSidebar({
                         <Lock className="h-3 w-3" /> Clear override
                       </button>
                     )}
+                    {!a.overridden && (
+                      <button
+                        onClick={() => setDismissTarget(a)}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        <XIcon className="h-3 w-3" /> Dismiss
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}
