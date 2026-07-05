@@ -1,9 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { AuthGate } from "@/components/AuthGate";
 import { AuditLogViewer } from "@/components/AuditLogViewer";
-import { BrokerSettingsPanel } from "@/components/BrokerSettingsPanel";
+import { FirmProfilePanel } from "@/components/FirmProfilePanel";
+import { IntegrationsPanel } from "@/components/IntegrationsPanel";
+import { UserPreferencesPanel } from "@/components/UserPreferencesPanel";
+import { TeamPanel } from "@/components/TeamPanel";
+import { Building2, Cog, FileText, Plug, Users } from "lucide-react";
 
+type Tab = "firm" | "integrations" | "team" | "preferences" | "audit";
+
+const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: "firm", label: "Firm Profile", icon: Building2 },
+  { id: "integrations", label: "Integrations", icon: Plug },
+  { id: "team", label: "Team & Access", icon: Users },
+  { id: "preferences", label: "Preferences", icon: Cog },
+  { id: "audit", label: "Audit Trail", icon: FileText },
+];
 
 export const Route = createFileRoute("/settings")({
   component: () => (
@@ -14,56 +28,64 @@ export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
       { title: "Settings — BrokerMind AI" },
-      { name: "description", content: "Workspace configuration for BrokerMind AI underwriting workspace." },
+      { name: "description", content: "Firm profile, integrations, team roles, and preferences for BrokerMind AI." },
     ],
   }),
 });
 
 function SettingsPage() {
+  const [tab, setTab] = useState<Tab>("firm");
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <main className="mx-auto max-w-[1800px] px-6 py-10">
+      <main className="mx-auto max-w-[1800px] px-6 py-8">
         <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">Settings</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Workspace preferences, integrations, and theme controls.
+        <p className="mt-1 text-sm text-muted-foreground">
+          Firm profile, integrations, team access, and workspace preferences.
         </p>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-3">
-          {[
-            { title: "Brand Identity", body: "BrokerMind AI · Neon prestige palette" },
-            { title: "Underwriting Stream", body: "Standard · Alt/Private BFS · Corporate" },
-            { title: "Compliance Engine", body: "OSFI B-20 · Super Priority detection" },
-          ].map((c) => (
-            <div
-              key={c.title}
-              className="rounded-sm border border-border bg-card p-5"
-            >
-              <div className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                {c.title}
-              </div>
-              <div className="mt-2 font-display text-sm font-semibold text-foreground">{c.body}</div>
-            </div>
-          ))}
-        </section>
+        <div className="mt-6 grid gap-6 lg:grid-cols-[220px_1fr]">
+          <nav className="space-y-1">
+            {TABS.map((t) => {
+              const Icon = t.icon;
+              const active = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`flex w-full items-center gap-2 rounded-sm border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider transition-colors ${
+                    active
+                      ? "border-chart-2 bg-chart-2/10 text-chart-2"
+                      : "border-border bg-card text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {t.label}
+                </button>
+              );
+            })}
+          </nav>
 
-        <section className="mt-10">
-          <BrokerSettingsPanel />
-        </section>
-
-        <section className="mt-10">
-          <h2 className="font-display text-lg font-bold tracking-tight text-foreground">
-            Audit Trail
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Immutable append-only log of every sensitive operation. Admin access only.
-          </p>
-          <div className="mt-4">
-            <AuditLogViewer />
+          <div>
+            {tab === "firm" && <FirmProfilePanel />}
+            {tab === "integrations" && <IntegrationsPanel />}
+            {tab === "team" && <TeamPanel />}
+            {tab === "preferences" && <UserPreferencesPanel />}
+            {tab === "audit" && (
+              <section className="rounded-sm border border-border bg-card p-5">
+                <h2 className="font-display text-base font-bold tracking-tight text-foreground">Audit Trail</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Immutable append-only log of every sensitive operation.
+                </p>
+                <div className="mt-4">
+                  <AuditLogViewer />
+                </div>
+              </section>
+            )}
           </div>
-        </section>
+        </div>
       </main>
     </div>
   );
 }
-

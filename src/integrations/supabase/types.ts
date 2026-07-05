@@ -124,8 +124,12 @@ export type Database = {
           broker_name: string | null
           brokerage_name: string | null
           created_at: string
+          direct_phone: string | null
           licence_number: string | null
+          logo_url: string | null
+          mailing_address: string | null
           phone: string | null
+          provinces: string[]
           signature: string | null
           updated_at: string
           user_id: string
@@ -135,8 +139,12 @@ export type Database = {
           broker_name?: string | null
           brokerage_name?: string | null
           created_at?: string
+          direct_phone?: string | null
           licence_number?: string | null
+          logo_url?: string | null
+          mailing_address?: string | null
           phone?: string | null
+          provinces?: string[]
           signature?: string | null
           updated_at?: string
           user_id: string
@@ -146,8 +154,12 @@ export type Database = {
           broker_name?: string | null
           brokerage_name?: string | null
           created_at?: string
+          direct_phone?: string | null
           licence_number?: string | null
+          logo_url?: string | null
+          mailing_address?: string | null
           phone?: string | null
+          provinces?: string[]
           signature?: string | null
           updated_at?: string
           user_id?: string
@@ -413,6 +425,42 @@ export type Database = {
           },
         ]
       }
+      integration_status: {
+        Row: {
+          created_at: string
+          id: string
+          key_last4: string | null
+          last_error: string | null
+          last_tested_at: string | null
+          provider: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key_last4?: string | null
+          last_error?: string | null
+          last_tested_at?: string | null
+          provider: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key_last4?: string | null
+          last_error?: string | null
+          last_tested_at?: string | null
+          provider?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       parsed_documents: {
         Row: {
           application_id: string | null
@@ -633,6 +681,57 @@ export type Database = {
           tax_year?: number
           taxpayer_name?: string
           tds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          created_at: string
+          default_amortization: number
+          default_export: string
+          default_heating_cost: number
+          default_term: number
+          email_notifications: boolean
+          in_app_notifications: boolean
+          notif_condition_overdue: boolean
+          notif_new_flag: boolean
+          notif_rate_hold: boolean
+          notif_renewal_approaching: boolean
+          theme: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_amortization?: number
+          default_export?: string
+          default_heating_cost?: number
+          default_term?: number
+          email_notifications?: boolean
+          in_app_notifications?: boolean
+          notif_condition_overdue?: boolean
+          notif_new_flag?: boolean
+          notif_rate_hold?: boolean
+          notif_renewal_approaching?: boolean
+          theme?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          default_amortization?: number
+          default_export?: string
+          default_heating_cost?: number
+          default_term?: number
+          email_notifications?: boolean
+          in_app_notifications?: boolean
+          notif_condition_overdue?: boolean
+          notif_new_flag?: boolean
+          notif_rate_hold?: boolean
+          notif_renewal_approaching?: boolean
+          theme?: string
           updated_at?: string
           user_id?: string
         }
