@@ -694,7 +694,7 @@ function Dashboard() {
           }
           yearsSelfEmployed={null}
         />
-        <ExitStrategyPanel visible={useApplicationStoreLenderStream() !== "A"} />
+        <ExitStrategyPanel />
       </div>
 
       <div className="mt-10">
