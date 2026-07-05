@@ -13,6 +13,7 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { UserProvider } from "@/hooks/useUser";
+import { WhiteLabelProvider } from "@/components/WhiteLabelProvider";
 
 function NotFoundComponent() {
   return (
@@ -79,14 +80,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "BrokerMind AI — Mortgage Underwriting Workspace" },
+      { name: "description", content: "AI-assisted Canadian mortgage underwriting: pipeline, compliance, renewals, and lender-ready dossiers." },
+      { name: "author", content: "BrokerMind AI" },
+      { property: "og:title", content: "BrokerMind AI — Mortgage Underwriting Workspace" },
+      { property: "og:description", content: "AI-assisted Canadian mortgage underwriting: pipeline, compliance, renewals, and lender-ready dossiers." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -125,9 +125,11 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <UserProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <Toaster position="top-right" theme="light" richColors closeButton />
+        <WhiteLabelProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+          <Toaster position="top-right" theme="light" richColors closeButton />
+        </WhiteLabelProvider>
       </UserProvider>
     </QueryClientProvider>
   );
