@@ -33,6 +33,7 @@ import { CoApplicantPanel } from "@/components/CoApplicantPanel";
 import { LenderSuitabilityPanel } from "@/components/LenderSuitabilityPanel";
 import { LenderGuidelineLibrary } from "@/components/LenderGuidelineLibrary";
 import { ExitStrategyPanel } from "@/components/ExitStrategyPanel";
+import { CommunicationsPanel } from "@/components/CommunicationsPanel";
 
 
 interface ApplicationRecord {
@@ -729,6 +730,13 @@ function Dashboard() {
               lenderName={activeApplicant?.taxpayer_name}
             />
             <ConditionsBoard applicationId={activeApplicantId} />
+          </div>
+
+          <div className="mt-6">
+            <CommunicationsPanel
+              applicantId={activeApplicantId}
+              applicantName={nameDraft || activeApplicant?.taxpayer_name || null}
+            />
           </div>
 
 

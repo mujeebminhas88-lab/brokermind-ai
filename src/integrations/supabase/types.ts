@@ -118,6 +118,42 @@ export type Database = {
           },
         ]
       }
+      broker_settings: {
+        Row: {
+          broker_email: string | null
+          broker_name: string | null
+          brokerage_name: string | null
+          created_at: string
+          licence_number: string | null
+          phone: string | null
+          signature: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          broker_email?: string | null
+          broker_name?: string | null
+          brokerage_name?: string | null
+          created_at?: string
+          licence_number?: string | null
+          phone?: string | null
+          signature?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          broker_email?: string | null
+          broker_name?: string | null
+          brokerage_name?: string | null
+          created_at?: string
+          licence_number?: string | null
+          phone?: string | null
+          signature?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       communications_log: {
         Row: {
           application_id: string | null
@@ -433,36 +469,48 @@ export type Database = {
       renewals: {
         Row: {
           application_id: string | null
+          client_name: string | null
           created_at: string
+          current_balance: number | null
           current_rate: number | null
           id: string
+          last_contact_at: string | null
           lender: string
           maturity_date: string | null
           notes: string | null
+          property_address: string | null
           renewal_status: string
           updated_at: string
           user_id: string
         }
         Insert: {
           application_id?: string | null
+          client_name?: string | null
           created_at?: string
+          current_balance?: number | null
           current_rate?: number | null
           id?: string
+          last_contact_at?: string | null
           lender: string
           maturity_date?: string | null
           notes?: string | null
+          property_address?: string | null
           renewal_status?: string
           updated_at?: string
           user_id?: string
         }
         Update: {
           application_id?: string | null
+          client_name?: string | null
           created_at?: string
+          current_balance?: number | null
           current_rate?: number | null
           id?: string
+          last_contact_at?: string | null
           lender?: string
           maturity_date?: string | null
           notes?: string | null
+          property_address?: string | null
           renewal_status?: string
           updated_at?: string
           user_id?: string

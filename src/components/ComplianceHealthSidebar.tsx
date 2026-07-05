@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ShieldAlert,
   AlertTriangle,
@@ -9,6 +9,7 @@ import {
   Unlock,
   Lock,
   Info,
+  X as XIcon,
 } from "lucide-react";
 import { useTaxSlipStore } from "@/store/taxSlipStore";
 import { supabase } from "@/supabase/client";
@@ -47,12 +48,23 @@ export function ComplianceHealthSidebar({
   employmentComplete: boolean;
   applicantId?: string | null;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("bm-compliance-sidebar-collapsed") === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("bm-compliance-sidebar-collapsed", collapsed ? "1" : "0");
+    }
+  }, [collapsed]);
   const [overrideTarget, setOverrideTarget] = useState<UnifiedAlert | null>(null);
+  const [dismissTarget, setDismissTarget] = useState<UnifiedAlert | null>(null);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const setOverride = useTaxSlipStore((s) => s.setOverride);
   const clearOverride = useTaxSlipStore((s) => s.clearOverride);
 
-  const alerts = useComplianceAlerts({ verdict, employmentComplete, applicantId });
+  const rawAlerts = useComplianceAlerts({ verdict, employmentComplete, applicantId });
+  const alerts = rawAlerts.filter((a) => !dismissed.has(a.code));
 
   if (collapsed) {
     return (
@@ -177,6 +189,14 @@ export function ComplianceHealthSidebar({
                         <Lock className="h-3 w-3" /> Clear override
                       </button>
                     )}
+                    {!a.overridden && (
+                      <button
+                        onClick={() => setDismissTarget(a)}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        <XIcon className="h-3 w-3" /> Dismiss
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}
@@ -210,6 +230,42 @@ export function ComplianceHealthSidebar({
             }
             toast.success("Override logged to audit trail");
             setOverrideTarget(null);
+          }}
+        />
+      )}
+      {dismissTarget && (
+        <DismissModal
+          alert={dismissTarget}
+          onClose={() => setDismissTarget(null)}
+          onSubmit={async (note) => {
+            const code = dismissTarget.code;
+            setDismissed((prev) => new Set(prev).add(code));
+            try {
+              const { data: userRes } = await supabase.auth.getUser();
+              const uid = userRes.user?.id;
+              if (uid) {
+                await supabase.from("audit_logs").insert({
+                  user_id: uid,
+                  application_id: applicantId ?? null,
+                  action: "COMPLIANCE_ALERT_DISMISS",
+                  action_type: "UPDATE",
+                  entity_type: "compliance_alert",
+                  entity_id: null,
+                  table_name: "compliance_alerts",
+                  record_id: null,
+                  details: {
+                    alert_code: code,
+                    severity: dismissTarget.severity,
+                    note,
+                    at: new Date().toISOString(),
+                  },
+                } as never);
+              }
+            } catch (err) {
+              console.warn("Dismiss audit write failed", err);
+            }
+            toast.success("Alert dismissed and logged.");
+            setDismissTarget(null);
           }}
         />
       )}
@@ -297,6 +353,60 @@ function OverrideModal({
               }`}
             >
               Log Override
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DismissModal({
+  alert,
+  onClose,
+  onSubmit,
+}: {
+  alert: UnifiedAlert;
+  onClose: () => void;
+  onSubmit: (note: string) => void;
+}) {
+  const [note, setNote] = useState("");
+  const trimmed = note.trim();
+  const valid = trimmed.length >= 5;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-sm border border-border bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <header className="border-b border-border bg-slate-900 px-4 py-3 text-white">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-white/80">Dismiss Alert</div>
+          <div className="text-sm font-semibold">{alert.label}</div>
+        </header>
+        <div className="space-y-3 p-4">
+          <p className="text-xs text-muted-foreground">
+            Dismissing hides this alert on your device and writes a compliance paper-trail entry to the audit log.
+            It does <strong>not</strong> unblock dossier generation — for that, use Override on blocking items.
+          </p>
+          <label className="block">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Reason (required, min 5 chars)</span>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={4}
+              placeholder="e.g. Confirmed with lender's BDM this flag does not apply to this program."
+              className="mt-1 w-full rounded-sm border border-input bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <button onClick={onClose} className="rounded-sm border border-border bg-card px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:bg-muted">
+              Cancel
+            </button>
+            <button
+              disabled={!valid}
+              onClick={() => onSubmit(trimmed)}
+              className={`rounded-sm px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white ${
+                valid ? "bg-slate-900 hover:opacity-90" : "cursor-not-allowed bg-slate-400 opacity-60"
+              }`}
+            >
+              Dismiss & Log
             </button>
           </div>
         </div>

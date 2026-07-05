@@ -1,9 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FileCheck2, Lock, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
+import { supabase } from "@/supabase/client";
 import { useVerificationStore } from "@/store/verificationStore";
 import { useDerivedFinancials, useApplicationStore } from "@/store/applicationStore";
+import { useConditionsStore } from "@/store/conditionsStore";
+import { useCreditProfileStore, beaconTier } from "@/store/creditProfileStore";
+import { usePropertyStore } from "@/store/propertyStore";
+import { useBrokerSettingsStore } from "@/store/brokerSettingsStore";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
 import { useComplianceAlerts, computeGateStatus } from "@/hooks/useComplianceAlerts";
 
@@ -50,8 +55,14 @@ export function DossierGate({
   const docs = useVerificationStore((s) => s.docs);
   const derived = useDerivedFinancials();
   const loan = useApplicationStore((s) => s.loan);
+  const conditions = useConditionsStore((s) => s.conditions);
+  const credit = useCreditProfileStore();
+  const property = usePropertyStore();
+  const broker = useBrokerSettingsStore();
   const alerts = useComplianceAlerts({ verdict, employmentComplete, applicantId });
   const [highWarningOpen, setHighWarningOpen] = useState(false);
+  useEffect(() => { broker.load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
 
   const gate = useMemo(() => {
     const extra: string[] = [];
@@ -128,49 +139,57 @@ export function DossierGate({
 
 
 
-  const generate = () => {
+  const generate = async () => {
     const doc = new jsPDF({ unit: "pt", format: "letter" });
     const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
+    const money = (n: number) =>
+      n.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
     let y = 40;
 
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, W, 70, "F");
-    doc.setFillColor(CYAN);
-    doc.rect(0, 70, W, 4, "F");
-    doc.setTextColor("#ffffff");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text("BrokerMindAI", 40, 35);
-    doc.setFontSize(10);
-    doc.setTextColor(CYAN);
-    doc.text("Credit Qualification Dossier", 40, 55);
-    y = 100;
+    const drawFooter = () => {
+      const pageCount = doc.getNumberOfPages();
+      for (let p = 1; p <= pageCount; p++) {
+        doc.setPage(p);
+        doc.setDrawColor(CYAN);
+        doc.setLineWidth(0.5);
+        doc.line(40, H - 40, W - 40, H - 40);
+        doc.setFontSize(7);
+        doc.setTextColor("#94a3b8");
+        doc.setFont("helvetica", "italic");
+        doc.text(
+          "AI-assisted underwriting preparation. All submission decisions remain with the licensed broker.",
+          40,
+          H - 28,
+        );
+        doc.setFont("helvetica", "normal");
+        doc.text(`Page ${p} of ${pageCount}`, W - 40, H - 28, { align: "right" });
+      }
+    };
 
-    doc.setTextColor("#0f172a");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text(applicantName ?? "Unnamed Applicant", 40, y);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor("#475569");
-    doc.text(`Application: ${applicationNumber ?? "—"}`, 40, y + 16);
-    doc.text(`Generated: ${new Date().toLocaleString("en-CA")}`, 40, y + 30);
-    y += 60;
+    const pageBreakIfNeeded = (needed: number) => {
+      if (y + needed > H - 60) {
+        doc.addPage();
+        y = 50;
+      }
+    };
 
     const section = (title: string, color: string) => {
+      pageBreakIfNeeded(50);
       doc.setFillColor(color);
-      doc.rect(40, y, W - 80, 20, "F");
+      doc.rect(40, y, W - 80, 22, "F");
       doc.setTextColor("#ffffff");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      doc.text(title.toUpperCase(), 48, y + 14);
-      y += 30;
+      doc.text(title.toUpperCase(), 48, y + 15);
+      y += 32;
       doc.setTextColor("#0f172a");
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
     };
 
     const row = (l: string, v: string) => {
+      pageBreakIfNeeded(18);
       doc.setTextColor("#64748b");
       doc.text(l, 48, y);
       doc.setTextColor("#0f172a");
@@ -180,42 +199,113 @@ export function DossierGate({
       y += 14;
     };
 
-    section("Financial Ratios", CYAN);
-    row("Loan-to-Value (LTV)", `${derived.ltv.toFixed(2)}%`);
-    row("Gross Debt Service (GDS)", `${derived.ds.gds.toFixed(2)}%`);
-    row("Total Debt Service (TDS)", `${derived.ds.tds.toFixed(2)}%`);
-    row(
-      "Monthly Principal + Interest",
-      derived.monthlyPI.toLocaleString("en-CA", { style: "currency", currency: "CAD" }),
-    );
-    row(
-      "Household Income",
-      derived.householdIncome.toLocaleString("en-CA", { style: "currency", currency: "CAD" }),
-    );
+    const bullet = (text: string) => {
+      pageBreakIfNeeded(16);
+      const lines = doc.splitTextToSize(text, W - 100);
+      doc.setTextColor("#334155");
+      doc.text("•", 48, y);
+      doc.text(lines, 60, y);
+      y += lines.length * 12 + 2;
+    };
+
+    // ── COVER PAGE ─────────────────────────────────────────────────────
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, W, 180, "F");
+    doc.setFillColor(CYAN);
+    doc.rect(0, 180, W, 4, "F");
+    doc.setTextColor("#ffffff");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(28);
+    doc.text("BrokerMind AI", 40, 90);
+    doc.setFontSize(14);
+    doc.setTextColor(CYAN);
+    doc.text("Credit Qualification Dossier", 40, 118);
+    doc.setFontSize(10);
+    doc.setTextColor("#cbd5e1");
+    doc.text("Confidential — For licensed broker & lender use", 40, 138);
+
+    y = 220;
+    doc.setTextColor("#0f172a");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.text(applicantName ?? "Unnamed Applicant", 40, y);
+    y += 24;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor("#475569");
+    doc.text(`Application ID: ${applicationNumber ?? "—"}`, 40, y);
+    y += 16;
+    doc.text(`Generated: ${new Date().toLocaleString("en-CA")}`, 40, y);
+    y += 16;
+    doc.text(`Broker: ${broker.broker_name || "—"}`, 40, y);
+    y += 16;
+    doc.text(`Licence: ${broker.licence_number || "—"}`, 40, y);
+    y += 16;
+    doc.text(`Brokerage: ${broker.brokerage_name || "—"}`, 40, y);
+    y += 30;
+
+    // ── 1 · EXECUTIVE SUMMARY ──────────────────────────────────────────
+    section("1 · Executive Summary", CYAN);
+    const propertyAddr = [property.street, property.city, property.province, property.postal]
+      .filter(Boolean)
+      .join(", ") || "—";
+    row("Property Address", propertyAddr);
+    row("Property Type / Tenure", `${property.kind} · ${property.tenure}`);
+    row("Property Price", money(loan.propertyPrice));
+    row("Down Payment", money(loan.downPayment));
+    row("Loan Amount", money(Math.max(0, loan.propertyPrice - loan.downPayment)));
+    row("LTV", `${derived.ltv.toFixed(2)}%`);
+    row("GDS", `${derived.ds.gds.toFixed(2)}%`);
+    row("TDS", `${derived.ds.tds.toFixed(2)}%`);
+    row("Monthly P + I", money(derived.monthlyPI));
+    row("Stress Test (MQR)", `${derived.stress.qualifyingRatePct.toFixed(2)}% · ${derived.stress.pass ? "PASS" : "FAIL"}`);
     y += 10;
 
-    section("Loan Summary", PURPLE);
-    row(
-      "Property Price",
-      loan.propertyPrice.toLocaleString("en-CA", { style: "currency", currency: "CAD" }),
-    );
-    row(
-      "Down Payment",
-      loan.downPayment.toLocaleString("en-CA", { style: "currency", currency: "CAD" }),
-    );
-    row("Interest Rate", `${loan.interestRatePct.toFixed(2)}%`);
-    row("Amortization", `${loan.amortizationYears} years`);
+    // ── 2 · INCOME & EMPLOYMENT ────────────────────────────────────────
+    section("2 · Income & Employment", PURPLE);
+    row("Employment Type", employmentType ?? "—");
+    row("Primary Annual Income", money(loan.primaryAnnualIncome));
+    if (loan.coApplicantEnabled) {
+      row("Co-Applicant Annual Income", money(loan.coAnnualIncome));
+    }
+    row("Household Income (Qualifying)", money(derived.householdIncome));
+    row("Rental Contribution (offset)", money(derived.rentalContribution));
     y += 10;
 
-    section("Compliance Status", MAGENTA);
-    row("Highest Severity", verdict?.highestSeverity ?? "CLEAN");
-    row("Total Penalty Points", String(verdict?.totalPenalty ?? 0));
-    row("Critical (blocking)", String(gate.criticalCount));
-    row("High (warned)", String(gate.highCount));
-    row("Documents Verified", `${docs.filter((d) => d.status === "verified").length} / ${docs.length}`);
+    // ── 3 · DOCUMENT REGISTRY ──────────────────────────────────────────
+    section("3 · Document Registry", MAGENTA);
+    if (docs.length === 0) {
+      bullet("No documents on file.");
+    } else {
+      docs.forEach((d) => {
+        const badge = d.status === "verified" ? "✓ Verified" : d.status === "review" ? "⚠ Review" : "· Pending";
+        row(`${d.label}${d.mandatory ? " (mandatory)" : ""}`, badge);
+      });
+    }
     y += 10;
 
-    section("Scorecard", CYAN);
+    // ── 4 · COMPLIANCE CHECKLIST ───────────────────────────────────────
+    section("4 · Compliance Checklist", CYAN);
+    checks.forEach((c) => {
+      row(c.label, c.done ? "✓ Pass" : "✗ Incomplete");
+    });
+    y += 6;
+    const overrides = alerts.filter((a) => a.overridden);
+    if (overrides.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(MAGENTA);
+      pageBreakIfNeeded(20);
+      doc.text("Broker Overrides", 48, y);
+      y += 14;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor("#334155");
+      overrides.forEach((o) => bullet(`${o.code} (${o.severity}) — ${o.detail}`));
+    }
+    y += 10;
+
+    // ── 5 · RISK SCORECARD ─────────────────────────────────────────────
+    section("5 · Risk Scorecard", PURPLE);
     const score = Math.max(
       0,
       100 -
@@ -226,23 +316,84 @@ export function DossierGate({
         gate.highCount * 3,
     );
     row("Composite Adjudication Score", `${score} / 100`);
-    row(
-      "Verdict",
-      score >= 75 ? "APPROVE" : score >= 55 ? "CONDITIONAL" : "DECLINE / MANUAL",
-    );
+    row("Verdict", score >= 75 ? "APPROVE" : score >= 55 ? "CONDITIONAL" : "DECLINE / MANUAL");
+    row("Beacon Tier", beaconTier(credit.beacon).label);
+    row("Critical (blocking)", String(gate.criticalCount));
+    row("High (warned)", String(gate.highCount));
+    if (alerts.length > 0) {
+      alerts.slice(0, 15).forEach((a) => bullet(`[${a.severity}] ${a.code} — ${a.label}`));
+    }
+    y += 10;
 
-    doc.setDrawColor(CYAN);
-    doc.setLineWidth(1);
-    doc.line(40, 760, W - 40, 760);
-    doc.setFontSize(8);
-    doc.setTextColor("#94a3b8");
-    doc.text("BrokerMindAI — Confidential Credit Adjudication Dossier", 40, 774);
+    // ── 6 · CONDITIONS SUMMARY ─────────────────────────────────────────
+    section("6 · Conditions Summary", MAGENTA);
+    if (conditions.length === 0) {
+      bullet("No conditions recorded.");
+    } else {
+      conditions.forEach((c) => {
+        row(c.label, c.status);
+      });
+    }
+    y += 10;
+
+    // ── 7 · AUDIT TRAIL SUMMARY ───────────────────────────────────────
+    section("7 · Audit Trail Summary", CYAN);
+    try {
+      const { data: auditRows } = await supabase
+        .from("audit_logs")
+        .select("action, action_type, created_at, table_name, details")
+        .eq("application_id", applicantId ?? "")
+        .order("created_at", { ascending: false })
+        .limit(15);
+      if (!auditRows || auditRows.length === 0) {
+        bullet("No audit events recorded for this application yet.");
+      } else {
+        auditRows.forEach((r) => {
+          const ts = new Date(r.created_at as string).toLocaleString("en-CA");
+          bullet(`${ts} · ${r.action_type ?? r.action} · ${r.table_name ?? "—"}`);
+        });
+      }
+    } catch {
+      bullet("Audit trail unavailable at export time.");
+    }
+
+    drawFooter();
 
     doc.save(
       `Dossier_${(applicantName ?? "applicant").replace(/\s+/g, "_")}_${Date.now()}.pdf`,
     );
-    toast.success("Dossier generated");
+
+    // Log EXPORT to audit trail
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes.user?.id;
+      if (uid) {
+        await supabase.from("audit_logs").insert({
+          user_id: uid,
+          application_id: applicantId ?? null,
+          action: "DOSSIER_EXPORT",
+          action_type: "EXPORT",
+          entity_type: "dossier_pdf",
+          entity_id: applicantId ?? null,
+          table_name: "underwriting_applications",
+          record_id: applicantId ?? null,
+          details: {
+            applicant_name: applicantName ?? null,
+            score,
+            highest_severity: verdict?.highestSeverity ?? "CLEAN",
+            critical_count: gate.criticalCount,
+            high_count: gate.highCount,
+            at: new Date().toISOString(),
+          },
+        } as never);
+      }
+    } catch (err) {
+      console.warn("Dossier export audit write failed", err);
+    }
+
+    toast.success("Dossier generated and export logged to audit trail.");
   };
+
 
   const handleClick = () => {
     if (!allComplete) return; // hard block: every checklist item must pass

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppHeader } from "@/components/AppHeader";
 import { AuthGate } from "@/components/AuthGate";
 import { AuditLogViewer } from "@/components/AuditLogViewer";
+import { BrokerSettingsPanel } from "@/components/BrokerSettingsPanel";
 
 
 export const Route = createFileRoute("/settings")({
@@ -44,6 +45,10 @@ function SettingsPage() {
               <div className="mt-2 font-display text-sm font-semibold text-foreground">{c.body}</div>
             </div>
           ))}
+        </section>
+
+        <section className="mt-10">
+          <BrokerSettingsPanel />
         </section>
 
         <section className="mt-10">

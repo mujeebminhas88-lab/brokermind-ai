@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as RenewalsRouteImport } from './routes/renewals'
 import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -31,6 +32,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RenewalsRoute = RenewalsRouteImport.update({
+  id: '/renewals',
+  path: '/renewals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PipelineRoute = PipelineRouteImport.update({
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
+  '/renewals': typeof RenewalsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
+  '/renewals': typeof RenewalsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
+  '/renewals': typeof RenewalsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/pipeline'
+    | '/renewals'
     | '/reset-password'
     | '/settings'
     | '/signup'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/pipeline'
+    | '/renewals'
     | '/reset-password'
     | '/settings'
     | '/signup'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/pipeline'
+    | '/renewals'
     | '/reset-password'
     | '/settings'
     | '/signup'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   PipelineRoute: typeof PipelineRoute
+  RenewalsRoute: typeof RenewalsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/renewals': {
+      id: '/renewals'
+      path: '/renewals'
+      fullPath: '/renewals'
+      preLoaderRoute: typeof RenewalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pipeline': {
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   PipelineRoute: PipelineRoute,
+  RenewalsRoute: RenewalsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
