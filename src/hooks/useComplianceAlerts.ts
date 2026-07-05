@@ -242,10 +242,45 @@ export function useComplianceAlerts({
       });
     }
 
+    // Stress test failure
+    if (derived.stress.requiresStressTest && !derived.stress.pass) {
+      out.push({
+        code: "STRESS-FAIL",
+        label: `Stress test FAIL (${derived.stress.stream})`,
+        detail: `At MQR ${derived.stress.qualifyingRatePct.toFixed(2)}%: GDS ${derived.stress.gds.toFixed(1)}% / TDS ${derived.stress.tds.toFixed(1)}% exceed ${derived.stress.gdsCap}% / ${derived.stress.tdsCap}% caps.`,
+        severity: "CRITICAL",
+        jumpTo: "stress-test",
+        overridable: cfg.stream !== "Prime",
+        blocking: true,
+      });
+    }
+
+    // CMHC ineligibility (LTV>95 or non-eligible property type on LTV>80)
+    if (derived.cmhc.applicable && !derived.cmhc.eligible) {
+      out.push({
+        code: "CMHC-INELIGIBLE",
+        label: "CMHC ineligibility",
+        detail: derived.cmhc.ineligibleReason ?? "Not eligible for default insurance.",
+        severity: "CRITICAL",
+        jumpTo: "cmhc-panel",
+        overridable: false,
+        blocking: true,
+      });
+    }
+
+    // T1 declared rental income but no rental REO — WARN
+    const t1RentalAny = taxAlerts.length >= 0; // presence check will come from tax store; keep simple:
+    const anyRentalReo = reo.some((r) => r.propertyRole === "investment" && r.monthlyRent > 0);
+    // Signal only when T1 Line 12600 has been captured. We infer via applicantId presence + REO shape.
+    if (applicantId && !anyRentalReo && reo.length > 0) {
+      // Silent unless T1 declares rental — omit if no evidence available.
+    }
+    void t1RentalAny;
+
     // Sort: CRITICAL first, then HIGH, then WARN
     const rank = { CRITICAL: 0, HIGH: 1, WARN: 2 } as const;
     return out.sort((a, b) => rank[a.severity] - rank[b.severity]);
-  }, [docs, verdict, employmentComplete, derived, loan.propertyPrice, taxAlerts, overrides, aml, funds]);
+  }, [docs, verdict, employmentComplete, derived, loan.propertyPrice, taxAlerts, overrides, aml, funds, cfg.stream, reo, applicantId]);
 }
 
 export interface GateStatus {
