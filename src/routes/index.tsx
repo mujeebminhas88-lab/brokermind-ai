@@ -577,6 +577,12 @@ function Dashboard() {
         <div id="loan-terms" className="scroll-mt-24"><LoanTermsPanel /></div>
       </div>
 
+      <div className="mt-6 space-y-4">
+        <StressTestPanel />
+        <CmhcPanel />
+        <RentalOffsetPanel />
+      </div>
+
       <div className="mt-10 grid gap-6 lg:grid-cols-[2fr_1fr]">
         <div>
           <div className="mb-3 flex items-center justify-between">
