@@ -4,8 +4,8 @@
 
 import { supabase } from "@/supabase/client";
 
-async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<T> {
-  const { data, error } = await supabase.functions.invoke(fn, { body });
+async function invoke<T>(fn: string, body: object): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(fn, { body: body as Record<string, unknown> });
   if (error) throw new Error(error.message || `${fn} failed`);
   if (data && typeof data === "object" && "error" in data && (data as { error: unknown }).error) {
     const d = data as { error: string; message?: string };
