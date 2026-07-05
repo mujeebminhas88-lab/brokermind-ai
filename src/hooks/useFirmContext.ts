@@ -1,9 +1,12 @@
 /**
  * useFirmContext — resolves the current user's firm_id via firm_members.
- * Cached in memory for the session. Used to stamp firm_id on inserts.
+ * Cached per session. Auto-provisions a solo firm if none exists.
  */
 import { useEffect, useState } from "react";
 import { supabase } from "@/supabase/client";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sb = supabase as any;
 
 let cachedFirmId: string | null = null;
 
@@ -20,8 +23,8 @@ export function useFirmContext() {
         if (!cancelled) setLoading(false);
         return;
       }
-      const { data } = await supabase
-        .from("firm_members" as never)
+      const { data } = await sb
+        .from("firm_members")
         .select("firm_id, is_owner, created_at")
         .eq("user_id", u.user.id)
         .order("is_owner", { ascending: false })
@@ -32,19 +35,10 @@ export function useFirmContext() {
         cachedFirmId = row.firm_id;
         if (!cancelled) setFirmId(row.firm_id);
       } else {
-        // Auto-provision a solo firm for signed-in users who have none.
-        const { data: newFirm } = await supabase
-          .from("firms" as never)
-          .insert({ name: "My Firm" })
-          .select("id")
-          .maybeSingle();
+        const { data: newFirm } = await sb.from("firms").insert({ name: "My Firm" }).select("id").maybeSingle();
         const nfid = (newFirm as { id?: string } | null)?.id;
         if (nfid) {
-          await supabase.from("firm_members" as never).insert({
-            firm_id: nfid,
-            user_id: u.user.id,
-            is_owner: true,
-          });
+          await sb.from("firm_members").insert({ firm_id: nfid, user_id: u.user.id, is_owner: true });
           cachedFirmId = nfid;
           if (!cancelled) setFirmId(nfid);
         }

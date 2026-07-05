@@ -1,10 +1,13 @@
 /**
- * Notifications store — in-app alerts for rate hold expiry, condition overdue,
- * renewal approaching, and new compliance flags. Rows live in public.notifications
- * (RLS scoped to auth.uid()). Duplicates are prevented by dedupe_key.
+ * Notifications store — in-app alerts. Backed by public.notifications
+ * (RLS scoped to auth.uid()). Duplicates prevented by dedupe_key.
  */
 import { create } from "zustand";
 import { supabase } from "@/supabase/client";
+
+// Widened client because generated types don't yet include the new table.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sb = supabase as any;
 
 export type NotificationType =
   | "rate_hold_expiry"
@@ -35,7 +38,9 @@ interface State {
   markRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
   unreadCount: () => number;
-  create: (input: Omit<NotificationRow, "id" | "user_id" | "read_at" | "email_sent_at" | "created_at"> & { dedupe_key: string }) => Promise<void>;
+  create: (
+    input: Omit<NotificationRow, "id" | "user_id" | "read_at" | "email_sent_at" | "created_at"> & { dedupe_key: string },
+  ) => Promise<void>;
 }
 
 export const useNotificationsStore = create<State>((set, get) => ({
@@ -45,18 +50,18 @@ export const useNotificationsStore = create<State>((set, get) => ({
   load: async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const { data } = await supabase
-      .from("notifications" as never)
+    const { data } = await sb
+      .from("notifications")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(100);
-    set({ rows: (data ?? []) as unknown as NotificationRow[], loaded: true });
+    set({ rows: (data ?? []) as NotificationRow[], loaded: true });
   },
 
   markRead: async (id) => {
     const now = new Date().toISOString();
     set({ rows: get().rows.map((r) => (r.id === id ? { ...r, read_at: now } : r)) });
-    await supabase.from("notifications" as never).update({ read_at: now }).eq("id", id);
+    await sb.from("notifications").update({ read_at: now }).eq("id", id);
   },
 
   markAllRead: async () => {
@@ -64,7 +69,7 @@ export const useNotificationsStore = create<State>((set, get) => ({
     const ids = get().rows.filter((r) => !r.read_at).map((r) => r.id);
     if (!ids.length) return;
     set({ rows: get().rows.map((r) => (r.read_at ? r : { ...r, read_at: now })) });
-    await supabase.from("notifications" as never).update({ read_at: now }).in("id", ids);
+    await sb.from("notifications").update({ read_at: now }).in("id", ids);
   },
 
   unreadCount: () => get().rows.filter((r) => !r.read_at).length,
@@ -83,14 +88,8 @@ export const useNotificationsStore = create<State>((set, get) => ({
       severity: input.severity,
       dedupe_key: input.dedupe_key,
     };
-    const { data, error } = await supabase
-      .from("notifications" as never)
-      .insert(payload)
-      .select()
-      .maybeSingle();
-    if (error) return; // typically dedupe_key unique violation — silently ignore
-    if (data) {
-      set({ rows: [data as unknown as NotificationRow, ...get().rows] });
-    }
+    const { data, error } = await sb.from("notifications").insert(payload).select().maybeSingle();
+    if (error) return; // dedupe unique-violation is expected — swallow.
+    if (data) set({ rows: [data as NotificationRow, ...get().rows] });
   },
 }));
