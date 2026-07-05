@@ -1,6 +1,6 @@
 /**
  * Private Lender Exit Strategy — NEW-J
- * Shown when the current lender stream is Private/MIC.
+ * Auto-visible when computed lender suitability = Private.
  */
 import { useMemo } from "react";
 import { LogOut, Calendar, Calculator } from "lucide-react";
@@ -13,7 +13,8 @@ import {
 } from "@/store/exitStrategyStore";
 import { useDerivedFinancials, useApplicationStore } from "@/store/applicationStore";
 import { useCreditProfileStore } from "@/store/creditProfileStore";
-import { usePropertyStore } from "@/store/propertyStore";
+import { usePropertyStore, analyzeEligibility } from "@/store/propertyStore";
+import { computeSuitability } from "@/utils/lenderSuitability";
 
 const inputCls =
   "w-full rounded-sm border border-input bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring";
