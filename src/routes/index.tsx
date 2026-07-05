@@ -27,6 +27,9 @@ import { CreditProfilePanel } from "@/components/CreditProfilePanel";
 import { IncomeAdjustmentsPanel } from "@/components/IncomeAdjustmentsPanel";
 import { RateHoldPanel } from "@/components/RateHoldPanel";
 import { ConditionsBoard } from "@/components/ConditionsBoard";
+import { SubjectPropertyPanel } from "@/components/SubjectPropertyPanel";
+import { PrepaymentPrivilegesPanel } from "@/components/PrepaymentPrivilegesPanel";
+import { CoApplicantPanel } from "@/components/CoApplicantPanel";
 
 
 interface ApplicationRecord {
