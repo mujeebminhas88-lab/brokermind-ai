@@ -61,6 +61,7 @@ export function DossierGate({
   const broker = useBrokerSettingsStore();
   const alerts = useComplianceAlerts({ verdict, employmentComplete, applicantId });
   const [highWarningOpen, setHighWarningOpen] = useState(false);
+  useEffect(() => { broker.load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
 
   const gate = useMemo(() => {
