@@ -16,6 +16,7 @@ const TABS: { to: "/dashboard" | "/pipeline" | "/" | "/compliance" | "/renewals"
 
 export function AppHeader({ right }: { right?: React.ReactNode }) {
   const { user, signOut } = useUser();
+  useNotificationGenerator();
   return (
     <header
       className="sticky top-0 z-30 border-b backdrop-blur"
