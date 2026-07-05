@@ -287,10 +287,23 @@ export function useComplianceAlerts({
       });
     }
 
+    // Credit profile (Beacon)
+    for (const a of computeCreditAlerts(credit, cfg.stream)) {
+      out.push({
+        code: a.code,
+        label: a.label,
+        detail: a.detail,
+        severity: a.severity,
+        jumpTo: a.jumpTo,
+        overridable: a.severity !== "CRITICAL",
+        blocking: a.severity === "CRITICAL",
+      });
+    }
+
     // Sort: CRITICAL first, then HIGH, then WARN
     const rank = { CRITICAL: 0, HIGH: 1, WARN: 2 } as const;
     return out.sort((a, b) => rank[a.severity] - rank[b.severity]);
-  }, [docs, verdict, employmentComplete, derived, loan.propertyPrice, taxAlerts, overrides, aml, funds, cfg.stream, reo, applicantId, t1s]);
+  }, [docs, verdict, employmentComplete, derived, loan.propertyPrice, taxAlerts, overrides, aml, funds, cfg.stream, reo, applicantId, t1s, credit]);
 }
 
 export interface GateStatus {
