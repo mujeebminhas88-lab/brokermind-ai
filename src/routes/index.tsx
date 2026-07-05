@@ -698,6 +698,15 @@ function Dashboard() {
             <SourceOfFundsPanel />
           </div>
 
+          <div className="mt-6 space-y-4">
+            <RateHoldPanel
+              applicationId={activeApplicantId}
+              lenderName={activeApplicant?.taxpayer_name}
+            />
+            <ConditionsBoard applicationId={activeApplicantId} />
+          </div>
+
+
           <DossierGate
             verdict={complianceVerdict}
             employmentComplete={employmentComplete}
