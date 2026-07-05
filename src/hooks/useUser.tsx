@@ -37,11 +37,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const signOut = useCallback(async () => {
+    await logAuditEvent({ action_type: "LOGOUT" });
     await supabase.auth.signOut();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
   }, []);
+
 
   const clearTimers = useCallback(() => {
     if (warnTimer.current) clearTimeout(warnTimer.current);
