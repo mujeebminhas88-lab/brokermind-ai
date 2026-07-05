@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/supabase/client";
+import { useFirmContext } from "@/hooks/useFirmContext";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
