@@ -44,7 +44,7 @@ export function CommunicationsPanel({
   useEffect(() => { broker.load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const missingDocs = useMemo(
-    () => docs.filter((d) => d.status !== "verified").map((d) => d.label ?? d.name),
+    () => docs.filter((d) => d.status !== "verified").map((d) => d.label),
     [docs],
   );
   const outstandingConditions = useMemo(
