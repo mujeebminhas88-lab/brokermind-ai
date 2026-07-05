@@ -30,6 +30,9 @@ import { ConditionsBoard } from "@/components/ConditionsBoard";
 import { SubjectPropertyPanel } from "@/components/SubjectPropertyPanel";
 import { PrepaymentPrivilegesPanel } from "@/components/PrepaymentPrivilegesPanel";
 import { CoApplicantPanel } from "@/components/CoApplicantPanel";
+import { LenderSuitabilityPanel } from "@/components/LenderSuitabilityPanel";
+import { LenderGuidelineLibrary } from "@/components/LenderGuidelineLibrary";
+import { ExitStrategyPanel } from "@/components/ExitStrategyPanel";
 
 
 interface ApplicationRecord {
