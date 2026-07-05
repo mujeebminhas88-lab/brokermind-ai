@@ -71,6 +71,9 @@ export function UserPreferencesPanel() {
           <Toggle label="Email notifications" value={p.email_notifications} onChange={(v) => void set({ email_notifications: v })} />
           <Toggle label="In-app notifications" value={p.in_app_notifications} onChange={(v) => void set({ in_app_notifications: v })} />
         </div>
+        <p className="mt-2 text-[10.5px] leading-relaxed text-muted-foreground">
+          In-app alerts stream to the bell icon in the header, scoped to your firm. Email delivery activates once your firm email domain is configured under Firm Profile → Branding.
+        </p>
 
         <div className="mt-4 border-t border-border pt-3">
           <div className="mb-2 text-[10.5px] uppercase tracking-[0.16em] text-muted-foreground">Trigger events</div>
