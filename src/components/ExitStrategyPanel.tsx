@@ -64,6 +64,15 @@ export function ExitStrategyPanel({ visible: visibleProp }: { visible?: boolean 
   const currentDebt = effectiveLoan;
   const monthsToRefi = monthsToLtv80(currentValue, currentDebt, st.estimatedAppreciationPct);
 
+  const elig = useMemo(
+    () => analyzeEligibility(property, loan.propertyPrice, loan.amortizationYears),
+    [property, loan.propertyPrice, loan.amortizationYears],
+  );
+  const suitabilityTier = useMemo(
+    () => computeSuitability(credit, financials, elig, null).tier,
+    [credit, financials, elig],
+  );
+  const visible = visibleProp ?? suitabilityTier === "Private";
   if (!visible) return null;
 
   return (
