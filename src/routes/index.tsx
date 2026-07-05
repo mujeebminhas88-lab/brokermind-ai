@@ -732,6 +732,13 @@ function Dashboard() {
             <ConditionsBoard applicationId={activeApplicantId} />
           </div>
 
+          <div className="mt-6">
+            <CommunicationsPanel
+              applicantId={activeApplicantId}
+              applicantName={nameDraft || activeApplicant?.taxpayer_name || null}
+            />
+          </div>
+
 
           <DossierGate
             verdict={complianceVerdict}
