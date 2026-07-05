@@ -35,6 +35,7 @@ import { LenderGuidelineLibrary } from "@/components/LenderGuidelineLibrary";
 import { ExitStrategyPanel } from "@/components/ExitStrategyPanel";
 import { CommunicationsPanel } from "@/components/CommunicationsPanel";
 import { FileNotesPanel } from "@/components/FileNotesPanel";
+import { TermSheetGenerator } from "@/components/TermSheetGenerator";
 
 
 interface ApplicationRecord {
@@ -753,6 +754,12 @@ function Dashboard() {
           <div className="mt-6">
             <FileNotesPanel applicationId={activeApplicantId} />
           </div>
+
+          {activeApplicantId && (
+            <div className="mt-6">
+              <TermSheetGenerator applicationId={activeApplicantId} />
+            </div>
+          )}
 
 
           <DossierGate
