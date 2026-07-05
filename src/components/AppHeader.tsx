@@ -3,9 +3,10 @@ import logoUrl from "@/assets/brokermind-logo.png";
 import { useUser } from "@/hooks/useUser";
 import { LogOut } from "lucide-react";
 
-const TABS: { to: "/pipeline" | "/" | "/compliance" | "/renewals" | "/settings"; label: string }[] = [
+const TABS: { to: "/dashboard" | "/pipeline" | "/" | "/compliance" | "/renewals" | "/settings"; label: string }[] = [
+  { to: "/dashboard", label: "Dashboard" },
   { to: "/pipeline", label: "Pipeline" },
-  { to: "/", label: "Underwriting Workspace" },
+  { to: "/", label: "Workspace" },
   { to: "/renewals", label: "Renewals" },
   { to: "/compliance", label: "Compliance" },
   { to: "/settings", label: "Settings" },

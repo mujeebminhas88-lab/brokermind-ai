@@ -375,6 +375,44 @@ export type Database = {
         }
         Relationships: []
       }
+      file_notes: {
+        Row: {
+          application_id: string
+          author_name: string | null
+          body: string
+          created_at: string
+          id: string
+          note_type: string
+          user_id: string
+        }
+        Insert: {
+          application_id: string
+          author_name?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          note_type?: string
+          user_id?: string
+        }
+        Update: {
+          application_id?: string
+          author_name?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          note_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_notes_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "underwriting_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parsed_documents: {
         Row: {
           application_id: string | null
@@ -531,12 +569,18 @@ export type Database = {
           application_number: string
           balance_owing: number
           created_at: string
+          deal_type: string | null
           employment_type: Database["public"]["Enums"]["employment_type"]
           gds: number
           has_arrears: boolean
           id: string
+          is_priority: boolean
+          lender_name: string | null
           line_15000_total_income: number
           line_23600_net_income: number
+          loan_amount: number
+          property_address: string | null
+          province: string | null
           review_status: Database["public"]["Enums"]["review_status"]
           tax_year: number
           taxpayer_name: string
@@ -549,12 +593,18 @@ export type Database = {
           application_number: string
           balance_owing?: number
           created_at?: string
+          deal_type?: string | null
           employment_type?: Database["public"]["Enums"]["employment_type"]
           gds?: number
           has_arrears?: boolean
           id?: string
+          is_priority?: boolean
+          lender_name?: string | null
           line_15000_total_income?: number
           line_23600_net_income?: number
+          loan_amount?: number
+          property_address?: string | null
+          province?: string | null
           review_status?: Database["public"]["Enums"]["review_status"]
           tax_year: number
           taxpayer_name: string
@@ -567,12 +617,18 @@ export type Database = {
           application_number?: string
           balance_owing?: number
           created_at?: string
+          deal_type?: string | null
           employment_type?: Database["public"]["Enums"]["employment_type"]
           gds?: number
           has_arrears?: boolean
           id?: string
+          is_priority?: boolean
+          lender_name?: string | null
           line_15000_total_income?: number
           line_23600_net_income?: number
+          loan_amount?: number
+          property_address?: string | null
+          province?: string | null
           review_status?: Database["public"]["Enums"]["review_status"]
           tax_year?: number
           taxpayer_name?: string
@@ -625,6 +681,11 @@ export type Database = {
         | "Ready for Review"
         | "Approved"
         | "Declined"
+        | "New"
+        | "Documents Requested"
+        | "Conditions Issued"
+        | "Funded"
+        | "Withdrawn"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -760,6 +821,11 @@ export const Constants = {
         "Ready for Review",
         "Approved",
         "Declined",
+        "New",
+        "Documents Requested",
+        "Conditions Issued",
+        "Funded",
+        "Withdrawn",
       ],
     },
   },

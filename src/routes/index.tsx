@@ -34,6 +34,7 @@ import { LenderSuitabilityPanel } from "@/components/LenderSuitabilityPanel";
 import { LenderGuidelineLibrary } from "@/components/LenderGuidelineLibrary";
 import { ExitStrategyPanel } from "@/components/ExitStrategyPanel";
 import { CommunicationsPanel } from "@/components/CommunicationsPanel";
+import { FileNotesPanel } from "@/components/FileNotesPanel";
 
 
 interface ApplicationRecord {
@@ -114,6 +115,9 @@ export const Route = createFileRoute("/")({
       <Dashboard />
     </AuthGate>
   ),
+  validateSearch: (s: Record<string, unknown>) => ({
+    app: typeof s.app === "string" ? s.app : undefined,
+  }),
 });
 
 function Dashboard() {
@@ -263,6 +267,13 @@ function Dashboard() {
   }, [activeApplicantId, fetchApplications, resetLoan]);
 
 
+
+  const { app: appParam } = Route.useSearch();
+  useEffect(() => {
+    if (appParam && appParam !== activeApplicantId) {
+      setActiveApplicantId(appParam);
+    }
+  }, [appParam, activeApplicantId]);
 
   useEffect(() => {
     if (!activeApplicantId && applications.length > 0) {
@@ -737,6 +748,10 @@ function Dashboard() {
               applicantId={activeApplicantId}
               applicantName={nameDraft || activeApplicant?.taxpayer_name || null}
             />
+          </div>
+
+          <div className="mt-6">
+            <FileNotesPanel applicationId={activeApplicantId} />
           </div>
 
 

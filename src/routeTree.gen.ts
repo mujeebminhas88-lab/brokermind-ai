@@ -16,6 +16,7 @@ import { Route as RenewalsRouteImport } from './routes/renewals'
 import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ComplianceRouteImport } from './routes/compliance'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -54,6 +55,11 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ComplianceRoute = ComplianceRouteImport.update({
   id: '/compliance',
   path: '/compliance',
@@ -68,6 +74,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/compliance': typeof ComplianceRoute
+  '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
@@ -79,6 +86,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/compliance': typeof ComplianceRoute
+  '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
@@ -91,6 +99,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/compliance': typeof ComplianceRoute
+  '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/compliance'
+    | '/dashboard'
     | '/forgot-password'
     | '/login'
     | '/pipeline'
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/compliance'
+    | '/dashboard'
     | '/forgot-password'
     | '/login'
     | '/pipeline'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/compliance'
+    | '/dashboard'
     | '/forgot-password'
     | '/login'
     | '/pipeline'
@@ -138,6 +150,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ComplianceRoute: typeof ComplianceRoute
+  DashboardRoute: typeof DashboardRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   PipelineRoute: typeof PipelineRoute
@@ -198,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/compliance': {
       id: '/compliance'
       path: '/compliance'
@@ -218,6 +238,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ComplianceRoute: ComplianceRoute,
+  DashboardRoute: DashboardRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   PipelineRoute: PipelineRoute,
