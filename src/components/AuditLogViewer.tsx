@@ -262,7 +262,7 @@ export function AuditLogViewer() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               );
             })}
           </tbody>
