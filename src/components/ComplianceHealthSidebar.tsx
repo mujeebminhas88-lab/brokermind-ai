@@ -48,12 +48,23 @@ export function ComplianceHealthSidebar({
   employmentComplete: boolean;
   applicantId?: string | null;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("bm-compliance-sidebar-collapsed") === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("bm-compliance-sidebar-collapsed", collapsed ? "1" : "0");
+    }
+  }, [collapsed]);
   const [overrideTarget, setOverrideTarget] = useState<UnifiedAlert | null>(null);
+  const [dismissTarget, setDismissTarget] = useState<UnifiedAlert | null>(null);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const setOverride = useTaxSlipStore((s) => s.setOverride);
   const clearOverride = useTaxSlipStore((s) => s.clearOverride);
 
-  const alerts = useComplianceAlerts({ verdict, employmentComplete, applicantId });
+  const rawAlerts = useComplianceAlerts({ verdict, employmentComplete, applicantId });
+  const alerts = rawAlerts.filter((a) => !dismissed.has(a.code));
 
   if (collapsed) {
     return (
