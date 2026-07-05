@@ -28,7 +28,7 @@ function LoginPage() {
 
   useEffect(() => {
     if (!loading && session) {
-      navigate({ to: (redirect as "/" | undefined) ?? "/", replace: true });
+      navigate({ to: (redirect as "/dashboard" | undefined) ?? "/dashboard", replace: true });
     }
   }, [loading, session, redirect, navigate]);
 
