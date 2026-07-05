@@ -114,6 +114,9 @@ export const Route = createFileRoute("/")({
       <Dashboard />
     </AuthGate>
   ),
+  validateSearch: (s: Record<string, unknown>) => ({
+    app: typeof s.app === "string" ? s.app : undefined,
+  }),
 });
 
 function Dashboard() {
