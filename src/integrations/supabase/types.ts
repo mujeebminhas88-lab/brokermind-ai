@@ -19,6 +19,7 @@ export type Database = {
           application_id: string
           created_at: string
           document_code: string
+          firm_id: string | null
           id: string
           payload: Json
           tax_year: number | null
@@ -28,6 +29,7 @@ export type Database = {
           application_id: string
           created_at?: string
           document_code: string
+          firm_id?: string | null
           id?: string
           payload?: Json
           tax_year?: number | null
@@ -37,6 +39,7 @@ export type Database = {
           application_id?: string
           created_at?: string
           document_code?: string
+          firm_id?: string | null
           id?: string
           payload?: Json
           tax_year?: number | null
@@ -57,6 +60,13 @@ export type Database = {
             referencedRelation: "document_registry"
             referencedColumns: ["code"]
           },
+          {
+            foreignKeyName: "application_documents_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
         ]
       }
       audit_logs: {
@@ -68,6 +78,7 @@ export type Database = {
           details: Json
           entity_id: string | null
           entity_type: string | null
+          firm_id: string | null
           id: string
           ip_address: string | null
           new_value: Json | null
@@ -84,6 +95,7 @@ export type Database = {
           details?: Json
           entity_id?: string | null
           entity_type?: string | null
+          firm_id?: string | null
           id?: string
           ip_address?: string | null
           new_value?: Json | null
@@ -100,6 +112,7 @@ export type Database = {
           details?: Json
           entity_id?: string | null
           entity_type?: string | null
+          firm_id?: string | null
           id?: string
           ip_address?: string | null
           new_value?: Json | null
@@ -116,6 +129,13 @@ export type Database = {
             referencedRelation: "underwriting_applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "audit_logs_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
         ]
       }
       broker_settings: {
@@ -125,6 +145,7 @@ export type Database = {
           brokerage_name: string | null
           created_at: string
           direct_phone: string | null
+          firm_id: string | null
           licence_number: string | null
           logo_url: string | null
           mailing_address: string | null
@@ -140,6 +161,7 @@ export type Database = {
           brokerage_name?: string | null
           created_at?: string
           direct_phone?: string | null
+          firm_id?: string | null
           licence_number?: string | null
           logo_url?: string | null
           mailing_address?: string | null
@@ -155,6 +177,7 @@ export type Database = {
           brokerage_name?: string | null
           created_at?: string
           direct_phone?: string | null
+          firm_id?: string | null
           licence_number?: string | null
           logo_url?: string | null
           mailing_address?: string | null
@@ -164,7 +187,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "broker_settings_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       communications_log: {
         Row: {
@@ -174,6 +205,7 @@ export type Database = {
           contact: string | null
           created_at: string
           direction: string
+          firm_id: string | null
           id: string
           subject: string | null
           updated_at: string
@@ -186,6 +218,7 @@ export type Database = {
           contact?: string | null
           created_at?: string
           direction?: string
+          firm_id?: string | null
           id?: string
           subject?: string | null
           updated_at?: string
@@ -198,6 +231,7 @@ export type Database = {
           contact?: string | null
           created_at?: string
           direction?: string
+          firm_id?: string | null
           id?: string
           subject?: string | null
           updated_at?: string
@@ -211,6 +245,13 @@ export type Database = {
             referencedRelation: "underwriting_applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "communications_log_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
         ]
       }
       compliance_alerts: {
@@ -220,6 +261,7 @@ export type Database = {
           created_at: string
           details: Json
           document_code: string | null
+          firm_id: string | null
           id: string
           message: string
           resolved: boolean
@@ -232,6 +274,7 @@ export type Database = {
           created_at?: string
           details?: Json
           document_code?: string | null
+          firm_id?: string | null
           id?: string
           message: string
           resolved?: boolean
@@ -244,6 +287,7 @@ export type Database = {
           created_at?: string
           details?: Json
           document_code?: string | null
+          firm_id?: string | null
           id?: string
           message?: string
           resolved?: boolean
@@ -258,6 +302,13 @@ export type Database = {
             referencedRelation: "underwriting_applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "compliance_alerts_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
         ]
       }
       compliance_flags: {
@@ -265,6 +316,7 @@ export type Database = {
           application_id: string | null
           code: string
           created_at: string
+          firm_id: string | null
           id: string
           message: string
           note: string | null
@@ -277,6 +329,7 @@ export type Database = {
           application_id?: string | null
           code: string
           created_at?: string
+          firm_id?: string | null
           id?: string
           message: string
           note?: string | null
@@ -289,6 +342,7 @@ export type Database = {
           application_id?: string | null
           code?: string
           created_at?: string
+          firm_id?: string | null
           id?: string
           message?: string
           note?: string | null
@@ -305,6 +359,13 @@ export type Database = {
             referencedRelation: "underwriting_applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "compliance_flags_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
         ]
       }
       conditions: {
@@ -313,6 +374,7 @@ export type Database = {
           created_at: string
           description: string | null
           due_date: string | null
+          firm_id: string | null
           id: string
           label: string
           status: string
@@ -324,6 +386,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          firm_id?: string | null
           id?: string
           label: string
           status?: string
@@ -335,6 +398,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          firm_id?: string | null
           id?: string
           label?: string
           status?: string
@@ -349,6 +413,13 @@ export type Database = {
             referencedRelation: "underwriting_applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "conditions_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
         ]
       }
       document_registry: {
@@ -357,6 +428,7 @@ export type Database = {
           code: string
           created_at: string
           description: string | null
+          firm_id: string | null
           id: string
           label: string
           required_fields: Json
@@ -368,6 +440,7 @@ export type Database = {
           code: string
           created_at?: string
           description?: string | null
+          firm_id?: string | null
           id?: string
           label: string
           required_fields?: Json
@@ -379,13 +452,22 @@ export type Database = {
           code?: string
           created_at?: string
           description?: string | null
+          firm_id?: string | null
           id?: string
           label?: string
           required_fields?: Json
           updated_at?: string
           validation_rules?: Json
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "document_registry_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       file_notes: {
         Row: {
@@ -393,6 +475,7 @@ export type Database = {
           author_name: string | null
           body: string
           created_at: string
+          firm_id: string | null
           id: string
           note_type: string
           user_id: string
@@ -402,6 +485,7 @@ export type Database = {
           author_name?: string | null
           body: string
           created_at?: string
+          firm_id?: string | null
           id?: string
           note_type?: string
           user_id?: string
@@ -411,6 +495,7 @@ export type Database = {
           author_name?: string | null
           body?: string
           created_at?: string
+          firm_id?: string | null
           id?: string
           note_type?: string
           user_id?: string
@@ -423,11 +508,75 @@ export type Database = {
             referencedRelation: "underwriting_applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "file_notes_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      firm_members: {
+        Row: {
+          created_at: string
+          firm_id: string
+          id: string
+          is_owner: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          firm_id: string
+          id?: string
+          is_owner?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          firm_id?: string
+          id?: string
+          is_owner?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_members_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      firms: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          plan: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          plan?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          plan?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       integration_status: {
         Row: {
           created_at: string
+          firm_id: string | null
           id: string
           key_last4: string | null
           last_error: string | null
@@ -439,6 +588,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          firm_id?: string | null
           id?: string
           key_last4?: string | null
           last_error?: string | null
@@ -450,6 +600,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          firm_id?: string | null
           id?: string
           key_last4?: string | null
           last_error?: string | null
@@ -459,7 +610,71 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "integration_status_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          dedupe_key: string | null
+          email_sent_at: string | null
+          entity_id: string | null
+          entity_type: string | null
+          firm_id: string | null
+          id: string
+          read_at: string | null
+          severity: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          dedupe_key?: string | null
+          email_sent_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          firm_id?: string | null
+          id?: string
+          read_at?: string | null
+          severity?: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          dedupe_key?: string | null
+          email_sent_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          firm_id?: string | null
+          id?: string
+          read_at?: string | null
+          severity?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       parsed_documents: {
         Row: {
@@ -467,6 +682,7 @@ export type Database = {
           confidence: number
           created_at: string
           document_code: string
+          firm_id: string | null
           id: string
           parsed_payload: Json
           source_path: string | null
@@ -478,6 +694,7 @@ export type Database = {
           confidence?: number
           created_at?: string
           document_code: string
+          firm_id?: string | null
           id?: string
           parsed_payload?: Json
           source_path?: string | null
@@ -489,6 +706,7 @@ export type Database = {
           confidence?: number
           created_at?: string
           document_code?: string
+          firm_id?: string | null
           id?: string
           parsed_payload?: Json
           source_path?: string | null
@@ -503,6 +721,13 @@ export type Database = {
             referencedRelation: "underwriting_applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "parsed_documents_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
         ]
       }
       rate_holds: {
@@ -510,6 +735,7 @@ export type Database = {
           application_id: string | null
           created_at: string
           expiry_date: string
+          firm_id: string | null
           id: string
           lender: string
           notes: string | null
@@ -522,6 +748,7 @@ export type Database = {
           application_id?: string | null
           created_at?: string
           expiry_date: string
+          firm_id?: string | null
           id?: string
           lender: string
           notes?: string | null
@@ -534,6 +761,7 @@ export type Database = {
           application_id?: string | null
           created_at?: string
           expiry_date?: string
+          firm_id?: string | null
           id?: string
           lender?: string
           notes?: string | null
@@ -550,6 +778,13 @@ export type Database = {
             referencedRelation: "underwriting_applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "rate_holds_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
         ]
       }
       renewals: {
@@ -559,6 +794,7 @@ export type Database = {
           created_at: string
           current_balance: number | null
           current_rate: number | null
+          firm_id: string | null
           id: string
           last_contact_at: string | null
           lender: string
@@ -575,6 +811,7 @@ export type Database = {
           created_at?: string
           current_balance?: number | null
           current_rate?: number | null
+          firm_id?: string | null
           id?: string
           last_contact_at?: string | null
           lender: string
@@ -591,6 +828,7 @@ export type Database = {
           created_at?: string
           current_balance?: number | null
           current_rate?: number | null
+          firm_id?: string | null
           id?: string
           last_contact_at?: string | null
           lender?: string
@@ -609,6 +847,13 @@ export type Database = {
             referencedRelation: "underwriting_applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "renewals_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
         ]
       }
       underwriting_applications: {
@@ -619,6 +864,7 @@ export type Database = {
           created_at: string
           deal_type: string | null
           employment_type: Database["public"]["Enums"]["employment_type"]
+          firm_id: string | null
           gds: number
           has_arrears: boolean
           id: string
@@ -643,6 +889,7 @@ export type Database = {
           created_at?: string
           deal_type?: string | null
           employment_type?: Database["public"]["Enums"]["employment_type"]
+          firm_id?: string | null
           gds?: number
           has_arrears?: boolean
           id?: string
@@ -667,6 +914,7 @@ export type Database = {
           created_at?: string
           deal_type?: string | null
           employment_type?: Database["public"]["Enums"]["employment_type"]
+          firm_id?: string | null
           gds?: number
           has_arrears?: boolean
           id?: string
@@ -684,7 +932,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "underwriting_applications_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_preferences: {
         Row: {
@@ -694,6 +950,7 @@ export type Database = {
           default_heating_cost: number
           default_term: number
           email_notifications: boolean
+          firm_id: string | null
           in_app_notifications: boolean
           notif_condition_overdue: boolean
           notif_new_flag: boolean
@@ -710,6 +967,7 @@ export type Database = {
           default_heating_cost?: number
           default_term?: number
           email_notifications?: boolean
+          firm_id?: string | null
           in_app_notifications?: boolean
           notif_condition_overdue?: boolean
           notif_new_flag?: boolean
@@ -726,6 +984,7 @@ export type Database = {
           default_heating_cost?: number
           default_term?: number
           email_notifications?: boolean
+          firm_id?: string | null
           in_app_notifications?: boolean
           notif_condition_overdue?: boolean
           notif_new_flag?: boolean
@@ -735,34 +994,54 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_preferences_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
           created_at: string
+          firm_id: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
           created_at?: string
+          firm_id?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
           created_at?: string
+          firm_id?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      current_firm_id: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -770,6 +1049,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_firm_member: { Args: { _firm_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

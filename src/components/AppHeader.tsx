@@ -2,6 +2,8 @@ import { Link } from "@tanstack/react-router";
 import logoUrl from "@/assets/brokermind-logo.png";
 import { useUser } from "@/hooks/useUser";
 import { LogOut } from "lucide-react";
+import { NotificationBell } from "@/components/NotificationBell";
+import { useNotificationGenerator } from "@/hooks/useNotificationGenerator";
 
 const TABS: { to: "/dashboard" | "/pipeline" | "/" | "/compliance" | "/renewals" | "/settings"; label: string }[] = [
   { to: "/dashboard", label: "Dashboard" },
@@ -14,6 +16,7 @@ const TABS: { to: "/dashboard" | "/pipeline" | "/" | "/compliance" | "/renewals"
 
 export function AppHeader({ right }: { right?: React.ReactNode }) {
   const { user, signOut } = useUser();
+  useNotificationGenerator();
   return (
     <header
       className="sticky top-0 z-30 border-b backdrop-blur"
@@ -62,6 +65,7 @@ export function AppHeader({ right }: { right?: React.ReactNode }) {
           {right}
           {user ? (
             <>
+              <NotificationBell />
               <span
                 className="hidden max-w-[200px] truncate md:inline"
                 style={{ color: "rgba(255,255,255,0.55)" }}

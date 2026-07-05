@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/supabase/client";
+import { useFirmContext } from "@/hooks/useFirmContext";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,6 +22,7 @@ export function NewApplicationModal({
   const [loanAmount, setLoanAmount] = useState("");
   const [dealType, setDealType] = useState<DealType>("Purchase");
   const [submitting, setSubmitting] = useState(false);
+  const { firmId } = useFirmContext();
 
   if (!open) return null;
 
@@ -41,6 +43,7 @@ export function NewApplicationModal({
         loan_amount: Number(loanAmount) || 0,
         deal_type: dealType,
         review_status: "New",
+        firm_id: firmId,
       })
       .select("id")
       .single();
