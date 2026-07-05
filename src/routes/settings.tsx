@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { AuthGate } from "@/components/AuthGate";
 import { AuditLogViewer } from "@/components/AuditLogViewer";
+import { SettingsAuditPanel } from "@/components/SettingsAuditPanel";
 import { FirmProfilePanel } from "@/components/FirmProfilePanel";
 import { IntegrationsPanel } from "@/components/IntegrationsPanel";
 import { UserPreferencesPanel } from "@/components/UserPreferencesPanel";
