@@ -118,9 +118,10 @@ function DashboardView() {
     const in30 = now + 30 * 864e5;
     const expiringHolds = rateHolds.filter((h) => {
       const t = new Date(h.expiry_date).getTime();
-      return h.status !== "expired" && t >= now && t <= in7;
+      return t >= now && t <= in7;
     }).length;
     const upcomingRenewals = renewals.filter((r) => {
+      if (!r.maturity_date) return false;
       const t = new Date(r.maturity_date).getTime();
       return t >= now && t <= in30;
     }).length;
