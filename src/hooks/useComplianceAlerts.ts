@@ -269,19 +269,25 @@ export function useComplianceAlerts({
       });
     }
 
-    // T1 declared rental income but no rental REO — WARN
-    const t1RentalAny = taxAlerts.length >= 0; // presence check will come from tax store; keep simple:
+    // T1 Line 12600 declared but no rental REO — WARN
+    const t1RentalDeclared = (t1s ?? []).some((t) => (t.line12600RentalNet ?? 0) > 0);
     const anyRentalReo = reo.some((r) => r.propertyRole === "investment" && r.monthlyRent > 0);
-    // Signal only when T1 Line 12600 has been captured. We infer via applicantId presence + REO shape.
-    if (applicantId && !anyRentalReo && reo.length > 0) {
-      // Silent unless T1 declares rental — omit if no evidence available.
+    if (t1RentalDeclared && !anyRentalReo) {
+      out.push({
+        code: "RENTAL-NO-REO",
+        label: "Rental income declared without matching REO",
+        detail: "T1 Line 12600 shows rental income, but no investment properties are recorded in the REO Matrix. Please verify.",
+        severity: "WARN",
+        jumpTo: "rental-offset",
+        overridable: false,
+        blocking: false,
+      });
     }
-    void t1RentalAny;
 
     // Sort: CRITICAL first, then HIGH, then WARN
     const rank = { CRITICAL: 0, HIGH: 1, WARN: 2 } as const;
     return out.sort((a, b) => rank[a.severity] - rank[b.severity]);
-  }, [docs, verdict, employmentComplete, derived, loan.propertyPrice, taxAlerts, overrides, aml, funds, cfg.stream, reo, applicantId]);
+  }, [docs, verdict, employmentComplete, derived, loan.propertyPrice, taxAlerts, overrides, aml, funds, cfg.stream, reo, applicantId, t1s]);
 }
 
 export interface GateStatus {
