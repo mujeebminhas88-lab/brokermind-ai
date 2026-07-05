@@ -17,6 +17,20 @@ import {
   type DebtServiceResult,
   type LiabilityInputs,
 } from "@/utils/debtService";
+import {
+  computeCmhc,
+  computeRentalOffset,
+  monthlyPaymentCAD,
+  qualifyingRate,
+  thresholdsForStream,
+  minQualifyingIncome,
+  type CmhcResult,
+  type PropertyRole,
+  type RentalOffsetRule,
+  type PropertyType,
+  type UnderwritingStream,
+} from "@/utils/underwritingEngine";
+import { useUnderwritingConfigStore } from "@/store/underwritingConfigStore";
 
 // ─── REO property shape ─────────────────────────────────────────────────────
 export type LenderStream = "A" | "B";
@@ -31,6 +45,7 @@ export interface ReoProperty {
   insurance: number;
   heating: number;
   freeAndClear: boolean;
+  propertyRole: PropertyRole;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
