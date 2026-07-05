@@ -24,6 +24,7 @@ import { useTaxComplianceAlerts, useTaxSlipStore, type TaxComplianceAlert } from
 import { useAmlStore, computeAmlAlerts } from "@/store/amlStore";
 import { useFundsStore, computeFundsAlerts } from "@/store/fundsStore";
 import { useUnderwritingConfigStore } from "@/store/underwritingConfigStore";
+import { useCreditProfileStore, computeCreditAlerts } from "@/store/creditProfileStore";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
 
 export type AlertSeverity = "CRITICAL" | "HIGH" | "WARN";
