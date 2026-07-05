@@ -750,6 +750,10 @@ function Dashboard() {
             />
           </div>
 
+          <div className="mt-6">
+            <FileNotesPanel applicationId={activeApplicantId} />
+          </div>
+
 
           <DossierGate
             verdict={complianceVerdict}
