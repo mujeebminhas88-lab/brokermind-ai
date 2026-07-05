@@ -2,8 +2,13 @@ import { useMemo, useState } from "react";
 import { FileCheck2, Lock, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
+import { supabase } from "@/supabase/client";
 import { useVerificationStore } from "@/store/verificationStore";
 import { useDerivedFinancials, useApplicationStore } from "@/store/applicationStore";
+import { useConditionsStore } from "@/store/conditionsStore";
+import { useCreditProfileStore, beaconTier } from "@/store/creditProfileStore";
+import { usePropertyStore } from "@/store/propertyStore";
+import { useBrokerSettingsStore } from "@/store/brokerSettingsStore";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
 import { useComplianceAlerts, computeGateStatus } from "@/hooks/useComplianceAlerts";
 
