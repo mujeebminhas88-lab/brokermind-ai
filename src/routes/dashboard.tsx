@@ -25,16 +25,15 @@ interface AlertRow {
 }
 
 interface RateHoldRow {
-  application_id: string;
+  application_id: string | null;
   expiry_date: string;
-  status: string;
 }
 
 interface RenewalRow {
   id: string;
   client_name: string | null;
-  maturity_date: string;
-  status: string | null;
+  maturity_date: string | null;
+  renewal_status: string | null;
 }
 
 interface AuditRow {
