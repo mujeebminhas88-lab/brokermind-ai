@@ -618,6 +618,11 @@ function Dashboard() {
 
       </div>
 
+          <div className="mt-10 grid gap-6 lg:grid-cols-2">
+            <AmlPanel />
+            <SourceOfFundsPanel />
+          </div>
+
           <DossierGate
             verdict={complianceVerdict}
             employmentComplete={employmentComplete}
