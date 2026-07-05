@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { X, FileText, Lock, ShieldCheck } from "lucide-react";
+import { X, FileText, Lock, ShieldCheck, Pencil } from "lucide-react";
 import { useVerificationStore, docHasReviewRequired } from "@/store/verificationStore";
 import { StatusBadge } from "./StatusBadge";
 import { toast } from "sonner";
+import { logAuditEvent } from "@/lib/auditLog";
 
 interface Props {
   docId: string | null;
@@ -29,22 +30,41 @@ export function DocumentVerificationModal({ docId, onClose }: Props) {
   const updateField = useVerificationStore((s) => s.updateField);
   const verify = useVerificationStore((s) => s.verify);
   const [local, setLocal] = useState<Record<string, string | number | boolean>>({});
+  const [initial, setInitial] = useState<Record<string, string | number | boolean>>({});
 
   useEffect(() => {
     if (doc) {
       const init: Record<string, string | number | boolean> = {};
       for (const f of doc.fields) init[f.name] = f.value;
       setLocal(init);
+      setInitial(init);
     }
   }, [doc?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!doc) return null;
+  const isLocked = doc.status === "verified";
 
-  const commitAndVerify = () => {
+  const commitAndVerify = async () => {
+    const corrections: Record<string, { from: unknown; to: unknown }> = {};
     for (const f of doc.fields) {
-      if (local[f.name] !== f.value) updateField(doc.id, f.name, local[f.name]);
+      if (local[f.name] !== f.value) {
+        corrections[f.name] = { from: f.value, to: local[f.name] };
+        updateField(doc.id, f.name, local[f.name]);
+      }
     }
     verify(doc.id);
+    await logAuditEvent({
+      action_type: "VERIFY",
+      table_name: "parsed_documents",
+      record_id: doc.id,
+      details: {
+        kind: doc.kind,
+        label: doc.label,
+        manual_corrections: corrections,
+      },
+      old_value: initial,
+      new_value: local,
+    });
     toast.success(`${doc.label} verified & locked`);
     onClose();
   };
@@ -103,9 +123,14 @@ export function DocumentVerificationModal({ docId, onClose }: Props) {
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Extracted Fields
               </span>
-              {docHasReviewRequired(doc) && (
+              {docHasReviewRequired(doc) && !isLocked && (
                 <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-400">
                   Low-confidence fields present
+                </span>
+              )}
+              {isLocked && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                  <Lock className="h-3 w-3" /> Locked
                 </span>
               )}
             </div>
@@ -113,11 +138,14 @@ export function DocumentVerificationModal({ docId, onClose }: Props) {
               <div className="grid gap-3">
                 {doc.fields.map((f) => {
                   const low = f.confidence < 95;
+                  const corrected = local[f.name] !== initial[f.name];
                   return (
                     <div
                       key={f.name}
                       className={`rounded-sm border p-3 transition-colors ${
-                        low
+                        corrected
+                          ? "border-amber-500/70 bg-amber-100/80 dark:bg-amber-950/30"
+                          : low
                           ? "border-yellow-500/60 bg-yellow-50 dark:bg-yellow-950/20"
                           : "border-border bg-card"
                       }`}
@@ -127,7 +155,12 @@ export function DocumentVerificationModal({ docId, onClose }: Props) {
                           {f.label}
                         </label>
                         <div className="flex items-center gap-1.5">
-                          {low && (
+                          {corrected && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                              <Pencil className="h-2.5 w-2.5" /> Manually Corrected
+                            </span>
+                          )}
+                          {low && !corrected && (
                             <span className="text-[9px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-400">
                               Review Required
                             </span>
@@ -139,6 +172,7 @@ export function DocumentVerificationModal({ docId, onClose }: Props) {
                         <label className="inline-flex items-center gap-2 text-sm">
                           <input
                             type="checkbox"
+                            disabled={isLocked}
                             checked={Boolean(local[f.name])}
                             onChange={(e) =>
                               setLocal((p) => ({ ...p, [f.name]: e.target.checked }))
@@ -150,6 +184,7 @@ export function DocumentVerificationModal({ docId, onClose }: Props) {
                       ) : (
                         <input
                           type={f.type === "number" ? "number" : "text"}
+                          disabled={isLocked}
                           value={local[f.name] === undefined ? "" : String(local[f.name])}
                           onChange={(e) =>
                             setLocal((p) => ({
@@ -158,7 +193,7 @@ export function DocumentVerificationModal({ docId, onClose }: Props) {
                                 f.type === "number" ? Number(e.target.value || 0) : e.target.value,
                             }))
                           }
-                          className="w-full rounded-sm border border-input bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                          className="w-full rounded-sm border border-input bg-card px-3 py-1.5 text-sm text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-ring"
                         />
                       )}
                     </div>
@@ -168,13 +203,14 @@ export function DocumentVerificationModal({ docId, onClose }: Props) {
             </div>
             <div className="flex items-center justify-between border-t border-border bg-muted/30 px-4 py-3">
               <div className="text-[10px] text-muted-foreground">
-                Locking marks all fields verified and satisfies the dossier gate for this document.
+                {isLocked ? "Document is verified and read-only." : "Locking marks all fields verified and satisfies the dossier gate for this document."}
               </div>
               <button
                 onClick={commitAndVerify}
-                className="inline-flex items-center gap-2 rounded-sm bg-emerald-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-700"
+                disabled={isLocked}
+                className="inline-flex items-center gap-2 rounded-sm bg-emerald-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-700 disabled:opacity-50"
               >
-                <Lock className="h-3.5 w-3.5" /> Verify &amp; Lock
+                <Lock className="h-3.5 w-3.5" /> {isLocked ? "Verified" : "Verify & Lock"}
               </button>
             </div>
           </div>
