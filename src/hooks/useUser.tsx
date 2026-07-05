@@ -10,6 +10,9 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/supabase/client";
+import { logAuditEvent } from "@/lib/auditLog";
+
+
 
 interface UserContextValue {
   user: User | null;
@@ -34,11 +37,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const signOut = useCallback(async () => {
+    await logAuditEvent({ action_type: "LOGOUT" });
     await supabase.auth.signOut();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
   }, []);
+
 
   const clearTimers = useCallback(() => {
     if (warnTimer.current) clearTimeout(warnTimer.current);
@@ -77,9 +82,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      if (event === "SIGNED_IN") {
+        void logAuditEvent({ action_type: "LOGIN" });
+      }
     });
+
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
