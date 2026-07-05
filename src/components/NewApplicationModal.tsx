@@ -22,6 +22,7 @@ export function NewApplicationModal({
   const [loanAmount, setLoanAmount] = useState("");
   const [dealType, setDealType] = useState<DealType>("Purchase");
   const [submitting, setSubmitting] = useState(false);
+  const { firmId } = useFirmContext();
 
   if (!open) return null;
 
