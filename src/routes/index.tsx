@@ -681,6 +681,22 @@ function Dashboard() {
         </div>
       </div>
 
+      <div className="mt-6 space-y-4">
+        <LenderSuitabilityPanel
+          applicationId={activeApplicantId}
+          employmentType={
+            (activeApplicant?.employment_type as "Salaried" | "Self-Employed" | "Incorporated" | undefined) ?? null
+          }
+        />
+        <LenderGuidelineLibrary
+          employmentType={
+            (activeApplicant?.employment_type as "Salaried" | "Self-Employed" | "Incorporated" | undefined) ?? null
+          }
+          yearsSelfEmployed={null}
+        />
+        <ExitStrategyPanel visible={useApplicationStoreLenderStream() !== "A"} />
+      </div>
+
       <div className="mt-10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
