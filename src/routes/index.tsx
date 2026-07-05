@@ -24,6 +24,9 @@ import { StressTestPanel } from "@/components/StressTestPanel";
 import { CmhcPanel } from "@/components/CmhcPanel";
 import { RentalOffsetPanel } from "@/components/RentalOffsetPanel";
 import { CreditProfilePanel } from "@/components/CreditProfilePanel";
+import { IncomeAdjustmentsPanel } from "@/components/IncomeAdjustmentsPanel";
+import { RateHoldPanel } from "@/components/RateHoldPanel";
+import { ConditionsBoard } from "@/components/ConditionsBoard";
 
 
 interface ApplicationRecord {
@@ -641,7 +644,9 @@ function Dashboard() {
         <CmhcPanel />
         <RentalOffsetPanel />
         <CreditProfilePanel />
+        <IncomeAdjustmentsPanel applicantId={activeApplicantId} />
       </div>
+
 
 
       <div className="mt-10 grid gap-6 lg:grid-cols-[2fr_1fr]">
