@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppHeader } from "@/components/AppHeader";
 import { AuthGate } from "@/components/AuthGate";
+import { AuditLogViewer } from "@/components/AuditLogViewer";
+
 
 export const Route = createFileRoute("/settings")({
   component: () => (
