@@ -206,11 +206,11 @@ export function AuditLogViewer() {
               const table = r.table_name ?? r.entity_type ?? "—";
               const rec = r.record_id ?? r.entity_id ?? "—";
               return (
-                <>
+                <Fragment key={r.id}>
                   <tr
-                    key={r.id}
                     className="border-t border-border hover:bg-muted/40"
                   >
+
                     <td className="px-3 py-2 font-mono text-[11px]">
                       {new Date(r.created_at).toLocaleString()}
                     </td>
