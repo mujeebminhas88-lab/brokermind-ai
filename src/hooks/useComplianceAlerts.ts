@@ -23,6 +23,7 @@ import { useApplicationStore, useDerivedFinancials } from "@/store/applicationSt
 import { useTaxComplianceAlerts, useTaxSlipStore, type TaxComplianceAlert } from "@/store/taxSlipStore";
 import { useAmlStore, computeAmlAlerts } from "@/store/amlStore";
 import { useFundsStore, computeFundsAlerts } from "@/store/fundsStore";
+import { useUnderwritingConfigStore } from "@/store/underwritingConfigStore";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
 
 export type AlertSeverity = "CRITICAL" | "HIGH" | "WARN";
