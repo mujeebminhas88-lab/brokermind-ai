@@ -233,6 +233,42 @@ export function ComplianceHealthSidebar({
           }}
         />
       )}
+      {dismissTarget && (
+        <DismissModal
+          alert={dismissTarget}
+          onClose={() => setDismissTarget(null)}
+          onSubmit={async (note) => {
+            const code = dismissTarget.code;
+            setDismissed((prev) => new Set(prev).add(code));
+            try {
+              const { data: userRes } = await supabase.auth.getUser();
+              const uid = userRes.user?.id;
+              if (uid) {
+                await supabase.from("audit_logs").insert({
+                  user_id: uid,
+                  application_id: applicantId ?? null,
+                  action: "COMPLIANCE_ALERT_DISMISS",
+                  action_type: "UPDATE",
+                  entity_type: "compliance_alert",
+                  entity_id: null,
+                  table_name: "compliance_alerts",
+                  record_id: null,
+                  details: {
+                    alert_code: code,
+                    severity: dismissTarget.severity,
+                    note,
+                    at: new Date().toISOString(),
+                  },
+                } as never);
+              }
+            } catch (err) {
+              console.warn("Dismiss audit write failed", err);
+            }
+            toast.success("Alert dismissed and logged.");
+            setDismissTarget(null);
+          }}
+        />
+      )}
     </>
   );
 }
