@@ -21,6 +21,8 @@ import { useMemo } from "react";
 import { useVerificationStore, docHasReviewRequired } from "@/store/verificationStore";
 import { useApplicationStore, useDerivedFinancials } from "@/store/applicationStore";
 import { useTaxComplianceAlerts, useTaxSlipStore, type TaxComplianceAlert } from "@/store/taxSlipStore";
+import { useAmlStore, computeAmlAlerts } from "@/store/amlStore";
+import { useFundsStore, computeFundsAlerts } from "@/store/fundsStore";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
 
 export type AlertSeverity = "CRITICAL" | "HIGH" | "WARN";
@@ -70,6 +72,8 @@ export function useComplianceAlerts({
   const derived = useDerivedFinancials();
   const taxAlerts = useTaxComplianceAlerts(applicantId ?? null);
   const overrides = useTaxSlipStore((s) => s.overrides);
+  const aml = useAmlStore();
+  const funds = useFundsStore();
 
   return useMemo<UnifiedAlert[]>(() => {
     const out: UnifiedAlert[] = [];
@@ -209,10 +213,36 @@ export function useComplianceAlerts({
       });
     }
 
+    // AML / FINTRAC checklist
+    for (const a of computeAmlAlerts(aml)) {
+      out.push({
+        code: a.code,
+        label: a.label,
+        detail: a.detail,
+        severity: a.severity,
+        jumpTo: a.jumpTo,
+        overridable: false,
+        blocking: true,
+      });
+    }
+
+    // Source of down payment
+    for (const a of computeFundsAlerts(funds, derived.ltv)) {
+      out.push({
+        code: a.code,
+        label: a.label,
+        detail: a.detail,
+        severity: a.severity,
+        jumpTo: a.jumpTo,
+        overridable: a.severity === "HIGH",
+        blocking: a.severity !== "WARN",
+      });
+    }
+
     // Sort: CRITICAL first, then HIGH, then WARN
     const rank = { CRITICAL: 0, HIGH: 1, WARN: 2 } as const;
     return out.sort((a, b) => rank[a.severity] - rank[b.severity]);
-  }, [docs, verdict, employmentComplete, derived, loan.propertyPrice, taxAlerts, overrides]);
+  }, [docs, verdict, employmentComplete, derived, loan.propertyPrice, taxAlerts, overrides, aml, funds]);
 }
 
 export interface GateStatus {

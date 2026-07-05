@@ -18,6 +18,8 @@ import type { ComplianceVerdict } from "@/utils/documentRegistry";
 import { RatioBreakdownPopover } from "@/components/RatioBreakdownPopover";
 import { ComplianceHealthSidebar } from "@/components/ComplianceHealthSidebar";
 import { DossierGate } from "@/components/DossierGate";
+import { AmlPanel } from "@/components/AmlPanel";
+import { SourceOfFundsPanel } from "@/components/SourceOfFundsPanel";
 
 
 interface ApplicationRecord {
@@ -615,6 +617,11 @@ function Dashboard() {
         />
 
       </div>
+
+          <div className="mt-10 grid gap-6 lg:grid-cols-2">
+            <AmlPanel />
+            <SourceOfFundsPanel />
+          </div>
 
           <DossierGate
             verdict={complianceVerdict}
