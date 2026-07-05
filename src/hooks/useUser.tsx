@@ -82,9 +82,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      if (event === "SIGNED_IN") {
+        void logAuditEvent({ action_type: "LOGIN" });
+      }
     });
+
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
