@@ -45,7 +45,20 @@ function SettingsPage() {
             </div>
           ))}
         </section>
+
+        <section className="mt-10">
+          <h2 className="font-display text-lg font-bold tracking-tight text-foreground">
+            Audit Trail
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Immutable append-only log of every sensitive operation. Admin access only.
+          </p>
+          <div className="mt-4">
+            <AuditLogViewer />
+          </div>
+        </section>
       </main>
     </div>
   );
 }
+
