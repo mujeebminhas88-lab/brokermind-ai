@@ -21,6 +21,8 @@ import { useMemo } from "react";
 import { useVerificationStore, docHasReviewRequired } from "@/store/verificationStore";
 import { useApplicationStore, useDerivedFinancials } from "@/store/applicationStore";
 import { useTaxComplianceAlerts, useTaxSlipStore, type TaxComplianceAlert } from "@/store/taxSlipStore";
+import { useAmlStore, computeAmlAlerts } from "@/store/amlStore";
+import { useFundsStore, computeFundsAlerts } from "@/store/fundsStore";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
 
 export type AlertSeverity = "CRITICAL" | "HIGH" | "WARN";
