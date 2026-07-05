@@ -398,11 +398,27 @@ function Dashboard() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-6">
-        <GlobalRatio
-          label={`MQR ${derived.stress.pass ? "PASS" : "FAIL"}`}
-          value={`${derived.stress.qualifyingRatePct.toFixed(2)}%`}
-          warn={derived.stress.requiresStressTest && !derived.stress.pass}
-        />
+        <RatioBreakdownPopover
+          title="Mortgage Qualifying Rate (Stress Test)"
+          formula="MQR = MAX(contract rate + 2.00%, 5.25%) · OSFI B-20"
+          accent="magenta"
+          rows={[
+            { label: "Contract rate", value: `${loanState.interestRatePct.toFixed(2)}%` },
+            { label: "MQR floor", value: "5.25%" },
+            { label: "Qualifying rate", value: `${derived.stress.qualifyingRatePct.toFixed(2)}%`, emphasis: true },
+            { label: "Stressed monthly P+I", value: `$${derived.stress.monthlyPI.toFixed(2)}` },
+            { label: "Stressed GDS", value: `${derived.stress.gds.toFixed(2)}% / cap ${derived.stress.gdsCap}%` },
+            { label: "Stressed TDS", value: `${derived.stress.tds.toFixed(2)}% / cap ${derived.stress.tdsCap}%` },
+            { label: derived.stress.pass ? "STRESS TEST PASS" : "STRESS TEST FAIL", value: derived.stress.stream, emphasis: true },
+          ]}
+          result={`${derived.stress.qualifyingRatePct.toFixed(2)}%`}
+        >
+          <GlobalRatio
+            label={`MQR ${derived.stress.pass ? "PASS" : "FAIL"}`}
+            value={`${derived.stress.qualifyingRatePct.toFixed(2)}%`}
+            warn={derived.stress.requiresStressTest && !derived.stress.pass}
+          />
+        </RatioBreakdownPopover>
         <RatioBreakdownPopover
           title="Loan-to-Value"
           formula="LTV = Loan Amount ÷ Property Price × 100"
@@ -411,6 +427,9 @@ function Dashboard() {
             { label: "Property Price", value: `$${loanState.propertyPrice.toLocaleString()}` },
             { label: "Down Payment", value: `$${loanState.downPayment.toLocaleString()}` },
             { label: "Loan Amount", value: `$${Math.max(0, loanState.propertyPrice - loanState.downPayment).toLocaleString()}`, emphasis: true },
+            { label: "Conventional threshold", value: "≤ 65%" },
+            { label: "Insured threshold", value: "> 80% (CMHC)" },
+            { label: "Current LTV", value: `${derived.ltv.toFixed(2)}%`, emphasis: true },
           ]}
           result={`${derived.ltv.toFixed(2)}%`}
         >
@@ -418,11 +437,15 @@ function Dashboard() {
         </RatioBreakdownPopover>
         <RatioBreakdownPopover
           title="Gross Debt Service"
-          formula="GDS = (P+I + Property Tax + Heating + ½ Condo) ÷ Gross Annual Income × 100"
+          formula="GDS = (P+I + Property Tax/12 + Heating + ½ Condo) ÷ Gross Monthly Income × 100"
           accent="magenta"
           rows={[
             { label: "Monthly P+I", value: `$${derived.monthlyPI.toFixed(2)}` },
-            { label: "Gross Annual Income", value: `$${derived.householdIncome.toLocaleString()}` },
+            { label: "Property Tax / 12", value: `$${(loanState.annualPropertyTaxes / 12).toFixed(2)}` },
+            { label: "Heating (monthly)", value: `$${loanState.monthlyHeating.toFixed(2)}` },
+            { label: "½ Condo / Strata", value: `$${(loanState.monthlyCondoFees * 0.5).toFixed(2)}` },
+            { label: "Gross Monthly Income", value: `$${(derived.householdIncome / 12).toFixed(2)}` },
+            { label: `Stress GDS @ ${derived.stress.qualifyingRatePct.toFixed(2)}%`, value: `${derived.stress.gds.toFixed(2)}% ${derived.stress.pass ? "· PASS" : "· FAIL"}` },
             { label: "GDS Ratio", value: `${derived.ds.gds.toFixed(2)}%`, emphasis: true },
           ]}
           result={`${derived.ds.gds.toFixed(2)}%`}
@@ -431,26 +454,56 @@ function Dashboard() {
         </RatioBreakdownPopover>
         <RatioBreakdownPopover
           title="Total Debt Service"
-          formula="TDS = (GDS Costs + All Other Debt Payments) ÷ Gross Annual Income × 100"
+          formula="TDS = (GDS Costs + All Other Monthly Debt) ÷ Gross Monthly Income × 100"
           accent="magenta"
           rows={[
-            { label: "GDS", value: `${derived.ds.gds.toFixed(2)}%` },
-            { label: "Household Income", value: `$${derived.householdIncome.toLocaleString()}` },
+            { label: "GDS costs (monthly)", value: `$${(derived.monthlyPI + loanState.annualPropertyTaxes / 12 + loanState.monthlyHeating + loanState.monthlyCondoFees * 0.5).toFixed(2)}` },
+            { label: "Other monthly debt", value: `$${derived.liabilities.otherMonthlyDebt.toFixed(2)}` },
+            { label: "Gross Monthly Income", value: `$${(derived.householdIncome / 12).toFixed(2)}` },
+            { label: `Stress TDS @ ${derived.stress.qualifyingRatePct.toFixed(2)}%`, value: `${derived.stress.tds.toFixed(2)}% ${derived.stress.pass ? "· PASS" : "· FAIL"}` },
             { label: "TDS Ratio", value: `${derived.ds.tds.toFixed(2)}%`, emphasis: true },
           ]}
           result={`${derived.ds.tds.toFixed(2)}%`}
         >
           <GlobalRatio label="TDS" value={`${derived.ds.tds.toFixed(2)}%`} warn={derived.ds.tdsExceeded} />
         </RatioBreakdownPopover>
-        <GlobalRatio
-          label="Monthly P+I"
-          value={derived.monthlyPI.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
-        />
-        <GlobalRatio
-          label="Household Income"
-          value={derived.householdIncome.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
-        />
+        <RatioBreakdownPopover
+          title="Monthly Principal + Interest"
+          formula="P+I = P × r / (1 − (1+r)^-n) · r = semi-annual → monthly"
+          accent="cyan"
+          rows={[
+            { label: "Financed amount", value: `$${derived.loanAmount.toLocaleString()}` },
+            { label: "Contract rate", value: `${loanState.interestRatePct.toFixed(2)}%` },
+            { label: "Amortization", value: `${loanState.amortizationYears} yrs` },
+            { label: "Contract P+I", value: `$${derived.monthlyPI.toFixed(2)}`, emphasis: true },
+            { label: "Stressed P+I", value: `$${derived.stress.monthlyPI.toFixed(2)}` },
+          ]}
+          result={derived.monthlyPI.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
+        >
+          <GlobalRatio
+            label="Monthly P+I"
+            value={derived.monthlyPI.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
+          />
+        </RatioBreakdownPopover>
+        <RatioBreakdownPopover
+          title="Household Qualifying Income"
+          formula="Household = Primary + Co-Applicant + Rental Contribution (± adjustments)"
+          accent="cyan"
+          rows={[
+            { label: "Primary", value: `$${loanState.primaryAnnualIncome.toLocaleString()}` },
+            { label: "Co-Applicant", value: loanState.coApplicantEnabled ? `$${loanState.coAnnualIncome.toLocaleString()}` : "—" },
+            { label: "Rental contribution", value: `$${derived.rentalContribution.toLocaleString()}` },
+            { label: "Household Income", value: `$${derived.householdIncome.toLocaleString()}`, emphasis: true },
+          ]}
+          result={derived.householdIncome.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
+        >
+          <GlobalRatio
+            label="Household Income"
+            value={derived.householdIncome.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 })}
+          />
+        </RatioBreakdownPopover>
       </div>
+
 
 
       <header className="mb-8 border-b border-border pb-6">
