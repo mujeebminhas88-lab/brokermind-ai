@@ -23,6 +23,7 @@ import { useApplicationStore, useDerivedFinancials } from "@/store/applicationSt
 import { useTaxComplianceAlerts, useTaxSlipStore, type TaxComplianceAlert } from "@/store/taxSlipStore";
 import { useAmlStore, computeAmlAlerts } from "@/store/amlStore";
 import { useFundsStore, computeFundsAlerts } from "@/store/fundsStore";
+import { useUnderwritingConfigStore } from "@/store/underwritingConfigStore";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
 
 export type AlertSeverity = "CRITICAL" | "HIGH" | "WARN";
@@ -69,11 +70,14 @@ export function useComplianceAlerts({
 }): UnifiedAlert[] {
   const docs = useVerificationStore((s) => s.docs);
   const loan = useApplicationStore((s) => s.loan);
+  const reo = useApplicationStore((s) => s.reo);
   const derived = useDerivedFinancials();
   const taxAlerts = useTaxComplianceAlerts(applicantId ?? null);
   const overrides = useTaxSlipStore((s) => s.overrides);
+  const t1s = useTaxSlipStore((s) => (applicantId ? s.t1sByApplicant[applicantId] : undefined));
   const aml = useAmlStore();
   const funds = useFundsStore();
+  const cfg = useUnderwritingConfigStore();
 
   return useMemo<UnifiedAlert[]>(() => {
     const out: UnifiedAlert[] = [];
@@ -239,10 +243,51 @@ export function useComplianceAlerts({
       });
     }
 
+    // Stress test failure
+    if (derived.stress.requiresStressTest && !derived.stress.pass) {
+      out.push({
+        code: "STRESS-FAIL",
+        label: `Stress test FAIL (${derived.stress.stream})`,
+        detail: `At MQR ${derived.stress.qualifyingRatePct.toFixed(2)}%: GDS ${derived.stress.gds.toFixed(1)}% / TDS ${derived.stress.tds.toFixed(1)}% exceed ${derived.stress.gdsCap}% / ${derived.stress.tdsCap}% caps.`,
+        severity: "CRITICAL",
+        jumpTo: "stress-test",
+        overridable: cfg.stream !== "Prime",
+        blocking: true,
+      });
+    }
+
+    // CMHC ineligibility (LTV>95 or non-eligible property type on LTV>80)
+    if (derived.cmhc.applicable && !derived.cmhc.eligible) {
+      out.push({
+        code: "CMHC-INELIGIBLE",
+        label: "CMHC ineligibility",
+        detail: derived.cmhc.ineligibleReason ?? "Not eligible for default insurance.",
+        severity: "CRITICAL",
+        jumpTo: "cmhc-panel",
+        overridable: false,
+        blocking: true,
+      });
+    }
+
+    // T1 Line 12600 declared but no rental REO — WARN
+    const t1RentalDeclared = (t1s ?? []).some((t) => (t.line12600RentalNet ?? 0) > 0);
+    const anyRentalReo = reo.some((r) => r.propertyRole === "investment" && r.monthlyRent > 0);
+    if (t1RentalDeclared && !anyRentalReo) {
+      out.push({
+        code: "RENTAL-NO-REO",
+        label: "Rental income declared without matching REO",
+        detail: "T1 Line 12600 shows rental income, but no investment properties are recorded in the REO Matrix. Please verify.",
+        severity: "WARN",
+        jumpTo: "rental-offset",
+        overridable: false,
+        blocking: false,
+      });
+    }
+
     // Sort: CRITICAL first, then HIGH, then WARN
     const rank = { CRITICAL: 0, HIGH: 1, WARN: 2 } as const;
     return out.sort((a, b) => rank[a.severity] - rank[b.severity]);
-  }, [docs, verdict, employmentComplete, derived, loan.propertyPrice, taxAlerts, overrides, aml, funds]);
+  }, [docs, verdict, employmentComplete, derived, loan.propertyPrice, taxAlerts, overrides, aml, funds, cfg.stream, reo, applicantId, t1s]);
 }
 
 export interface GateStatus {

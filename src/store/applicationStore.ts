@@ -17,6 +17,20 @@ import {
   type DebtServiceResult,
   type LiabilityInputs,
 } from "@/utils/debtService";
+import {
+  computeCmhc,
+  computeRentalOffset,
+  monthlyPaymentCAD,
+  qualifyingRate,
+  thresholdsForStream,
+  minQualifyingIncome,
+  type CmhcResult,
+  type PropertyRole,
+  type RentalOffsetRule,
+  type PropertyType,
+  type UnderwritingStream,
+} from "@/utils/underwritingEngine";
+import { useUnderwritingConfigStore } from "@/store/underwritingConfigStore";
 
 // ─── REO property shape ─────────────────────────────────────────────────────
 export type LenderStream = "A" | "B";
@@ -31,6 +45,7 @@ export interface ReoProperty {
   insurance: number;
   heating: number;
   freeAndClear: boolean;
+  propertyRole: PropertyRole;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -113,6 +128,7 @@ export const useApplicationStore = create<ApplicationState>((set) => ({
           insurance: 0,
           heating: 0,
           freeAndClear: false,
+          propertyRole: "investment" as PropertyRole,
         },
       ],
     })),
@@ -125,15 +141,6 @@ export const useApplicationStore = create<ApplicationState>((set) => ({
 }));
 
 // ─── Derived math (pure) ────────────────────────────────────────────────────
-/** Canadian semi-annual compounded monthly mortgage payment. */
-function monthlyPaymentCAD(principal: number, annualRatePct: number, amortYears: number) {
-  if (principal <= 0 || amortYears <= 0) return 0;
-  const r = annualRatePct / 100;
-  const monthlyRate = Math.pow(1 + r / 2, 2 / 12) - 1;
-  const n = amortYears * 12;
-  if (monthlyRate === 0) return principal / n;
-  return (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -n));
-}
 
 export interface ReoTotals {
   value: number;
@@ -167,6 +174,30 @@ export function computeReoTotals(rows: ReoProperty[]): ReoTotals {
   return { value, debt, gross, pith, addBack, offset, ltv };
 }
 
+export interface StressTestResult {
+  qualifyingRatePct: number;
+  monthlyPI: number;
+  gds: number;
+  tds: number;
+  gdsCap: number;
+  tdsCap: number;
+  pass: boolean;
+  minQualifyingIncome: number;
+  requiresStressTest: boolean;
+  stream: UnderwritingStream;
+}
+
+export interface UnderwritingConfigInputs {
+  stream: UnderwritingStream;
+  propertyType: PropertyType;
+  rentalOffsetRule: RentalOffsetRule;
+  vacancyFactor: boolean;
+  scenarioEnabled: boolean;
+  scenarioLoanAmountOverride: number | null;
+  scenarioAmortOverride: number | null;
+  scenarioIncomeOverride: number | null;
+}
+
 export interface DerivedFinancials {
   loanAmount: number;
   ltv: number;
@@ -176,39 +207,109 @@ export interface DerivedFinancials {
   ds: DebtServiceResult;
   reoTotals: ReoTotals;
   rentalContribution: number;
+  cmhc: CmhcResult;
+  stress: StressTestResult;
 }
 
 export function deriveFinancials(
   loan: LoanInputs,
   reo: ReoProperty[],
-  lenderStream: LenderStream,
+  config: UnderwritingConfigInputs,
 ): DerivedFinancials {
   const price = Math.max(0, loan.propertyPrice);
   const dp = Math.max(0, loan.downPayment);
-  const loanAmount = Math.max(0, price - dp);
-  const ltv = price > 0 ? (loanAmount / price) * 100 : 0;
-  const monthlyPI = monthlyPaymentCAD(loanAmount, loan.interestRatePct, loan.amortizationYears);
+  const baseLoan = Math.max(0, price - dp);
 
+  // What-if scenario override
+  const effectiveLoan =
+    config.scenarioEnabled && config.scenarioLoanAmountOverride != null
+      ? Math.max(0, config.scenarioLoanAmountOverride)
+      : baseLoan;
+  const effectiveAmort =
+    config.scenarioEnabled && config.scenarioAmortOverride != null
+      ? Math.max(1, config.scenarioAmortOverride)
+      : loan.amortizationYears;
+
+  const ltv = price > 0 ? (effectiveLoan / price) * 100 : 0;
+
+  // CMHC premium on top of loan when LTV > 80 and eligible
+  const cmhc = computeCmhc(effectiveLoan, price, config.propertyType);
+  const financedAmount = cmhc.eligible ? cmhc.insuredMortgage : effectiveLoan;
+
+  const monthlyPI = monthlyPaymentCAD(financedAmount, loan.interestRatePct, effectiveAmort);
+
+  // Rental offset via config rule
+  const reoInputs = reo.map((p) => {
+    const monthlyPith = (p.propertyTax + p.insurance + p.heating) / 12;
+    const monthlyPI = p.freeAndClear ? 0 : (p.mortgageBalance * 0.06) / 12;
+    return { monthlyRent: p.monthlyRent, monthlyPith, monthlyPI, role: p.propertyRole };
+  });
+  const rentalOffset = computeRentalOffset(reoInputs, config.rentalOffsetRule, config.vacancyFactor);
   const reoTotals = computeReoTotals(reo);
-  const rentalContribution = lenderStream === "A" ? reoTotals.addBack : reoTotals.offset;
+  const rentalContribution = rentalOffset.incomeAddAnnual;
 
-  const householdIncome =
-    loan.primaryAnnualIncome +
-    (loan.coApplicantEnabled ? loan.coAnnualIncome : 0) +
+  const baseIncome =
+    (config.scenarioEnabled && config.scenarioIncomeOverride != null
+      ? Math.max(0, config.scenarioIncomeOverride)
+      : loan.primaryAnnualIncome + (loan.coApplicantEnabled ? loan.coAnnualIncome : 0)) +
     Math.max(0, rentalContribution);
+  const householdIncome = baseIncome;
+
+  const otherMonthlyDebt =
+    loan.primaryOtherMonthlyDebt +
+    (loan.coApplicantEnabled ? loan.coOtherMonthlyDebt : 0) +
+    rentalOffset.debtAddAnnual / 12;
 
   const liabilities: LiabilityInputs = {
     monthlyMortgagePI: monthlyPI,
     annualPropertyTaxes: loan.annualPropertyTaxes,
     monthlyHeating: loan.monthlyHeating,
     monthlyCondoFees: loan.monthlyCondoFees,
-    otherMonthlyDebt:
-      loan.primaryOtherMonthlyDebt +
-      (loan.coApplicantEnabled ? loan.coOtherMonthlyDebt : 0),
+    otherMonthlyDebt,
   };
   const ds = calculateDebtService(householdIncome, liabilities);
 
-  return { loanAmount, ltv, monthlyPI, householdIncome, liabilities, ds, reoTotals, rentalContribution };
+  // Stress test — recompute PI at qualifying rate
+  const qRate = qualifyingRate(loan.interestRatePct);
+  const stressedPI = monthlyPaymentCAD(financedAmount, qRate, effectiveAmort);
+  const stressedLiab: LiabilityInputs = { ...liabilities, monthlyMortgagePI: stressedPI };
+  const stressedDS = calculateDebtService(householdIncome, stressedLiab);
+  const thresholds = thresholdsForStream(config.stream);
+
+  const stress: StressTestResult = {
+    qualifyingRatePct: qRate,
+    monthlyPI: stressedPI,
+    gds: stressedDS.gds,
+    tds: stressedDS.tds,
+    gdsCap: thresholds.gdsCap,
+    tdsCap: thresholds.tdsCap,
+    pass:
+      !thresholds.requiresStressTest ||
+      (stressedDS.gds <= thresholds.gdsCap && stressedDS.tds <= thresholds.tdsCap),
+    minQualifyingIncome: minQualifyingIncome(
+      stressedPI,
+      liabilities.annualPropertyTaxes / 12,
+      liabilities.monthlyHeating,
+      liabilities.monthlyCondoFees * 0.5,
+      liabilities.otherMonthlyDebt,
+      thresholds,
+    ),
+    requiresStressTest: thresholds.requiresStressTest,
+    stream: config.stream,
+  };
+
+  return {
+    loanAmount: financedAmount,
+    ltv,
+    monthlyPI,
+    householdIncome,
+    liabilities,
+    ds,
+    reoTotals,
+    rentalContribution,
+    cmhc,
+    stress,
+  };
 }
 
 // ─── Hooks ──────────────────────────────────────────────────────────────────
@@ -218,12 +319,37 @@ export function useLoanInputs() {
 }
 
 /**
- * Memoized derived financial layer. Recomputes only when loan, reo, or
- * lenderStream change. Provides LTV / GDS / TDS / monthly P+I globally.
+ * Memoized derived financial layer. Recomputes when loan, reo, or any
+ * underwriting-config knob changes.
  */
 export function useDerivedFinancials(): DerivedFinancials {
   const loan = useApplicationStore((s) => s.loan);
   const reo = useApplicationStore((s) => s.reo);
-  const lenderStream = useApplicationStore((s) => s.lenderStream);
-  return useMemo(() => deriveFinancials(loan, reo, lenderStream), [loan, reo, lenderStream]);
+  const cfg = useUnderwritingConfigStore();
+  return useMemo(
+    () =>
+      deriveFinancials(loan, reo, {
+        stream: cfg.stream,
+        propertyType: cfg.propertyType,
+        rentalOffsetRule: cfg.rentalOffsetRule,
+        vacancyFactor: cfg.vacancyFactor,
+        scenarioEnabled: cfg.scenarioEnabled,
+        scenarioLoanAmountOverride: cfg.scenarioLoanAmountOverride,
+        scenarioAmortOverride: cfg.scenarioAmortOverride,
+        scenarioIncomeOverride: cfg.scenarioIncomeOverride,
+      }),
+    [
+      loan,
+      reo,
+      cfg.stream,
+      cfg.propertyType,
+      cfg.rentalOffsetRule,
+      cfg.vacancyFactor,
+      cfg.scenarioEnabled,
+      cfg.scenarioLoanAmountOverride,
+      cfg.scenarioAmortOverride,
+      cfg.scenarioIncomeOverride,
+    ],
+  );
 }
+

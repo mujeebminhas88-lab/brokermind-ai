@@ -20,6 +20,9 @@ import { ComplianceHealthSidebar } from "@/components/ComplianceHealthSidebar";
 import { DossierGate } from "@/components/DossierGate";
 import { AmlPanel } from "@/components/AmlPanel";
 import { SourceOfFundsPanel } from "@/components/SourceOfFundsPanel";
+import { StressTestPanel } from "@/components/StressTestPanel";
+import { CmhcPanel } from "@/components/CmhcPanel";
+import { RentalOffsetPanel } from "@/components/RentalOffsetPanel";
 
 
 interface ApplicationRecord {
@@ -393,7 +396,12 @@ function Dashboard() {
 
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-6">
+        <GlobalRatio
+          label={`MQR ${derived.stress.pass ? "PASS" : "FAIL"}`}
+          value={`${derived.stress.qualifyingRatePct.toFixed(2)}%`}
+          warn={derived.stress.requiresStressTest && !derived.stress.pass}
+        />
         <RatioBreakdownPopover
           title="Loan-to-Value"
           formula="LTV = Loan Amount ÷ Property Price × 100"
@@ -572,6 +580,12 @@ function Dashboard() {
           </h2>
         </div>
         <div id="loan-terms" className="scroll-mt-24"><LoanTermsPanel /></div>
+      </div>
+
+      <div className="mt-6 space-y-4">
+        <StressTestPanel />
+        <CmhcPanel />
+        <RentalOffsetPanel />
       </div>
 
       <div className="mt-10 grid gap-6 lg:grid-cols-[2fr_1fr]">
