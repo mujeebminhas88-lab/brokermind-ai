@@ -17,6 +17,12 @@ export interface UnderwritingConfigState {
   rentalOffsetRule: RentalOffsetRule;
   vacancyFactor: boolean;
   useLowerYearIncome: boolean;
+  /** NEW-A — Self-employed 2-year income averaging on Line 15000. */
+  useTwoYearAverage: boolean;
+  /** NEW-D — Add corporate retained earnings + owner comp back to qualifying income (Incorporated). */
+  t2AddBackEnabled: boolean;
+  /** Portion (0-1) of T2 net income added back. */
+  t2AddBackPct: number;
   /** "What if" scenario overrides applied on top of loan inputs. */
   scenarioEnabled: boolean;
   scenarioLoanAmountOverride: number | null;
@@ -34,6 +40,9 @@ export const useUnderwritingConfigStore = create<UnderwritingConfigState>((set) 
   rentalOffsetRule: "50-offset",
   vacancyFactor: false,
   useLowerYearIncome: false,
+  useTwoYearAverage: false,
+  t2AddBackEnabled: false,
+  t2AddBackPct: 1.0,
   scenarioEnabled: false,
   scenarioLoanAmountOverride: null,
   scenarioAmortOverride: null,

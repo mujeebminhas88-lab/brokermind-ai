@@ -164,9 +164,13 @@ export function TaxSlipSuite({
   const report = useMemo(() => reconcileTaxSlips(allSlips), [allSlips]);
 
   const publishT1s = useTaxSlipStore((s) => s.setT1s);
+  const publishT2s = useTaxSlipStore((s) => s.setT2s);
   useEffect(() => {
     if (applicantId) publishT1s(applicantId, current.t1s);
   }, [applicantId, current.t1s, publishT1s]);
+  useEffect(() => {
+    if (applicantId) publishT2s(applicantId, current.t2s);
+  }, [applicantId, current.t2s, publishT2s]);
 
   useEffect(() => {
     onPenaltyChange?.(report.penaltyTotal, report.flags);

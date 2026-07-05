@@ -263,19 +263,32 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplican
 
       {verificationDocs.length > 0 && (
         <div className="border-t border-border">
-          <div className="flex items-center justify-between px-5 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <span>Registry ({verificationDocs.length})</span>
-            <button
-              type="button"
-              onClick={() => {
-                clearVerification();
-                setDocs([]);
-              }}
-              className="inline-flex items-center gap-1 text-destructive hover:underline"
-            >
-              <Trash2 className="h-3 w-3" /> Clear
-            </button>
-          </div>
+          {(() => {
+            const verifiedCount = verificationDocs.filter((v) => v.status === "verified").length;
+            const reviewCount = verificationDocs.filter((v) => v.status === "review").length;
+            const pendingCount = verificationDocs.filter((v) => v.status === "pending" || v.status === "uploaded").length;
+            return (
+              <div className="flex items-center justify-between border-b border-border/70 bg-muted/30 px-5 py-2 text-[11px] font-semibold uppercase tracking-wider">
+                <div className="flex items-center gap-3">
+                  <span className="text-emerald-700 dark:text-emerald-400">{verifiedCount} Verified</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-orange-700 dark:text-orange-400">{reviewCount} Review Required</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-warning-fg">{pendingCount} Pending</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearVerification();
+                    setDocs([]);
+                  }}
+                  className="inline-flex items-center gap-1 text-destructive hover:underline"
+                >
+                  <Trash2 className="h-3 w-3" /> Clear
+                </button>
+              </div>
+            );
+          })()}
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
