@@ -23,6 +23,7 @@ import { SourceOfFundsPanel } from "@/components/SourceOfFundsPanel";
 import { StressTestPanel } from "@/components/StressTestPanel";
 import { CmhcPanel } from "@/components/CmhcPanel";
 import { RentalOffsetPanel } from "@/components/RentalOffsetPanel";
+import { CreditProfilePanel } from "@/components/CreditProfilePanel";
 
 
 interface ApplicationRecord {
@@ -586,7 +587,9 @@ function Dashboard() {
         <StressTestPanel />
         <CmhcPanel />
         <RentalOffsetPanel />
+        <CreditProfilePanel />
       </div>
+
 
       <div className="mt-10 grid gap-6 lg:grid-cols-[2fr_1fr]">
         <div>
