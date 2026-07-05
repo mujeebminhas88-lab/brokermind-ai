@@ -89,8 +89,8 @@ function DashboardView() {
         .select("id, application_number, taxpayer_name, review_status, loan_amount, aggregate_risk_score, is_priority, updated_at, property_address")
         .order("updated_at", { ascending: false }),
       supabase.from("compliance_alerts").select("application_id, severity, resolved").eq("resolved", false),
-      supabase.from("rate_holds").select("application_id, expiry_date, status"),
-      supabase.from("renewals").select("id, client_name, maturity_date, status"),
+      supabase.from("rate_holds").select("application_id, expiry_date"),
+      supabase.from("renewals").select("id, client_name, maturity_date, renewal_status"),
       supabase.from("audit_logs").select("id, action, entity_type, application_id, created_at, details").order("created_at", { ascending: false }).limit(10),
     ]);
     if (a.data) setApps(a.data as AppRow[]);
