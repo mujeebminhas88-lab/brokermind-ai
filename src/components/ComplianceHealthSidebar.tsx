@@ -9,6 +9,7 @@ import {
   Unlock,
   Lock,
   Info,
+  X as XIcon,
 } from "lucide-react";
 import { useTaxSlipStore } from "@/store/taxSlipStore";
 import { supabase } from "@/supabase/client";
