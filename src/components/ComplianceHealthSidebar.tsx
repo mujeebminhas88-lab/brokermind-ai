@@ -360,3 +360,57 @@ function OverrideModal({
     </div>
   );
 }
+
+function DismissModal({
+  alert,
+  onClose,
+  onSubmit,
+}: {
+  alert: UnifiedAlert;
+  onClose: () => void;
+  onSubmit: (note: string) => void;
+}) {
+  const [note, setNote] = useState("");
+  const trimmed = note.trim();
+  const valid = trimmed.length >= 5;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-sm border border-border bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <header className="border-b border-border bg-slate-900 px-4 py-3 text-white">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-white/80">Dismiss Alert</div>
+          <div className="text-sm font-semibold">{alert.label}</div>
+        </header>
+        <div className="space-y-3 p-4">
+          <p className="text-xs text-muted-foreground">
+            Dismissing hides this alert on your device and writes a compliance paper-trail entry to the audit log.
+            It does <strong>not</strong> unblock dossier generation — for that, use Override on blocking items.
+          </p>
+          <label className="block">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Reason (required, min 5 chars)</span>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={4}
+              placeholder="e.g. Confirmed with lender's BDM this flag does not apply to this program."
+              className="mt-1 w-full rounded-sm border border-input bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <button onClick={onClose} className="rounded-sm border border-border bg-card px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:bg-muted">
+              Cancel
+            </button>
+            <button
+              disabled={!valid}
+              onClick={() => onSubmit(trimmed)}
+              className={`rounded-sm px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white ${
+                valid ? "bg-slate-900 hover:opacity-90" : "cursor-not-allowed bg-slate-400 opacity-60"
+              }`}
+            >
+              Dismiss & Log
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
