@@ -643,11 +643,14 @@ function Dashboard() {
       </div>
 
       <div className="mt-6 space-y-4">
+        <SubjectPropertyPanel />
+        <CoApplicantPanel />
         <StressTestPanel />
         <CmhcPanel />
         <RentalOffsetPanel />
         <CreditProfilePanel />
         <IncomeAdjustmentsPanel applicantId={activeApplicantId} />
+        <PrepaymentPrivilegesPanel />
       </div>
 
 
