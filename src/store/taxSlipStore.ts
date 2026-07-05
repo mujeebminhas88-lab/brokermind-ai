@@ -86,7 +86,7 @@ export function computeTaxComplianceAlerts(
         code,
         severity: "CRITICAL",
         label: `CRA arrears — ${t1.taxYear}`,
-        message: `CRA balance owing of ${money(bal)} detected on ${t1.taxYear} T1. HARD BLOCK: proof of payment or CRA payment arrangement required before dossier can be generated.`,
+        message: `CRA balance owing of ${money(bal)} detected on ${t1.taxYear} T1. Lender will require proof of payment or CRA payment arrangement prior to instruction.`,
         taxYear: t1.taxYear,
         jumpAnchor: `t1-balance-${t1.taxYear}`,
         overridable: true,
@@ -94,7 +94,6 @@ export function computeTaxComplianceAlerts(
         blocking: !ov,
         amount: bal,
       });
-
     }
   }
 
