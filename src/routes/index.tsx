@@ -30,6 +30,9 @@ import { ConditionsBoard } from "@/components/ConditionsBoard";
 import { SubjectPropertyPanel } from "@/components/SubjectPropertyPanel";
 import { PrepaymentPrivilegesPanel } from "@/components/PrepaymentPrivilegesPanel";
 import { CoApplicantPanel } from "@/components/CoApplicantPanel";
+import { LenderSuitabilityPanel } from "@/components/LenderSuitabilityPanel";
+import { LenderGuidelineLibrary } from "@/components/LenderGuidelineLibrary";
+import { ExitStrategyPanel } from "@/components/ExitStrategyPanel";
 
 
 interface ApplicationRecord {
@@ -676,6 +679,22 @@ function Dashboard() {
           </div>
           <LenderManagement applicationId={activeApplicantId ?? ""} />
         </div>
+      </div>
+
+      <div className="mt-6 space-y-4">
+        <LenderSuitabilityPanel
+          applicationId={activeApplicantId}
+          employmentType={
+            (activeApplicant?.employment_type as "Salaried" | "Self-Employed" | "Incorporated" | undefined) ?? null
+          }
+        />
+        <LenderGuidelineLibrary
+          employmentType={
+            (activeApplicant?.employment_type as "Salaried" | "Self-Employed" | "Incorporated" | undefined) ?? null
+          }
+          yearsSelfEmployed={null}
+        />
+        <ExitStrategyPanel />
       </div>
 
       <div className="mt-10">
