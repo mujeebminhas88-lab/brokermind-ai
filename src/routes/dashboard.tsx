@@ -4,6 +4,7 @@ import { supabase } from "@/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { AuthGate } from "@/components/AuthGate";
 import { NewApplicationModal } from "@/components/NewApplicationModal";
+import { OnboardingWizard } from "@/components/OnboardingWizard";
 import { AlertTriangle, Calendar, DollarSign, FileText, Plus, TrendingUp, Zap } from "lucide-react";
 
 interface AppRow {
@@ -139,6 +140,7 @@ function DashboardView() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <OnboardingWizard />
       <AppHeader />
       <NewApplicationModal
         open={modal}

@@ -1,5 +1,5 @@
 /**
- * User preferences store — theme, defaults, notification toggles.
+ * User preferences store — theme, defaults, notification toggles, onboarding.
  * Backed by public.user_preferences (RLS scoped to auth.uid()).
  */
 import { create } from "zustand";
@@ -17,6 +17,7 @@ export interface UserPreferences {
   default_amortization: number;
   default_term: number;
   default_heating_cost: number;
+  onboarding_completed: boolean;
 }
 
 const DEFAULTS: UserPreferences = {
@@ -31,6 +32,7 @@ const DEFAULTS: UserPreferences = {
   default_amortization: 25,
   default_term: 5,
   default_heating_cost: 150,
+  onboarding_completed: false,
 };
 
 interface State extends UserPreferences {
@@ -79,7 +81,9 @@ export const useUserPreferencesStore = create<State>((set, get) => ({
       default_amortization: next.default_amortization,
       default_term: next.default_term,
       default_heating_cost: next.default_heating_cost,
+      onboarding_completed: next.onboarding_completed,
     };
-    await supabase.from("user_preferences").upsert(row);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("user_preferences") as any).upsert(row);
   },
 }));

@@ -28,7 +28,27 @@ function LoginPage() {
 
   useEffect(() => {
     if (!loading && session) {
-      navigate({ to: (redirect as "/dashboard" | undefined) ?? "/dashboard", replace: true });
+      // Guard against redirect loops: reject any redirect back to auth pages
+      // or that carries a nested `redirect=` param.
+      let target: string = "/dashboard";
+      if (redirect && typeof redirect === "string" && !redirect.startsWith("http")) {
+        try {
+          const u = new URL(redirect, "http://x");
+          const p = u.pathname;
+          if (
+            p !== "/login" &&
+            p !== "/signup" &&
+            p !== "/forgot-password" &&
+            p !== "/reset-password" &&
+            !u.searchParams.has("redirect")
+          ) {
+            target = redirect;
+          }
+        } catch {
+          /* fall through to /dashboard */
+        }
+      }
+      navigate({ to: target as "/dashboard", replace: true });
     }
   }, [loading, session, redirect, navigate]);
 

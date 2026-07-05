@@ -140,52 +140,64 @@ export type Database = {
       }
       broker_settings: {
         Row: {
+          accent_color: string | null
           broker_email: string | null
           broker_name: string | null
           brokerage_name: string | null
           created_at: string
           direct_phone: string | null
+          email_sender_name: string | null
           firm_id: string | null
           licence_number: string | null
           logo_url: string | null
           mailing_address: string | null
           phone: string | null
+          primary_color: string | null
           provinces: string[]
           signature: string | null
           updated_at: string
           user_id: string
+          white_label_enabled: boolean
         }
         Insert: {
+          accent_color?: string | null
           broker_email?: string | null
           broker_name?: string | null
           brokerage_name?: string | null
           created_at?: string
           direct_phone?: string | null
+          email_sender_name?: string | null
           firm_id?: string | null
           licence_number?: string | null
           logo_url?: string | null
           mailing_address?: string | null
           phone?: string | null
+          primary_color?: string | null
           provinces?: string[]
           signature?: string | null
           updated_at?: string
           user_id: string
+          white_label_enabled?: boolean
         }
         Update: {
+          accent_color?: string | null
           broker_email?: string | null
           broker_name?: string | null
           brokerage_name?: string | null
           created_at?: string
           direct_phone?: string | null
+          email_sender_name?: string | null
           firm_id?: string | null
           licence_number?: string | null
           logo_url?: string | null
           mailing_address?: string | null
           phone?: string | null
+          primary_color?: string | null
           provinces?: string[]
           signature?: string | null
           updated_at?: string
           user_id?: string
+          white_label_enabled?: boolean
         }
         Relationships: [
           {
@@ -620,6 +632,74 @@ export type Database = {
           },
         ]
       }
+      lender_policies: {
+        Row: {
+          acceptable_income_types: string[]
+          created_at: string
+          created_by: string | null
+          eligible_provinces: string[]
+          firm_id: string
+          id: string
+          is_active: boolean
+          max_gds: number | null
+          max_ltv_condo: number | null
+          max_ltv_detached: number | null
+          max_ltv_rural: number | null
+          max_tds: number | null
+          min_beacon: number | null
+          name: string
+          notes: string | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          acceptable_income_types?: string[]
+          created_at?: string
+          created_by?: string | null
+          eligible_provinces?: string[]
+          firm_id: string
+          id?: string
+          is_active?: boolean
+          max_gds?: number | null
+          max_ltv_condo?: number | null
+          max_ltv_detached?: number | null
+          max_ltv_rural?: number | null
+          max_tds?: number | null
+          min_beacon?: number | null
+          name: string
+          notes?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          acceptable_income_types?: string[]
+          created_at?: string
+          created_by?: string | null
+          eligible_provinces?: string[]
+          firm_id?: string
+          id?: string
+          is_active?: boolean
+          max_gds?: number | null
+          max_ltv_condo?: number | null
+          max_ltv_detached?: number | null
+          max_ltv_rural?: number | null
+          max_tds?: number | null
+          min_beacon?: number | null
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_policies_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -856,6 +936,88 @@ export type Database = {
           },
         ]
       }
+      term_sheets: {
+        Row: {
+          application_id: string | null
+          borrower_name: string | null
+          conditions: Json
+          created_at: string
+          created_by: string | null
+          fees: number | null
+          firm_id: string
+          id: string
+          loan_amount: number | null
+          merge_data: Json
+          policy_id: string | null
+          policy_version: number | null
+          property_address: string | null
+          rate: number | null
+          status: string
+          term_months: number | null
+          updated_at: string
+        }
+        Insert: {
+          application_id?: string | null
+          borrower_name?: string | null
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          fees?: number | null
+          firm_id: string
+          id?: string
+          loan_amount?: number | null
+          merge_data?: Json
+          policy_id?: string | null
+          policy_version?: number | null
+          property_address?: string | null
+          rate?: number | null
+          status?: string
+          term_months?: number | null
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string | null
+          borrower_name?: string | null
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          fees?: number | null
+          firm_id?: string
+          id?: string
+          loan_amount?: number | null
+          merge_data?: Json
+          policy_id?: string | null
+          policy_version?: number | null
+          property_address?: string | null
+          rate?: number | null
+          status?: string
+          term_months?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "term_sheets_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "underwriting_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "term_sheets_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "term_sheets_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "lender_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       underwriting_applications: {
         Row: {
           aggregate_risk_score: number
@@ -956,6 +1118,7 @@ export type Database = {
           notif_new_flag: boolean
           notif_rate_hold: boolean
           notif_renewal_approaching: boolean
+          onboarding_completed: boolean
           theme: string
           updated_at: string
           user_id: string
@@ -973,6 +1136,7 @@ export type Database = {
           notif_new_flag?: boolean
           notif_rate_hold?: boolean
           notif_renewal_approaching?: boolean
+          onboarding_completed?: boolean
           theme?: string
           updated_at?: string
           user_id?: string
@@ -990,6 +1154,7 @@ export type Database = {
           notif_new_flag?: boolean
           notif_rate_hold?: boolean
           notif_renewal_approaching?: boolean
+          onboarding_completed?: boolean
           theme?: string
           updated_at?: string
           user_id?: string

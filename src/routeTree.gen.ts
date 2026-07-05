@@ -15,6 +15,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RenewalsRouteImport } from './routes/renewals'
 import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LenderRouteImport } from './routes/lender'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ComplianceRouteImport } from './routes/compliance'
@@ -50,6 +51,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LenderRoute = LenderRouteImport.update({
+  id: '/lender',
+  path: '/lender',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/compliance': typeof ComplianceRoute
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/lender': typeof LenderRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
   '/renewals': typeof RenewalsRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/compliance': typeof ComplianceRoute
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/lender': typeof LenderRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
   '/renewals': typeof RenewalsRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/compliance': typeof ComplianceRoute
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/lender': typeof LenderRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
   '/renewals': typeof RenewalsRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/compliance'
     | '/dashboard'
     | '/forgot-password'
+    | '/lender'
     | '/login'
     | '/pipeline'
     | '/renewals'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/compliance'
     | '/dashboard'
     | '/forgot-password'
+    | '/lender'
     | '/login'
     | '/pipeline'
     | '/renewals'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/compliance'
     | '/dashboard'
     | '/forgot-password'
+    | '/lender'
     | '/login'
     | '/pipeline'
     | '/renewals'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   ComplianceRoute: typeof ComplianceRoute
   DashboardRoute: typeof DashboardRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  LenderRoute: typeof LenderRoute
   LoginRoute: typeof LoginRoute
   PipelineRoute: typeof PipelineRoute
   RenewalsRoute: typeof RenewalsRoute
@@ -204,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lender': {
+      id: '/lender'
+      path: '/lender'
+      fullPath: '/lender'
+      preLoaderRoute: typeof LenderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/forgot-password': {
       id: '/forgot-password'
       path: '/forgot-password'
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComplianceRoute: ComplianceRoute,
   DashboardRoute: DashboardRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  LenderRoute: LenderRoute,
   LoginRoute: LoginRoute,
   PipelineRoute: PipelineRoute,
   RenewalsRoute: RenewalsRoute,
