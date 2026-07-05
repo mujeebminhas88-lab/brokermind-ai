@@ -50,7 +50,7 @@ export function RateHoldPanel({ applicationId, lenderName }: Props) {
       toast.error("Lender and expiry date are required");
       return;
     }
-    await save(draft);
+    await save({ ...draft, application_id: applicationId });
     setDraft(null);
     toast.success("Rate hold saved");
   };
