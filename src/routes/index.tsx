@@ -20,6 +20,9 @@ import { ComplianceHealthSidebar } from "@/components/ComplianceHealthSidebar";
 import { DossierGate } from "@/components/DossierGate";
 import { AmlPanel } from "@/components/AmlPanel";
 import { SourceOfFundsPanel } from "@/components/SourceOfFundsPanel";
+import { StressTestPanel } from "@/components/StressTestPanel";
+import { CmhcPanel } from "@/components/CmhcPanel";
+import { RentalOffsetPanel } from "@/components/RentalOffsetPanel";
 
 
 interface ApplicationRecord {
