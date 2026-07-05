@@ -74,6 +74,7 @@ export function useComplianceAlerts({
   const derived = useDerivedFinancials();
   const taxAlerts = useTaxComplianceAlerts(applicantId ?? null);
   const overrides = useTaxSlipStore((s) => s.overrides);
+  const t1s = useTaxSlipStore((s) => (applicantId ? s.t1sByApplicant[applicantId] : undefined));
   const aml = useAmlStore();
   const funds = useFundsStore();
   const cfg = useUnderwritingConfigStore();
