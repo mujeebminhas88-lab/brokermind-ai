@@ -2,6 +2,8 @@ import { Link } from "@tanstack/react-router";
 import logoUrl from "@/assets/brokermind-logo.png";
 import { useUser } from "@/hooks/useUser";
 import { LogOut } from "lucide-react";
+import { NotificationBell } from "@/components/NotificationBell";
+import { useNotificationGenerator } from "@/hooks/useNotificationGenerator";
 
 const TABS: { to: "/dashboard" | "/pipeline" | "/" | "/compliance" | "/renewals" | "/settings"; label: string }[] = [
   { to: "/dashboard", label: "Dashboard" },
