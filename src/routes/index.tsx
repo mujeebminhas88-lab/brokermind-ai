@@ -396,7 +396,12 @@ function Dashboard() {
 
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-6">
+        <GlobalRatio
+          label={`MQR ${derived.stress.pass ? "PASS" : "FAIL"}`}
+          value={`${derived.stress.qualifyingRatePct.toFixed(2)}%`}
+          warn={derived.stress.requiresStressTest && !derived.stress.pass}
+        />
         <RatioBreakdownPopover
           title="Loan-to-Value"
           formula="LTV = Loan Amount ÷ Property Price × 100"
