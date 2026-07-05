@@ -72,6 +72,8 @@ export function useComplianceAlerts({
   const derived = useDerivedFinancials();
   const taxAlerts = useTaxComplianceAlerts(applicantId ?? null);
   const overrides = useTaxSlipStore((s) => s.overrides);
+  const aml = useAmlStore();
+  const funds = useFundsStore();
 
   return useMemo<UnifiedAlert[]>(() => {
     const out: UnifiedAlert[] = [];
