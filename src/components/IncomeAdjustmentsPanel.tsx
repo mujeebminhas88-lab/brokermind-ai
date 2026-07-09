@@ -9,7 +9,13 @@ import { useMemo, useEffect } from "react";
 import { useTaxSlipStore } from "@/store/taxSlipStore";
 import { useUnderwritingConfigStore } from "@/store/underwritingConfigStore";
 import { useApplicationStore } from "@/store/applicationStore";
+import type { T1, T2 } from "@/utils/taxSlipParser";
 import { Calculator, TrendingUp, Building2 } from "lucide-react";
+
+// Stable empty references — returning a fresh `[]` from a Zustand v5 selector
+// makes useSyncExternalStore see a new snapshot every render → infinite loop.
+const EMPTY_T1S: T1[] = [];
+const EMPTY_T2S: T2[] = [];
 
 const money = (n: number) =>
   n.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
@@ -22,10 +28,10 @@ export function IncomeAdjustmentsPanel({ applicantId }: Props) {
   const cfg = useUnderwritingConfigStore();
   const loan = useApplicationStore((s) => s.loan);
   const t1s = useTaxSlipStore((s) =>
-    applicantId ? s.t1sByApplicant[applicantId] ?? [] : [],
+    applicantId ? s.t1sByApplicant[applicantId] ?? EMPTY_T1S : EMPTY_T1S,
   );
   const t2s = useTaxSlipStore((s) =>
-    applicantId ? s.t2sByApplicant[applicantId] ?? [] : [],
+    applicantId ? s.t2sByApplicant[applicantId] ?? EMPTY_T2S : EMPTY_T2S,
   );
 
   // --- NEW-A: 2-year average of Line 15000 (lower-of-2-years fallback) ---
