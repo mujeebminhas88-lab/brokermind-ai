@@ -13,4 +13,8 @@ export default defineConfig({
     nitro({ preset: "vercel" }),
     viteReact(),
   ],
+  resolve: { tsconfigPaths: true },
+  environments: {
+    ssr: { build: { rollupOptions: { input: "./server.ts" } } },
+  },
 });
