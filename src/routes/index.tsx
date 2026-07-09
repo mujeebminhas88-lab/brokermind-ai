@@ -135,7 +135,6 @@ export const Route = createFileRoute("/")({
     app: typeof s.app === "string" ? s.app : undefined,
   }),
 });
-
 function Dashboard() {
   const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [loading, setLoading] = useState(true);
