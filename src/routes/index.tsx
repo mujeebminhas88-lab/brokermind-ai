@@ -124,13 +124,28 @@ function ClientOnly({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function ClientOnly({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+          Loading workspace…
+        </div>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 export const Route = createFileRoute("/")({
   component: () => (
-    <AuthGate>
-      <ClientOnly>
+    <ClientOnly>
+      <AuthGate>
         <Dashboard />
-      </ClientOnly>
-    </AuthGate>
+      </AuthGate>
+    </ClientOnly>
   ),
   validateSearch: (s: Record<string, unknown>) => ({
     app: typeof s.app === "string" ? s.app : undefined,
