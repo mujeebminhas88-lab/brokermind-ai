@@ -23,14 +23,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const { session, loading } = useUser();
   const navigate = useNavigate();
   const location = useRouterState({ select: (s) => s.location });
-  const [mounted, setMounted] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    setIsClient(true);
   }, []);
 
   useEffect(() => {
-    if (mounted && !loading && !session) {
+    if (isClient && !loading && !session) {
       const target = safeRedirectTarget(location.href);
       navigate({
         to: "/login",
@@ -38,21 +38,15 @@ export function AuthGate({ children }: { children: ReactNode }) {
         replace: true,
       });
     }
-  }, [mounted, loading, session, navigate, location.href]);
+  }, [isClient, loading, session, navigate, location.href]);
 
-  // Always render the same thing during SSR and first client render
-  // to avoid hydration mismatch. Only redirect after mount.
-  if (!mounted) {
+  // CRITICAL: Server and first client render must be IDENTICAL
+  // Always render children wrapper, let Dashboard handle its own loading state
+  if (!isClient) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center"
-        style={{ background: "#07070d" }}
-      >
-        <div
-          className="font-display text-xs font-semibold uppercase tracking-[0.24em]"
-          style={{ color: "#00BCD4" }}
-        >
-          Authenticating…
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+          Loading workspace…
         </div>
       </div>
     );
@@ -60,15 +54,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (loading || !session) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center"
-        style={{ background: "#07070d" }}
-      >
-        <div
-          className="font-display text-xs font-semibold uppercase tracking-[0.24em]"
-          style={{ color: "#00BCD4" }}
-        >
-          Authenticating…
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+          Loading workspace…
         </div>
       </div>
     );
