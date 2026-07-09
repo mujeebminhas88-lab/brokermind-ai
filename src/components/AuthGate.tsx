@@ -30,7 +30,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!loading && !session) {
+    if (mounted && !loading && !session) {
       const target = safeRedirectTarget(location.href);
       navigate({
         to: "/login",
@@ -38,10 +38,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
         replace: true,
       });
     }
-  }, [loading, session, navigate, location.href]);
+  }, [mounted, loading, session, navigate, location.href]);
 
-  // During SSR and first client render, always render children (or a stable loading state)
-  // to avoid hydration mismatch. Only show redirect/loading after hydration.
+  // Always render the same thing during SSR and first client render
+  // to avoid hydration mismatch. Only redirect after mount.
   if (!mounted) {
     return (
       <div
