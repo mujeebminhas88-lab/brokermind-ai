@@ -1,3 +1,13 @@
+// PERMANENT: Kill any legacy service workers from old Lovable builds
+if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => {
+      registration.unregister();
+      console.log("[SW] Unregistered legacy service worker:", registration.scope);
+    });
+  });
+}
+
 import { createStart, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
