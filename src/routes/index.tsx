@@ -127,16 +127,13 @@ function ClientOnly({ children }: { children: React.ReactNode }) {
 
 export const Route = createFileRoute("/")({
   component: () => (
-    <ClientOnly>
-      <AuthGate>
-        <Dashboard />
-      </AuthGate>
-    </ClientOnly>
+    <AuthGate>
+      <Dashboard />
+    </AuthGate>
   ),
   validateSearch: (s: Record<string, unknown>) => ({
     app: typeof s.app === "string" ? s.app : undefined,
   }),
-  ssr: false,
 });
 
 function Dashboard() {
