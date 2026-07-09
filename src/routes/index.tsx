@@ -136,6 +136,7 @@ export const Route = createFileRoute("/")({
   validateSearch: (s: Record<string, unknown>) => ({
     app: typeof s.app === "string" ? s.app : undefined,
   }),
+  ssr: false,
 });
 
 function Dashboard() {
