@@ -49,6 +49,33 @@ function isJsonFile(file: File): boolean {
   return JSON_MIME_TYPES.has(file.type) || /\.json$/i.test(file.name);
 }
 
+// Filename-extension fallback, keyed to the same MIME types
+// documentDefinitions/registry.ts declares as acceptable. Several browsers
+// (particularly non-Apple ones) report an empty file.type for formats they
+// don't natively recognize — HEIC/HEIF being the common real-world case —
+// so a MIME-only check would wrongly reject a valid upload. Falls back to
+// the file's extension whenever the reported MIME type isn't one of the
+// document kind's accepted types.
+const EXTENSION_TO_MIME: Record<string, string> = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  heic: "image/heic",
+  heif: "image/heif",
+  tif: "image/tiff",
+  tiff: "image/tiff",
+  webp: "image/webp",
+};
+
+function resolveEffectiveMimeType(file: File, acceptedMimeTypes: string[]): string | null {
+  if (acceptedMimeTypes.includes(file.type)) return file.type;
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  const mapped = ext ? EXTENSION_TO_MIME[ext] : undefined;
+  if (mapped && acceptedMimeTypes.includes(mapped)) return mapped;
+  return null;
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -245,7 +272,8 @@ async function ingestFromDocument(params: IngestUploadParams): Promise<IngestRes
   const documentId = params.documentId ?? crypto.randomUUID();
   const def = getIngestionDefinition(params.kind);
 
-  if (!def.upload.acceptedMimeTypes.includes(params.file.type)) {
+  const effectiveMimeType = resolveEffectiveMimeType(params.file, def.upload.acceptedMimeTypes);
+  if (!effectiveMimeType) {
     return {
       ok: false,
       error: `Unsupported file type "${params.file.type || "unknown"}" for ${DocumentRegistry[params.kind].label}.`,
@@ -262,7 +290,7 @@ async function ingestFromDocument(params: IngestUploadParams): Promise<IngestRes
     const fileData = await fileToBase64(params.file);
     const { ocr, ai } = await extractDocument({
       fileData,
-      mimeType: params.file.type,
+      mimeType: effectiveMimeType,
       extractionPrompt,
       system,
     });
@@ -288,7 +316,9 @@ async function ingestFromDocument(params: IngestUploadParams): Promise<IngestRes
       rawOcrText,
       rawClaudeResponse,
       structuredJson: validation.ok ? validation.payload : null,
-      validationOutcome: validation.ok ? { ok: true } : { ok: false, error: validation.error },
+      validationOutcome: validation.ok
+        ? { ok: true, unexpectedFields: validation.unexpectedFields }
+        : { ok: false, error: validation.error },
       startedAt: startedAt.toISOString(),
       completedAt: completedAt.toISOString(),
       latencyMs: completedAt.getTime() - startedAt.getTime(),

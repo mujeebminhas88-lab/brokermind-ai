@@ -13,11 +13,18 @@
  *      returned payload aligns exactly with what processDocument()'s
  *      extract() aliasing AND verificationStore's direct-by-name field
  *      read both expect, with no silent mismatches.
+ *
+ * Keys Claude returns that aren't in DocumentRegistry[kind].fields are
+ * dropped from the payload, not treated as a validation failure — a model
+ * returning one extra field shouldn't fail an otherwise-good extraction.
+ * They're still reported back via `unexpectedFields` purely for telemetry,
+ * so future prompt tuning has visibility into what Claude tends to add
+ * that the registry doesn't ask for.
  */
 import { DocumentRegistry, type DocumentKind } from "@/utils/documentRegistry";
 
 export type ExtractionValidationResult =
-  | { ok: true; payload: Record<string, unknown> }
+  | { ok: true; payload: Record<string, unknown>; unexpectedFields: string[] }
   | { ok: false; error: string };
 
 interface AnthropicContentBlock {
@@ -78,6 +85,7 @@ export function validateExtraction(
   for (const name of allowedNames) {
     if (name in raw) payload[name] = raw[name];
   }
+  const unexpectedFields = Object.keys(raw).filter((k) => !allowedNames.includes(k));
 
-  return { ok: true, payload };
+  return { ok: true, payload, unexpectedFields };
 }
