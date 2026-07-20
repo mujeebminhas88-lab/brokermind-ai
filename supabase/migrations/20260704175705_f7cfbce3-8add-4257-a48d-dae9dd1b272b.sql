@@ -6,9 +6,9 @@ DELETE FROM public.underwriting_applications;
 
 -- 2. Add user_id ownership column
 ALTER TABLE public.underwriting_applications
-  ADD COLUMN user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE;
+  ADD COLUMN IF NOT EXISTS user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE;
 
-CREATE INDEX idx_underwriting_applications_user_id ON public.underwriting_applications(user_id);
+CREATE INDEX IF NOT EXISTS idx_underwriting_applications_user_id ON public.underwriting_applications(user_id);
 
 -- 3. Drop permissive "Anyone can..." policies
 DROP POLICY IF EXISTS "Anyone can view applications" ON public.underwriting_applications;
