@@ -259,62 +259,6 @@ Adjudication Team`,
 }
 
 /* ──────────────────────────────────────────────────────────────
- * Simulated parse pipeline (frontend stub)
- *
- * Real OCR happens server-side. For the demo we deterministically
- * project the uploaded file into one of three NOA scenarios so
- * the UI exercises every risk path.
- * ────────────────────────────────────────────────────────────── */
-
-const SCENARIOS: NoaPayload[] = [
-  {
-    tax_year: 2025,
-    taxpayer_name: "Mujeeb Minhas",
-    line_15000_total_income: 94500,
-    line_23600_net_income: 88940.12,
-    balance_owing_at_assessment: 4250.31,
-    has_unarranged_arrears: true,
-    prior_year_line_15000: 93100,
-    document_title_raw: "Notice of Assessment",
-  },
-  {
-    tax_year: 2025,
-    taxpayer_name: "Mujeeb Minhas",
-    line_15000_total_income: 81200,
-    line_23600_net_income: 76840,
-    balance_owing_at_assessment: 0,
-    has_unarranged_arrears: false,
-    prior_year_line_15000: 96400,
-    document_title_raw: "Notice of Reassessment — T1 Adjustment",
-  },
-  {
-    tax_year: 2025,
-    taxpayer_name: "Mujeeb Minhas",
-    line_15000_total_income: 98750,
-    line_23600_net_income: 92110,
-    balance_owing_at_assessment: 0,
-    has_unarranged_arrears: false,
-    prior_year_line_15000: 95200,
-    document_title_raw: "Notice of Assessment",
-  },
-];
-
-export async function simulateParseNoaFromFile(file: File): Promise<NoaPayload> {
-  // Allow users to drop a JSON payload to drive the schema directly.
-  if (file.type === "application/json" || /\.json$/i.test(file.name)) {
-    const text = await file.text();
-    const parsed = JSON.parse(text);
-    return NoaPayloadSchema.parse(parsed);
-  }
-
-  // Small delay to mimic OCR roundtrip.
-  await new Promise((r) => setTimeout(r, 650));
-
-  const hash = Array.from(file.name).reduce((a, c) => a + c.charCodeAt(0), 0);
-  return SCENARIOS[hash % SCENARIOS.length];
-}
-
-/* ──────────────────────────────────────────────────────────────
  * helpers
  * ────────────────────────────────────────────────────────────── */
 
