@@ -16,6 +16,8 @@ import {
 import { useVerificationStore, seedConfidence, docHasReviewRequired } from "@/store/verificationStore";
 import { StatusBadge } from "./StatusBadge";
 import { DocumentVerificationModal } from "./DocumentVerificationModal";
+import { useFirmContext } from "@/hooks/useFirmContext";
+import { ingestUpload } from "@/lib/documentIngestPipeline";
 
 const MANDATORY_KINDS = new Set<DocumentKind>(["T1", "NOA", "T4"]);
 
@@ -64,6 +66,8 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplican
   const removeVerificationDoc = useVerificationStore((s) => s.remove);
   const clearVerification = useVerificationStore((s) => s.clear);
   const [openDocId, setOpenDocId] = useState<string | null>(null);
+  const { firmId } = useFirmContext();
+  const [uploading, setUploading] = useState(false);
 
   // Reset the dynamic form whenever the user picks a new document kind.
   useEffect(() => {
@@ -127,14 +131,20 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplican
   };
 
   const onFile = async (file: File) => {
+    setUploading(true);
     try {
-      const text = await file.text();
-      const payload = JSON.parse(text) as Record<string, unknown>;
-      ingest(payload);
-    } catch {
+      const result = await ingestUpload({ file, kind: selectedKind, firmId, applicationId: applicantId });
+      if (result.ok) {
+        ingest(result.payload);
+      } else {
+        toast.error("Forensic Extraction Failure", { description: result.error });
+      }
+    } catch (e) {
       toast.error("Forensic Extraction Failure", {
-        description: "File must be a JSON payload matching the document schema.",
+        description: e instanceof Error ? e.message : "Document extraction failed.",
       });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -197,12 +207,17 @@ export function ComplianceIntakePanel({ applicantId, onVerdictChange, onApplican
             </div>
             <div className="mt-1">{entry.label}</div>
           </div>
-          <label className="mt-1 inline-flex cursor-pointer items-center justify-center gap-2 rounded-sm border border-input bg-card px-3 py-2 text-xs font-semibold uppercase tracking-wider text-foreground hover:bg-muted">
-            <Upload className="h-3.5 w-3.5" /> Upload JSON Payload
+          <label
+            className={`mt-1 inline-flex cursor-pointer items-center justify-center gap-2 rounded-sm border border-input bg-card px-3 py-2 text-xs font-semibold uppercase tracking-wider text-foreground hover:bg-muted ${
+              uploading ? "pointer-events-none opacity-50" : ""
+            }`}
+          >
+            <Upload className="h-3.5 w-3.5" /> {uploading ? "Processing…" : "Upload Document"}
             <input
               type="file"
-              accept="application/json,.json"
+              accept="application/pdf,.pdf,image/jpeg,image/jpg,image/png,image/heic,image/heif,image/tiff,image/webp,application/json,.json"
               className="hidden"
+              disabled={uploading}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) onFile(f);

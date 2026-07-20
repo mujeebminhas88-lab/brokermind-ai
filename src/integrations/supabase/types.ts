@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       application_documents: {
@@ -24,6 +49,7 @@ export type Database = {
           payload: Json
           tax_year: number | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           application_id: string
@@ -34,6 +60,7 @@ export type Database = {
           payload?: Json
           tax_year?: number | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           application_id?: string
@@ -44,6 +71,7 @@ export type Database = {
           payload?: Json
           tax_year?: number | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -137,6 +165,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      beta_applications: {
+        Row: {
+          company: string | null
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          landing_page: string | null
+          mailerlite_subscriber_id: string | null
+          mailerlite_synced: boolean
+          monthly_file_volume:
+            | Database["public"]["Enums"]["monthly_file_volume"]
+            | null
+          role: Database["public"]["Enums"]["user_role"]
+          status: Database["public"]["Enums"]["application_status"]
+          updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          landing_page?: string | null
+          mailerlite_subscriber_id?: string | null
+          mailerlite_synced?: boolean
+          monthly_file_volume?:
+            | Database["public"]["Enums"]["monthly_file_volume"]
+            | null
+          role: Database["public"]["Enums"]["user_role"]
+          status?: Database["public"]["Enums"]["application_status"]
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          landing_page?: string | null
+          mailerlite_subscriber_id?: string | null
+          mailerlite_synced?: boolean
+          monthly_file_volume?:
+            | Database["public"]["Enums"]["monthly_file_volume"]
+            | null
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: Database["public"]["Enums"]["application_status"]
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: []
       }
       broker_settings: {
         Row: {
@@ -279,6 +373,7 @@ export type Database = {
           resolved: boolean
           severity: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           alert_code: string
@@ -292,6 +387,7 @@ export type Database = {
           resolved?: boolean
           severity?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           alert_code?: string
@@ -305,6 +401,7 @@ export type Database = {
           resolved?: boolean
           severity?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -434,6 +531,144 @@ export type Database = {
           },
         ]
       }
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          message: string
+          name: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          message: string
+          name: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      document_extractions: {
+        Row: {
+          application_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          definition_version: string
+          document_id: string
+          document_kind: string
+          error_code: string | null
+          error_message: string | null
+          estimated_cost: number | null
+          firm_id: string
+          id: string
+          input_tokens: number | null
+          is_replay: boolean
+          latency_ms: number | null
+          llm_model: string | null
+          llm_provider: string | null
+          ocr_model: string | null
+          ocr_provider: string | null
+          output_tokens: number | null
+          page_count: number | null
+          prompt_version: string
+          raw_claude_response: Json | null
+          raw_ocr_text: string | null
+          source: string
+          started_at: string
+          structured_json: Json | null
+          success: boolean
+          validation_outcome: Json
+        }
+        Insert: {
+          application_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          definition_version: string
+          document_id: string
+          document_kind: string
+          error_code?: string | null
+          error_message?: string | null
+          estimated_cost?: number | null
+          firm_id: string
+          id?: string
+          input_tokens?: number | null
+          is_replay?: boolean
+          latency_ms?: number | null
+          llm_model?: string | null
+          llm_provider?: string | null
+          ocr_model?: string | null
+          ocr_provider?: string | null
+          output_tokens?: number | null
+          page_count?: number | null
+          prompt_version: string
+          raw_claude_response?: Json | null
+          raw_ocr_text?: string | null
+          source?: string
+          started_at: string
+          structured_json?: Json | null
+          success?: boolean
+          validation_outcome?: Json
+        }
+        Update: {
+          application_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          definition_version?: string
+          document_id?: string
+          document_kind?: string
+          error_code?: string | null
+          error_message?: string | null
+          estimated_cost?: number | null
+          firm_id?: string
+          id?: string
+          input_tokens?: number | null
+          is_replay?: boolean
+          latency_ms?: number | null
+          llm_model?: string | null
+          llm_provider?: string | null
+          ocr_model?: string | null
+          ocr_provider?: string | null
+          output_tokens?: number | null
+          page_count?: number | null
+          prompt_version?: string
+          raw_claude_response?: Json | null
+          raw_ocr_text?: string | null
+          source?: string
+          started_at?: string
+          structured_json?: Json | null
+          success?: boolean
+          validation_outcome?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_extractions_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "underwriting_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_extractions_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_registry: {
         Row: {
           category: string
@@ -445,6 +680,7 @@ export type Database = {
           label: string
           required_fields: Json
           updated_at: string
+          user_id: string | null
           validation_rules: Json
         }
         Insert: {
@@ -457,6 +693,7 @@ export type Database = {
           label: string
           required_fields?: Json
           updated_at?: string
+          user_id?: string | null
           validation_rules?: Json
         }
         Update: {
@@ -469,6 +706,7 @@ export type Database = {
           label?: string
           required_fields?: Json
           updated_at?: string
+          user_id?: string | null
           validation_rules?: Json
         }
         Relationships: [
@@ -1042,7 +1280,7 @@ export type Database = {
           taxpayer_name: string
           tds: number
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           aggregate_risk_score?: number
@@ -1067,7 +1305,7 @@ export type Database = {
           taxpayer_name: string
           tds?: number
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Update: {
           aggregate_risk_score?: number
@@ -1092,7 +1330,7 @@ export type Database = {
           taxpayer_name?: string
           tds?: number
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1201,6 +1439,57 @@ export type Database = {
           },
         ]
       }
+      waitlist: {
+        Row: {
+          company: string | null
+          country: string | null
+          created_at: string
+          current_los_crm: string | null
+          email: string
+          id: string
+          monthly_volume: string | null
+          name: string | null
+          notes: string | null
+          referrer: string | null
+          source: string
+          status: string
+          utm_campaign: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          company?: string | null
+          country?: string | null
+          created_at?: string
+          current_los_crm?: string | null
+          email: string
+          id?: string
+          monthly_volume?: string | null
+          name?: string | null
+          notes?: string | null
+          referrer?: string | null
+          source?: string
+          status?: string
+          utm_campaign?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          company?: string | null
+          country?: string | null
+          created_at?: string
+          current_los_crm?: string | null
+          email?: string
+          id?: string
+          monthly_volume?: string | null
+          name?: string | null
+          notes?: string | null
+          referrer?: string | null
+          source?: string
+          status?: string
+          utm_campaign?: string | null
+          utm_source?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1215,10 +1504,18 @@ export type Database = {
         Returns: boolean
       }
       is_firm_member: { Args: { _firm_id: string }; Returns: boolean }
+      is_firm_owner: { Args: { p_firm_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      application_status:
+        | "waitlisted"
+        | "invited"
+        | "beta"
+        | "active"
+        | "archived"
       employment_type: "Salaried" | "Self-Employed" | "Incorporated"
+      monthly_file_volume: "1_10" | "11_25" | "26_50" | "51_100" | "100_plus"
       review_status:
         | "Draft"
         | "In Review"
@@ -1230,6 +1527,14 @@ export type Database = {
         | "Conditions Issued"
         | "Funded"
         | "Withdrawn"
+      user_role:
+        | "mortgage_broker"
+        | "mortgage_agent"
+        | "brokerage_owner"
+        | "underwriter"
+        | "lender"
+        | "bdm"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1355,10 +1660,21 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      application_status: [
+        "waitlisted",
+        "invited",
+        "beta",
+        "active",
+        "archived",
+      ],
       employment_type: ["Salaried", "Self-Employed", "Incorporated"],
+      monthly_file_volume: ["1_10", "11_25", "26_50", "51_100", "100_plus"],
       review_status: [
         "Draft",
         "In Review",
@@ -1370,6 +1686,15 @@ export const Constants = {
         "Conditions Issued",
         "Funded",
         "Withdrawn",
+      ],
+      user_role: [
+        "mortgage_broker",
+        "mortgage_agent",
+        "brokerage_owner",
+        "underwriter",
+        "lender",
+        "bdm",
+        "other",
       ],
     },
   },
