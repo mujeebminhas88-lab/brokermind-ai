@@ -1,14 +1,17 @@
 /**
- * Prompt Builder — generates Claude's system prompt and extraction
- * instruction directly from DocumentRegistry[kind].fields. There is no
- * per-document hand-written prompt text anywhere else in the codebase;
- * the field list is the single source of truth for both what gets
- * validated (documentRegistry.ts) and what Claude is told to return.
+ * Prompt Builder — generates the AI provider's system prompt and
+ * extraction instruction directly from DocumentRegistry[kind].fields.
+ * There is no per-document hand-written prompt text anywhere else in the
+ * codebase; the field list is the single source of truth for both what
+ * gets validated (documentRegistry.ts) and what the AI provider is told
+ * to return. This file has no knowledge of which AI provider is active —
+ * it only produces plain strings, passed to whichever AIProvider
+ * getAIProvider() resolves to.
  *
- * Note: proxyClient.extractDocument() already injects the OCR text into
- * the Claude call itself (as a separate "Document text:\n..." content
- * block, via aiProxy's `text` param) — so the prompt built here is only
- * the instruction, not a template requiring manual OCR-text substitution.
+ * Note: AIProvider.extract() takes the OCR text as a separate
+ * `documentText` field (see src/providers/ai/types.ts) — so the prompt
+ * built here is only the instruction, not a template requiring manual
+ * OCR-text substitution.
  */
 import { DocumentRegistry, type DocumentKind } from "@/utils/documentRegistry";
 import { getIngestionDefinition } from "./registry";
@@ -38,14 +41,14 @@ export function buildExtractionPrompt(kind: DocumentKind): ExtractionPrompt {
   const def = getIngestionDefinition(kind);
 
   const system = [
-    def.claude.systemPromptOverride ?? BASE_SYSTEM_PROMPT,
+    def.ai.systemPromptOverride ?? BASE_SYSTEM_PROMPT,
     "",
     `Document type: ${entry.label}`,
     "Return a JSON object with exactly these keys:",
     fieldTable(kind),
   ].join("\n");
 
-  const extractionPrompt = def.claude.promptTemplate ?? DEFAULT_EXTRACTION_INSTRUCTION;
+  const extractionPrompt = def.ai.promptTemplate ?? DEFAULT_EXTRACTION_INSTRUCTION;
 
   return { system, extractionPrompt };
 }

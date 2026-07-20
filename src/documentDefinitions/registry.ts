@@ -32,8 +32,8 @@ const DEFAULT_OCR: DocumentIngestionDefinition["ocr"] = {
   provider: "google-document-ai",
 };
 
-const DEFAULT_CLAUDE: DocumentIngestionDefinition["claude"] = {
-  provider: "anthropic",
+const DEFAULT_AI: DocumentIngestionDefinition["ai"] = {
+  provider: "claude",
 };
 
 type Overrides = Partial<
@@ -61,6 +61,6 @@ export function getIngestionDefinition(kind: DocumentKind): DocumentIngestionDef
     version: o?.version ?? "1.0.0",
     upload: { ...DEFAULT_UPLOAD, ...o?.upload },
     ocr: { ...DEFAULT_OCR, ...o?.ocr },
-    claude: { ...DEFAULT_CLAUDE, ...o?.claude },
+    ai: { ...DEFAULT_AI, ...o?.ai },
   };
 }
