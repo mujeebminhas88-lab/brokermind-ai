@@ -1,6 +1,6 @@
 # BrokerMindAI — System Architecture
 
-This document describes the production architecture of the BrokerMindAI underwriting workspace, with a focus on the AI document ingestion pipeline introduced in Phase 1. See `docs/ROADMAP.md` for what's shipped versus planned.
+This document describes the production architecture of the BrokerMindAI underwriting workspace, with a focus on the AI document ingestion pipeline introduced in Phase 1 and the provider abstraction layer introduced in Phase 1.5. See `docs/ROADMAP.md` for what's shipped versus planned.
 
 ## 1. Overall system architecture
 
@@ -17,14 +17,14 @@ flowchart TD
         EdgeFns["Edge Functions\nocr-proxy, ai-proxy, flinks-proxy, plaid-proxy"]
     end
 
-    subgraph external["External AI providers"]
-        DocAI["Google Document AI"]
-        Claude["Anthropic Claude"]
+    subgraph external["External AI providers (behind the provider abstraction — §9)"]
+        DocAI["Google Document AI\n(only implemented OCR provider)"]
+        Claude["Anthropic Claude\n(only implemented AI provider)"]
     end
 
     UI -->|session| Auth
     UI -->|CRUD, RLS-scoped| DB
-    UI -->|documentIngestPipeline| EdgeFns
+    UI -->|documentIngestPipeline via\ngetOCRProvider()/getAIProvider()| EdgeFns
     EdgeFns --> DocAI
     EdgeFns --> Claude
     EdgeFns -->|telemetry write-back happens client-side| DB
@@ -46,20 +46,27 @@ ComplianceIntakePanel.onFile()
    ▼
 documentIngestPipeline.ingestUpload()
    │
-   ├─ isJsonFile? ──yes──► ingestFromJson()  [TEMPORARY, see §5]
-   │                          reads the file as JSON verbatim, no OCR/Claude
+   ├─ isJsonFile? ──yes──► ingestFromJson()  [TEMPORARY, see §6]
+   │                          reads the file as JSON verbatim, no OCR/AI provider
    │
    └─ no ──► ingestFromDocument()
                  │
-                 ├─ validate MIME type against DocumentIngestionDefinition.upload
+                 ├─ resolveEffectiveMimeType() against DocumentIngestionDefinition.upload
+                 │     (MIME check with a filename-extension fallback — HEIC/HEIF often
+                 │      report an empty file.type in non-Apple browsers)
                  ├─ buildExtractionPrompt(kind)      [documentDefinitions/promptBuilder.ts]
-                 ├─ proxyClient.extractDocument()    [UNCHANGED]
-                 │     ├─ ocr-proxy  → Google Document AI  (raw OCR text)
-                 │     └─ ai-proxy   → Claude               (structured extraction)
-                 ├─ validateExtraction(kind, response) [documentDefinitions/responseValidator.ts]
-                 │     unwraps Claude's envelope, strips markdown fences,
-                 │     JSON.parse, allowlists keys against
-                 │     DocumentRegistry[kind].fields[].name
+                 ├─ getOCRProvider().extractText()   [src/providers/ocr — Phase 1.5]
+                 │     → whichever OCR provider VITE_OCR_PROVIDER resolves to
+                 │       (only google-document-ai implemented; wraps ocr-proxy)
+                 ├─ getAIProvider().extract()        [src/providers/ai — Phase 1.5]
+                 │     → whichever AI provider VITE_AI_PROVIDER resolves to
+                 │       (only claude implemented; wraps ai-proxy)
+                 │       receives ONLY plain OCR text — never knows which OCR
+                 │       provider produced it
+                 ├─ validateExtraction(kind, aiResult.text) [documentDefinitions/responseValidator.ts]
+                 │     strips markdown fences, JSON.parse, allowlists keys against
+                 │     DocumentRegistry[kind].fields[].name — takes a normalized
+                 │     string, has no provider-specific knowledge at all
                  └─ recordExtraction()  → document_extractions (telemetry, best-effort)
    │
    ▼
@@ -75,18 +82,19 @@ verificationStore.addDoc()                  [UNCHANGED]
 DocumentVerificationModal / DossierGate / ComplianceAlertBanner / ...  [ALL UNCHANGED]
 ```
 
-**The verification engine has zero knowledge that OCR or Claude exist.** Its only contract with the pipeline is the plain `Record<string, unknown>` payload `ingest()` receives — the same shape whether it came from manual form entry, a JSON test file, or a real scanned document.
+**The verification engine has zero knowledge that OCR or AI providers exist at all.** Its only contract with the pipeline is the plain `Record<string, unknown>` payload `ingest()` receives — the same shape whether it came from manual form entry, a JSON test file, or a real scanned document, regardless of which OCR/AI providers processed it.
 
 ### Files
 
 | File | Role |
 |---|---|
-| `src/lib/documentIngestPipeline.ts` | Owns the entire flow: type detection, base64 conversion, prompt building, calling `proxyClient`, response validation, telemetry. |
-| `src/documentDefinitions/types.ts` | `DocumentIngestionDefinition` type — upload/OCR/Claude config only. |
+| `src/lib/documentIngestPipeline.ts` | Owns the entire flow: type detection, base64 conversion, prompt building, calling the provider abstraction, response validation, telemetry. Depends only on `getOCRProvider()`/`getAIProvider()` — never a concrete provider class. |
+| `src/documentDefinitions/types.ts` | `DocumentIngestionDefinition` type — upload/OCR/AI config only, referencing the canonical `OcrProviderId`/`AiProviderId` types (§9). |
 | `src/documentDefinitions/registry.ts` | `getIngestionDefinition(kind)` — per-kind overrides with sensible defaults, so any `DocumentKind` already in `documentRegistry.ts` works without a new entry here. |
-| `src/documentDefinitions/promptBuilder.ts` | Generates Claude's system prompt + extraction instruction from `DocumentRegistry[kind].fields` — no hand-written per-document prompt text anywhere. |
-| `src/documentDefinitions/responseValidator.ts` | Unwraps/cleans/validates Claude's response, aligning field names exactly with `DocumentRegistry[kind].fields[].name`. |
-| `src/lib/proxyClient.ts` | **Unchanged.** `ocrProxy`, `aiProxy`, `extractDocument`. |
+| `src/documentDefinitions/promptBuilder.ts` | Generates the AI provider's system prompt + extraction instruction from `DocumentRegistry[kind].fields` — no hand-written per-document prompt text anywhere, no provider-specific knowledge. |
+| `src/documentDefinitions/responseValidator.ts` | Cleans/validates the AI provider's normalized text response, aligning field names exactly with `DocumentRegistry[kind].fields[].name`. Provider-agnostic — never sees a raw provider envelope. |
+| `src/providers/ocr/*`, `src/providers/ai/*` | The provider abstraction layer — see §9. |
+| `src/lib/proxyClient.ts` | **Unchanged.** `ocrProxy`, `aiProxy` still wrap the edge functions; the pipeline no longer calls `extractDocument()` directly (superseded by the provider classes, which call `ocrProxy`/`aiProxy` individually) but the file itself wasn't modified. |
 | `supabase/functions/ocr-proxy`, `ai-proxy` | **Unchanged.** Real Google Document AI / Anthropic calls, gated by vault secrets. |
 
 ## 3. Verification engine (unchanged, preserved as-is)
@@ -149,9 +157,45 @@ What's missing, and scoped to Phase 2: a real role **hierarchy** (today there is
 
 Customer/Processor/Admin are tenant-side roles scoped by `firm_id`; Super Admin is a platform-side role, not tenant-scoped. Implementation: extend `user_roles.role` from its current boolean-admin usage to an enum (`customer | processor | admin | super_admin`), and extend `useUserRole()` additively (`{ role, isAdmin, isSuperAdmin, isProcessor, loading }`) so `AuditLogViewer`'s existing `isAdmin` check keeps working unchanged.
 
-## 9. Future provider abstraction
+## 9. Provider abstraction (implemented, Phase 1.5)
 
-`documentDefinitions/types.ts` already types `OcrProvider`/`LlmProvider` as string unions (currently `"google-document-ai"` / `"anthropic"`), and `documentIngestPipeline.ts` reads provider/model from the definition rather than hardcoding them inline. Adding a second OCR or LLM provider later means: widen the union, add a branch in `proxyClient.ts`'s equivalent of `extractDocument()` (or a new proxy edge function), and set `ocr.provider`/`claude.provider` per document kind in `documentDefinitions/registry.ts` — no change to `documentIngestPipeline.ts`'s orchestration logic, the response validator, or the verification engine.
+The pipeline depends only on two interfaces — `OCRProvider` and `AIProvider` — never on a concrete provider class. Only one implementation of each exists today (Google Document AI, Claude), matching Phase 1 exactly; everything else is a recognized-but-unimplemented identifier, not new API integration.
+
+```
+src/providers/
+  ocr/
+    types.ts                     OCRProvider, OcrRequest, OcrResult, OcrProviderId
+    googleDocumentAIProvider.ts   wraps ocr-proxy — only implementation today
+    factory.ts                    getOCRProvider() — reads VITE_OCR_PROVIDER
+  ai/
+    types.ts                     AIProvider, AiExtractionRequest, AiExtractionResult, AiProviderId
+    claudeProvider.ts             wraps ai-proxy — only implementation today
+    factory.ts                    getAIProvider() — reads VITE_AI_PROVIDER
+```
+
+**Configuration, not hardcoding.** `getOCRProvider()`/`getAIProvider()` each read a client-exposed env var and instantiate the matching class:
+
+```
+VITE_OCR_PROVIDER=google-document-ai   (default if unset)
+VITE_AI_PROVIDER=claude                (default if unset)
+```
+
+The `VITE_` prefix is required, not cosmetic — `documentIngestPipeline.ts` runs in the browser (it's called from `ComplianceIntakePanel`, a React component), and Vite only injects env vars prefixed `VITE_` into client-side `import.meta.env`; an unprefixed `AI_PROVIDER` would silently never reach this code. A bare `process.env.AI_PROVIDER` read, as a naive port of the example in the task that introduced this phase would suggest, simply wouldn't work here.
+
+**Recognized-but-unimplemented providers.** Selecting one throws a clear, actionable error rather than silently falling back or doing nothing:
+
+| Layer | Implemented | Recognized, not yet implemented |
+|---|---|---|
+| OCR (`OcrProviderId`) | `google-document-ai` | `azure-document-intelligence`, `aws-textract`, `tesseract`, `native-pdf-parser` |
+| AI (`AiProviderId`) | `claude` | `gemini`, `openai`, `azure-openai`, `aws-bedrock`, `vertex-ai` |
+
+**The boundary that matters:** `AiExtractionRequest.documentText` is a plain string. The AI layer never receives an OCR provider's raw response shape, and `responseValidator.ts` never receives an AI provider's raw response envelope — each provider class normalizes its own output (e.g. `ClaudeProvider` is the only place `content[0].text` unwrapping exists) before handing a plain value to the next layer. This is what makes adding a provider additive:
+
+- **Add an OCR provider:** new file in `src/providers/ocr/`, implement `OCRProvider`, wire it into `factory.ts`. Nothing else changes.
+- **Add an AI provider:** new file in `src/providers/ai/`, implement `AIProvider` (including that provider's own cost-estimate formula — see `ClaudeProvider`), wire it into `factory.ts`. Nothing else changes — not `documentIngestPipeline.ts`, not `responseValidator.ts`, not `promptBuilder.ts`.
+- Neither touches `documentRegistry.ts`, `verificationStore.ts`, `DocumentVerificationModal.tsx`, or `DossierGate.tsx`.
+
+**Per-document-kind provider config vs. runtime selection.** `DocumentIngestionDefinition.ocr.provider`/`.ai.provider` (§4) are descriptive metadata — which provider a document kind is *configured* to expect — not what actually runs. The factories' env-driven selection is the single source of truth for instantiation. Telemetry always records the *actual* provider identity returned by the provider instance (`ocrResult.provider`/`aiResult.provider`), not the static config value, so it stays accurate even if they ever diverge.
 
 The billing/usage model (per `document_extractions`' schema) is also provider-agnostic by construction: usage is computed from successful processing records (kind, provider, tokens, cost), not from a provider-specific credit system — swapping providers doesn't touch reporting.
 
@@ -163,9 +207,10 @@ sequenceDiagram
     participant CIP as ComplianceIntakePanel
     participant DIP as documentIngestPipeline
     participant PB as promptBuilder
-    participant PC as proxyClient
-    participant OCR as ocr-proxy (Document AI)
-    participant AI as ai-proxy (Claude)
+    participant OF as ocr/factory
+    participant OCRP as GoogleDocumentAIProvider
+    participant AF as ai/factory
+    participant AIP as ClaudeProvider
     participant RV as responseValidator
     participant DB as document_extractions
     participant ENG as verification engine
@@ -174,14 +219,17 @@ sequenceDiagram
     CIP->>DIP: ingestUpload({file, kind, firmId})
     DIP->>PB: buildExtractionPrompt(kind)
     PB-->>DIP: {system, extractionPrompt}
-    DIP->>PC: extractDocument({fileData, mimeType, extractionPrompt, system})
-    PC->>OCR: fileData, mimeType
-    OCR-->>PC: raw OCR text
-    PC->>AI: extractionPrompt, system, ocr text
-    AI-->>PC: Claude response envelope
-    PC-->>DIP: {ocr, ai}
-    DIP->>RV: validateExtraction(kind, ai.data)
-    RV-->>DIP: {ok, payload} | {ok:false, error}
+    DIP->>OF: getOCRProvider()
+    OF-->>DIP: OCRProvider instance
+    DIP->>OCRP: extractText({fileData, mimeType})
+    OCRP-->>DIP: OcrResult {text, pageCount, provider, raw}
+    DIP->>AF: getAIProvider()
+    AF-->>DIP: AIProvider instance
+    DIP->>AIP: extract({documentText: ocrResult.text, systemPrompt, instructionPrompt})
+    Note over AIP: only place that unwraps the raw envelope
+    AIP-->>DIP: AiExtractionResult {text, usage, estimatedCost, provider, model, raw}
+    DIP->>RV: validateExtraction(kind, aiResult.text)
+    RV-->>DIP: {ok, payload, unexpectedFields} | {ok:false, error}
     DIP->>DB: insert telemetry row (best-effort)
     DIP-->>CIP: {ok, payload} | {ok:false, error}
     CIP->>ENG: ingest(payload)

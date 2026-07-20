@@ -31,20 +31,25 @@ Completed.
 
 ---
 
-# Phase 1.5
+# Phase 1.5 ✅
 
 Provider Abstraction
 
-Goals
+Completed.
 
 - OCRProvider interface
 - AIProvider interface
 - Provider Factory
 - Shared request models
 - Shared response models
-- Provider configuration
+- Provider configuration (VITE_OCR_PROVIDER / VITE_AI_PROVIDER)
 
-No provider-specific code.
+No provider-specific code in the ingestion pipeline. Only Google Document AI
+(OCR) and Claude (AI) are implemented — matching what Phase 1 already called —
+wrapped behind the new interfaces. Every other provider below is a recognized,
+selectable identifier with no implementation yet, not new integration work.
+
+See docs/ARCHITECTURE.md §9 for the full design.
 
 ---
 
