@@ -43,7 +43,7 @@ interface Renewal {
   client_name: string | null;
   maturity_date: string | null;
   current_rate: number | null;
-  balance: number | null;
+  current_balance: number | null;
 }
 
 function LenderPortalPage() {
@@ -58,7 +58,7 @@ function LenderPortalPage() {
         supabase
           .from("underwriting_applications")
           .select("id, taxpayer_name, loan_amount, aggregate_risk_score, review_status, province, property_address, lender_name"),
-        supabase.from("renewals").select("id, client_name, maturity_date, current_rate, balance"),
+        supabase.from("renewals").select("id, client_name, maturity_date, current_rate, current_balance"),
       ]);
       if (a.data) setApps(a.data as AppRow[]);
       if (r.data) setRenewals(r.data as unknown as Renewal[]);
@@ -77,15 +77,15 @@ function LenderPortalPage() {
     const provinceList = Object.entries(provinces).sort((a, b) => b[1] - a[1]);
     const highRisk = funded.filter((a) => (a.aggregate_risk_score ?? 0) >= 60);
     const weightedRate =
-      renewals.reduce((s, r) => s + (Number(r.current_rate ?? 0) * Number(r.balance ?? 0)), 0) /
-      Math.max(1, renewals.reduce((s, r) => s + Number(r.balance ?? 0), 0));
+      renewals.reduce((s, r) => s + (Number(r.current_rate ?? 0) * Number(r.current_balance ?? 0)), 0) /
+      Math.max(1, renewals.reduce((s, r) => s + Number(r.current_balance ?? 0), 0));
 
     // Maturity by month
     const maturityByMonth: Record<string, number> = {};
     for (const r of renewals) {
       if (!r.maturity_date) continue;
       const k = r.maturity_date.slice(0, 7);
-      maturityByMonth[k] = (maturityByMonth[k] ?? 0) + Number(r.balance ?? 0);
+      maturityByMonth[k] = (maturityByMonth[k] ?? 0) + Number(r.current_balance ?? 0);
     }
     const maturityList = Object.entries(maturityByMonth).sort();
 

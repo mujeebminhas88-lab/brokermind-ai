@@ -95,9 +95,9 @@ schema edit (`docs/DECISIONS.md`, `engineering-principles.md` in the Launchpad r
 
 ## 3. Known technical debt / issues
 
-| Issue | Detail | Suggested fix |
+| Issue | Detail | Status |
 |---|---|---|
-| `renewals.balance` column mismatch | `src/routes/lender.tsx` (and `RenewalPipelinePanel.tsx`) select/read a `balance` column on `renewals`, but no migration ever creates it — only `current_balance` exists. This silently returns `undefined`/`null` in the portfolio metrics and renewal panel. | Either rename the query to `current_balance` or add a migration renaming/aliasing the column — confirm which name the rest of the codebase expects before choosing. |
+| ~~`renewals.balance` column mismatch~~ | `src/routes/lender.tsx` selected/read a `balance` column on `renewals` that no migration ever created — only `current_balance` exists (`RenewalPipelinePanel.tsx` already used the correct name). | **Fixed 2026-07-21** — `lender.tsx` now uses `current_balance` throughout (interface, `select()`, and all read sites). |
 | Rate limiting is in-memory, per Edge Function instance | `_shared/proxy.ts`'s 100/hour limiter resets on cold start and doesn't share state across instances — not a durable rate limit under real load/scale-out. | Move to a durable store (Postgres table or Upstash Redis — already a dependency: `@upstash/redis`/`@upstash/ratelimit` are in `package.json` but not yet wired into the edge functions). |
 | RBAC is a single boolean | `user_roles`/`useUserRole()` today only expose `isAdmin`. The four-tier model in `docs/ARCHITECTURE.md` §8 is designed but not implemented. | Tracked as Phase 2 in `docs/IMPLEMENTATION_PLAN.md`. |
 | No automated tests | See §2.6. | Tracked as an implementation-plan item; prioritize RLS policies and the T2-enforcement trigger, GDS/TDS/stress-test math, and the ingestion pipeline's validator first. |

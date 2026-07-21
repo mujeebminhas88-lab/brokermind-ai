@@ -106,10 +106,10 @@ NULL), `maturity_date`, `current_rate`, `renewal_status` (default `'upcoming'`),
 `firm_id`, `client_name`, `property_address`, `current_balance`, `last_contact_at`,
 `created_at`/`updated_at`. Indexes: `user_id`, `application_id`.
 
-> **Known bug:** `src/routes/lender.tsx` and `RenewalPipelinePanel.tsx` read a `balance` column
-> that no migration ever creates — only `current_balance` exists. This silently returns
-> `null`/`undefined` in the lender portfolio metrics and renewal panel today. See
-> `docs/TRD.md` §3 for the fix.
+> **Fixed 2026-07-21:** `src/routes/lender.tsx` previously read a `balance` column that no
+> migration ever created — only `current_balance` exists (`RenewalPipelinePanel.tsx` always
+> used the correct name). `lender.tsx` now selects/reads `current_balance` throughout. See
+> `docs/TRD.md` §3.
 
 ### `rate_holds`
 `id` (PK), `user_id` (default `auth.uid()`), `application_id` (FK, nullable), `lender` (NOT

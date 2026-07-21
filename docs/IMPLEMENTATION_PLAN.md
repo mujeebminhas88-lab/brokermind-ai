@@ -13,9 +13,9 @@ checklist to get to the next snapshot.
 Small, high-value fixes surfaced during this documentation pass — not a new phase, just cleanup
 that should land before more code builds on top of the current state.
 
-- [ ] Fix the `renewals.balance` vs `current_balance` mismatch (`docs/BACKEND_SCHEMA.md` §3,
-      `docs/TRD.md` §3) — `src/routes/lender.tsx` and `RenewalPipelinePanel.tsx` currently read a
-      column that doesn't exist.
+- [x] Fix the `renewals.balance` vs `current_balance` mismatch (`docs/BACKEND_SCHEMA.md` §3,
+      `docs/TRD.md` §3) — `src/routes/lender.tsx` now reads `current_balance` throughout,
+      matching `RenewalPipelinePanel.tsx` and the actual schema.
 - [ ] Decide and document a testing strategy (`docs/TRD.md` §2.6) — at minimum, cover the
       T2-required-for-incorporated trigger, RLS policies, and GDS/TDS/stress-test math, since
       these are compliance-load-bearing and currently unverified by anything but manual review.
