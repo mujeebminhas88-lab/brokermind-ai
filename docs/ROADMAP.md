@@ -53,21 +53,22 @@ See docs/ARCHITECTURE.md §9 for the full design.
 
 ---
 
-# Phase 1.6
+# Phase 1.6 ✅
 
 Gemini Integration
 
 Temporary provider.
 
-Implement
+Implemented
 
-- Gemini Provider
-- OCR integration
-- Structured JSON extraction
+- `GeminiProvider` (`src/providers/ai/geminiProvider.ts`), calling `gemini-2.5-flash`
+- New `gemini-proxy` edge function (vault secret `GEMINI_API_KEY`)
+- Registered in `ProviderFactory` — `VITE_AI_PROVIDER=gemini` is a drop-in swap for `claude`
+- Structured JSON extraction via the existing `responseValidator.ts`, unchanged
 
 Purpose
 
-Validate the complete ingestion pipeline before Claude.
+Validate the complete ingestion pipeline end-to-end without Claude API billing.
 
 ---
 

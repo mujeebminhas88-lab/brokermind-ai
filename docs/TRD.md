@@ -86,8 +86,8 @@ Client-exposed config (must be prefixed `VITE_`, safe to expose publicly):
   `docs/ARCHITECTURE.md` §9)
 
 Server-only / Edge Function Vault secrets (never exposed to the client):
-- `ANTHROPIC_API_KEY`, `GOOGLE_DOCUMENT_AI_KEY`, `FLINKS_CLIENT_ID`, `PLAID_SECRET` /
-  `PLAID_CLIENT_ID`
+- `ANTHROPIC_API_KEY`, `GOOGLE_DOCUMENT_AI_KEY`, `GEMINI_API_KEY`, `FLINKS_CLIENT_ID`,
+  `PLAID_SECRET` / `PLAID_CLIENT_ID`
 
 Deployment: GitHub → Vercel, same pattern as the Launchpad repo but a separate Vercel project.
 Database changes require a migration under `supabase/migrations/` — never a manual production

@@ -27,6 +27,9 @@ export interface AiExtractInput {
 export const aiProxy = (input: AiExtractInput) =>
   invoke<{ ok: true; data: unknown }>("ai-proxy", input);
 
+export const geminiProxy = (input: AiExtractInput) =>
+  invoke<{ ok: true; data: unknown }>("gemini-proxy", input);
+
 export const ocrProxy = (input: { fileData: string; mimeType?: string; processor?: string }) =>
   invoke<{ ok: true; text: string; pages: number; raw: unknown }>("ocr-proxy", input);
 

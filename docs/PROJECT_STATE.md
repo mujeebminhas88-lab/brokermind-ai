@@ -1,6 +1,6 @@
 # BrokerMindAI — Project State
 
-Last Updated: 2026-07-20
+Last Updated: 2026-07-21
 
 ---
 
@@ -111,37 +111,31 @@ Future
 
 # Current AI Status
 
-Architecture completed.
+Architecture completed. Provider abstraction (Phase 1.5) and Gemini integration (Phase 1.6)
+complete.
 
-Provider abstraction beginning.
+Implemented providers
 
-No production OCR provider connected yet.
+- OCR: Google Document AI (`ocr-proxy`, vault secret `GOOGLE_DOCUMENT_AI_KEY`)
+- AI: Claude (`ai-proxy`, vault secret `ANTHROPIC_API_KEY`)
+- AI: Gemini (`gemini-proxy`, vault secret `GEMINI_API_KEY`, model `gemini-2.5-flash`) —
+  validates the full pipeline without Claude billing; swap via `VITE_AI_PROVIDER=gemini`
 
-No production LLM connected yet.
+Recognized, not yet implemented
 
-Temporary development provider will be Gemini.
-
-Future providers include:
-
-- Claude
-- Gemini
-- OpenAI
-- Azure OpenAI
-- AWS Bedrock
-- Vertex AI
+- OCR: Azure Document Intelligence, AWS Textract, Tesseract, native PDF parser
+- AI: OpenAI, Azure OpenAI, AWS Bedrock, Vertex AI
 
 ---
 
 # Current Priorities
 
-1. Provider abstraction
-2. Gemini integration
-3. Authentication
-4. Firms
-5. Billing
-6. Processing Jobs
-7. Replay
-8. Audit Trail
+1. Authentication (RBAC hierarchy)
+2. Firms
+3. Billing
+4. Processing Jobs
+5. Replay
+6. Audit Trail
 
 ---
 

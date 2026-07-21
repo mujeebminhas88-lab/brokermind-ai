@@ -157,9 +157,9 @@ What's missing, and scoped to Phase 2: a real role **hierarchy** (today there is
 
 Customer/Processor/Admin are tenant-side roles scoped by `firm_id`; Super Admin is a platform-side role, not tenant-scoped. Implementation: extend `user_roles.role` from its current boolean-admin usage to an enum (`customer | processor | admin | super_admin`), and extend `useUserRole()` additively (`{ role, isAdmin, isSuperAdmin, isProcessor, loading }`) so `AuditLogViewer`'s existing `isAdmin` check keeps working unchanged.
 
-## 9. Provider abstraction (implemented, Phase 1.5)
+## 9. Provider abstraction (implemented, Phase 1.5; Gemini added Phase 1.6)
 
-The pipeline depends only on two interfaces — `OCRProvider` and `AIProvider` — never on a concrete provider class. Only one implementation of each exists today (Google Document AI, Claude), matching Phase 1 exactly; everything else is a recognized-but-unimplemented identifier, not new API integration.
+The pipeline depends only on two interfaces — `OCRProvider` and `AIProvider` — never on a concrete provider class. One OCR implementation (Google Document AI) and two AI implementations (Claude, Gemini) exist today; everything else is a recognized-but-unimplemented identifier, not new API integration.
 
 ```
 src/providers/
@@ -169,7 +169,8 @@ src/providers/
     factory.ts                    getOCRProvider() — reads VITE_OCR_PROVIDER
   ai/
     types.ts                     AIProvider, AiExtractionRequest, AiExtractionResult, AiProviderId
-    claudeProvider.ts             wraps ai-proxy — only implementation today
+    claudeProvider.ts             wraps ai-proxy
+    geminiProvider.ts              wraps gemini-proxy — Phase 1.6, validates the full pipeline without Claude billing
     factory.ts                    getAIProvider() — reads VITE_AI_PROVIDER
 ```
 
@@ -177,7 +178,7 @@ src/providers/
 
 ```
 VITE_OCR_PROVIDER=google-document-ai   (default if unset)
-VITE_AI_PROVIDER=claude                (default if unset)
+VITE_AI_PROVIDER=claude                (default if unset; gemini also available)
 ```
 
 The `VITE_` prefix is required, not cosmetic — `documentIngestPipeline.ts` runs in the browser (it's called from `ComplianceIntakePanel`, a React component), and Vite only injects env vars prefixed `VITE_` into client-side `import.meta.env`; an unprefixed `AI_PROVIDER` would silently never reach this code. A bare `process.env.AI_PROVIDER` read, as a naive port of the example in the task that introduced this phase would suggest, simply wouldn't work here.
@@ -187,9 +188,11 @@ The `VITE_` prefix is required, not cosmetic — `documentIngestPipeline.ts` run
 | Layer | Implemented | Recognized, not yet implemented |
 |---|---|---|
 | OCR (`OcrProviderId`) | `google-document-ai` | `azure-document-intelligence`, `aws-textract`, `tesseract`, `native-pdf-parser` |
-| AI (`AiProviderId`) | `claude` | `gemini`, `openai`, `azure-openai`, `aws-bedrock`, `vertex-ai` |
+| AI (`AiProviderId`) | `claude`, `gemini` | `openai`, `azure-openai`, `aws-bedrock`, `vertex-ai` |
 
-**The boundary that matters:** `AiExtractionRequest.documentText` is a plain string. The AI layer never receives an OCR provider's raw response shape, and `responseValidator.ts` never receives an AI provider's raw response envelope — each provider class normalizes its own output (e.g. `ClaudeProvider` is the only place `content[0].text` unwrapping exists) before handing a plain value to the next layer. This is what makes adding a provider additive:
+**Gemini specifics (`geminiProvider.ts`):** wraps a new `gemini-proxy` edge function (`supabase/functions/gemini-proxy`, vault secret `GEMINI_API_KEY`) calling `gemini-2.5-flash` by default. Like `ClaudeProvider`, it receives only `AiExtractionRequest.documentText` — plain OCR output, never the original PDF/image — and owns its own response-envelope unwrapping (`candidates[0].content.parts[].text`), usage-metadata mapping (`usageMetadata.promptTokenCount`/`candidatesTokenCount`), and per-token cost estimate. Adding it required zero changes to `documentIngestPipeline.ts`, `responseValidator.ts`, or any protected verification component — only a new provider file, a new edge function, and one addition to `factory.ts`, exactly per the pattern below.
+
+**The boundary that matters:** `AiExtractionRequest.documentText` is a plain string. The AI layer never receives an OCR provider's raw response shape, and `responseValidator.ts` never receives an AI provider's raw response envelope — each provider class normalizes its own output (e.g. `ClaudeProvider`/`GeminiProvider` are the only places their respective response envelopes are unwrapped) before handing a plain value to the next layer. This is what makes adding a provider additive:
 
 - **Add an OCR provider:** new file in `src/providers/ocr/`, implement `OCRProvider`, wire it into `factory.ts`. Nothing else changes.
 - **Add an AI provider:** new file in `src/providers/ai/`, implement `AIProvider` (including that provider's own cost-estimate formula — see `ClaudeProvider`), wire it into `factory.ts`. Nothing else changes — not `documentIngestPipeline.ts`, not `responseValidator.ts`, not `promptBuilder.ts`.

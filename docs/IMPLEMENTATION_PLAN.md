@@ -23,20 +23,23 @@ that should land before more code builds on top of the current state.
       current scale, or wire up the already-installed `@upstash/redis`/`@upstash/ratelimit`
       dependencies for a durable limiter (`docs/TRD.md` §3).
 
-## Phase 1.6 — Gemini integration (next up per `docs/ROADMAP.md`)
+## Phase 1.6 — Gemini integration ✅
 
 Goal: validate the full ingestion pipeline end-to-end without Claude API billing, using the
 provider abstraction built in Phase 1.5.
 
-- [ ] Implement `GeminiProvider` in `src/providers/ai/`, matching the `AIProvider` interface
-      (`docs/ARCHITECTURE.md` §9) — including Gemini's own cost-estimate formula.
-- [ ] Wire it into `src/providers/ai/factory.ts` behind `VITE_AI_PROVIDER=gemini`.
-- [ ] No changes to `documentIngestPipeline.ts`, `responseValidator.ts`, `promptBuilder.ts`, or
-      any protected verification component — if any of those need to change, the abstraction
-      boundary has a leak and that's a bug, not a feature requirement.
-- [ ] End-to-end test: real document upload → Gemini OCR/extraction → verification →
-      compliance → dossier, confirming telemetry lands correctly in `document_extractions` with
-      `llm_provider = 'gemini'`.
+- [x] Implement `GeminiProvider` in `src/providers/ai/geminiProvider.ts`, matching the
+      `AIProvider` interface (`docs/ARCHITECTURE.md` §9) — including its own cost-estimate
+      formula, calling `gemini-2.5-flash` by default.
+- [x] New `gemini-proxy` edge function (`GEMINI_API_KEY` vault secret), same request shape as
+      `ai-proxy`.
+- [x] Wired into `src/providers/ai/factory.ts` behind `VITE_AI_PROVIDER=gemini`.
+- [x] No changes to `documentIngestPipeline.ts`, `responseValidator.ts`, `promptBuilder.ts`, or
+      any protected verification component.
+- [ ] End-to-end test against a real document upload with `VITE_AI_PROVIDER=gemini` and a live
+      `GEMINI_API_KEY` — confirm telemetry lands in `document_extractions` with
+      `llm_provider = 'gemini'`. Not yet run in this environment (no deployed Supabase project /
+      live API key available here); do this before relying on Gemini in production.
 
 ## Phase 2 — Authentication, Workspace, Developer Mode
 
