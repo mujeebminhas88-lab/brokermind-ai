@@ -93,6 +93,16 @@ Deployment: GitHub → Vercel, same pattern as the Launchpad repo but a separate
 Database changes require a migration under `supabase/migrations/` — never a manual production
 schema edit (`docs/DECISIONS.md`, `engineering-principles.md` in the Launchpad repo).
 
+Edge Functions deploy separately from the Vercel app build: `.github/workflows/
+deploy-supabase-functions.yml` runs `deno check` on every `supabase/functions/*/index.ts` then
+`supabase functions deploy` on push to `main` (path-filtered to `supabase/functions/**` and
+`supabase/config.toml`), or on manual dispatch. Requires a one-time repo secret,
+`SUPABASE_ACCESS_TOKEN` (Settings → Secrets and variables → Actions), generated from
+https://supabase.com/dashboard/account/tokens. This workflow deploys function *code* only —
+provider secrets (`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_DOCUMENT_AI_KEY`, etc.) are set
+once via `supabase secrets set` and persist independently of code deploys; the workflow never
+touches them.
+
 ## 3. Known technical debt / issues
 
 | Issue | Detail | Status |
