@@ -9,6 +9,24 @@
  * Adding a new tax form means appending one entry to `DocumentRegistry` —
  * no UI changes are required. The intake panel reads `category` and `fields`
  * to drive a categorized dropdown and a dynamically-rendered form.
+ *
+ * Scope boundary for `validate()` (audited Phase 1.7 — keep this true for
+ * every future entry too): a document's `validate()` may only assert
+ *   (a) objective facts about that document (a value is missing/expired/
+ *       nonzero/overdue), and
+ *   (b) heuristic, provider/lender-agnostic risk indicators (e.g. a
+ *       generic "high revolving utilization" or "low contingency" flag with
+ *       no institution attached).
+ * It must NOT assert a specific lender's, insurer's, or program's published
+ * guideline as a pass/fail conclusion (e.g. "this score qualifies for B
+ * lending," "this exceeds CMHC's limit") — those thresholds vary by
+ * institution, change over time, and are the explicit responsibility of the
+ * future Lender/Policy & Recommendation Engine (docs/ROADMAP.md). Where a
+ * finding is genuinely policy-adjacent, phrase it as deferring to "lender
+ * policy" / "lender overlay" rather than asserting the threshold yourself —
+ * see BUSINESS_LICENCE, BONUS_LETTER, ASSIGNMENT_AGREEMENT, INSOLVENCY_RECORD
+ * for the pattern. Cross-document rules (src/utils/crossDocumentValidation.ts)
+ * follow the same boundary.
  */
 
 // ────────────────────────────────────────────────────────────────────────────────
@@ -95,6 +113,8 @@ export type DocumentKind =
   | "TITLE_INSURANCE"
   | "SURVEY_PLAN"
   // Liabilities
+  | "MORTGAGE_STATEMENT"
+  | "HELOC_STATEMENT"
   | "DEBT_ACCOUNT_STATEMENT"
   | "CRA_REQUIREMENT_TO_PAY"
   // Credit
@@ -261,6 +281,28 @@ const daysUntil = (dateStr: unknown): number | null => {
   if (Number.isNaN(d.getTime())) return null;
   return Math.round((d.getTime() - Date.now()) / 86_400_000);
 };
+
+// Shared base shape for MORTGAGE_STATEMENT / HELOC_STATEMENT /
+// DEBT_ACCOUNT_STATEMENT (Phase 1.7 debt-document architecture review) — the
+// "shared base model" the three specialized kinds build on, so the common
+// institution/balance/payment/rate/status shape is defined exactly once.
+const DEBT_BASE_FIELDS: FieldSpec[] = [
+  { name: "institutionName", label: "Financial Institution", type: "text", sample: "TD Canada Trust" },
+  { name: "accountNumber", label: "Account Number", type: "text", sample: "****5502" },
+  { name: "currentBalance", label: "Current Balance", type: "number", sample: 18500 },
+  { name: "monthlyPayment", label: "Monthly Payment", type: "number", sample: 450 },
+  { name: "interestRate", label: "Interest Rate (%)", type: "number", sample: 6.5 },
+  { name: "accountStatus", label: "Account Status", type: "text", sample: "Current", hint: "Current | Arrears" },
+];
+
+const extractDebtBase = (p: Record<string, unknown>): ExtractedFields => ({
+  institutionName: str(p.institutionName ?? p.institution_name),
+  accountNumber: str(p.accountNumber ?? p.account_number),
+  currentBalance: num(p.currentBalance ?? p.current_balance),
+  monthlyPayment: num(p.monthlyPayment ?? p.monthly_payment),
+  interestRate: num(p.interestRate ?? p.interest_rate),
+  accountStatus: str(p.accountStatus ?? p.account_status),
+});
 
 // ────────────────────────────────────────────────────────────────────────────────
 // Registry
@@ -1396,6 +1438,7 @@ export const DocumentRegistry: Record<DocumentKind, RegistryEntry> = {
       { name: "employerName", label: "Employer Name", type: "text", sample: "Crown Holdings" },
       { name: "employeeName", label: "Employee Name", type: "text", sample: "Mujeeb Minhas" },
       { name: "payPeriodEndDate", label: "Pay Period End Date", type: "text", sample: "2026-06-15" },
+      { name: "payFrequency", label: "Pay Frequency", type: "text", sample: "Biweekly", hint: "Weekly | Biweekly | Semi-Monthly | Monthly — needed to annualize gross pay for cross-document income checks" },
       { name: "grossPay", label: "Gross Pay (period)", type: "number", sample: 3800 },
       { name: "netPay", label: "Net Pay (period)", type: "number", sample: 2850 },
       { name: "ytdGross", label: "Year-to-Date Gross", type: "number", sample: 45600 },
@@ -1404,6 +1447,7 @@ export const DocumentRegistry: Record<DocumentKind, RegistryEntry> = {
       employerName: str(p.employerName ?? p.employer_name),
       employeeName: str(p.employeeName ?? p.employee_name),
       payPeriodEndDate: str(p.payPeriodEndDate ?? p.pay_period_end_date),
+      payFrequency: str(p.payFrequency ?? p.pay_frequency),
       grossPay: num(p.grossPay ?? p.gross_pay),
       netPay: num(p.netPay ?? p.net_pay),
       ytdGross: num(p.ytdGross ?? p.ytd_gross),
@@ -2046,36 +2090,146 @@ export const DocumentRegistry: Record<DocumentKind, RegistryEntry> = {
   },
 
   // ────────── LIABILITIES ──────────
-  // Merges: Mortgage Statement, HELOC Statement, Credit Card Statement, Loan
-  // Statement, Line of Credit Statement. All five are the same shape
-  // (institution, account/balance/payment/rate, status) that the app's own
-  // liabilities UI already treats generically, one row per account
-  // regardless of product type — the registry now mirrors that, with
-  // `accountType` as the discriminator instead of five parallel kinds.
-  DEBT_ACCOUNT_STATEMENT: {
-    kind: "DEBT_ACCOUNT_STATEMENT",
-    label: "Existing Debt Account Statement",
+  //
+  // Phase 1.7 architecture review: DEBT_ACCOUNT_STATEMENT originally merged
+  // Mortgage/HELOC/Credit Card/Loan/LOC into one kind with an `accountType`
+  // discriminator. On review, Mortgage and HELOC statements carry
+  // underwriting-specific fields a flat merge can't represent without either
+  // bloating every credit-card/loan intake with irrelevant fields or
+  // silently dropping them: amortization remaining, maturity/renewal date,
+  // interest type (fixed/variable), mortgage product, and payout penalty —
+  // none of which a credit card or personal loan statement has. That's a
+  // real loss of underwriting fidelity, not a cosmetic one, so Mortgage and
+  // HELOC are split out into their own specialized kinds below. Credit
+  // Card/Loan/Line of Credit remain merged under DEBT_ACCOUNT_STATEMENT —
+  // those three genuinely share one shape (institution/balance/limit/
+  // payment/rate/status) with no analogous underwriting-specific fields, so
+  // splitting them further would add kinds without adding fidelity.
+  //
+  // All three share a base field/extract shape (DEBT_BASE_FIELDS /
+  // extractDebtBase) so the shared shape stays DRY across the specialized
+  // kinds — "shared base model with specialized document definitions" per
+  // the review brief, not just three unrelated copies.
+
+  MORTGAGE_STATEMENT: {
+    kind: "MORTGAGE_STATEMENT",
+    label: "Mortgage Statement",
     category: "Liabilities",
     purpose: "Debt Verification",
     fields: [
-      { name: "accountType", label: "Account Type", type: "text", sample: "Mortgage", hint: "Mortgage | HELOC | Line of Credit | Credit Card | Loan" },
-      { name: "institutionName", label: "Financial Institution", type: "text", sample: "TD Canada Trust" },
-      { name: "accountNumber", label: "Account Number", type: "text", sample: "****5502" },
-      { name: "currentBalance", label: "Current Balance", type: "number", sample: 18500 },
+      ...DEBT_BASE_FIELDS,
+      { name: "mortgageProduct", label: "Mortgage Product", type: "text", sample: "5-Year Fixed Closed" },
+      { name: "originalPrincipal", label: "Original Principal", type: "number", sample: 620000 },
+      { name: "interestType", label: "Interest Type", type: "text", sample: "Fixed", hint: "Fixed | Variable | Adjustable" },
+      { name: "amortizationRemainingMonths", label: "Amortization Remaining (months)", type: "number", sample: 264 },
+      { name: "maturityDate", label: "Maturity / Renewal Date", type: "text", sample: "2028-11-01" },
+      { name: "penaltyAmount", label: "Prepayment Penalty (if disclosed)", type: "number", sample: 0 },
+    ],
+    extract: (p) => ({
+      ...extractDebtBase(p),
+      mortgageProduct: str(p.mortgageProduct ?? p.mortgage_product),
+      originalPrincipal: num(p.originalPrincipal ?? p.original_principal),
+      interestType: str(p.interestType ?? p.interest_type),
+      amortizationRemainingMonths: num(p.amortizationRemainingMonths ?? p.amortization_remaining_months),
+      maturityDate: str(p.maturityDate ?? p.maturity_date ?? p.renewalDate ?? p.renewal_date),
+      penaltyAmount: num(p.penaltyAmount ?? p.penalty_amount),
+    }),
+    validate: (e) => {
+      const alerts: ComplianceAlert[] = [];
+      if (str(e.accountStatus).toLowerCase() === "arrears") {
+        alerts.push({
+          code: "MORTGAGE-ARREARS",
+          label: "Existing mortgage in arrears",
+          severity: "HIGH",
+          detail: `Mortgage at ${str(e.institutionName)} reported in arrears.`,
+          sourceDoc: "MORTGAGE_STATEMENT",
+          penaltyPoints: 20,
+        });
+      }
+      const days = daysUntil(e.maturityDate);
+      if (days != null && days >= 0 && days <= 120) {
+        alerts.push({
+          code: "MORTGAGE-MATURING-SOON",
+          label: "Mortgage maturing within 120 days",
+          severity: "WARNING",
+          detail: `Maturity/renewal date in ${days} day(s) — confirm renewal or payout strategy.`,
+          sourceDoc: "MORTGAGE_STATEMENT",
+          penaltyPoints: 5,
+        });
+      }
+      if (num(e.penaltyAmount) > 0) {
+        alerts.push({
+          code: "MORTGAGE-PAYOUT-PENALTY",
+          label: "Prepayment penalty disclosed",
+          severity: "WARNING",
+          detail: `${fmt(num(e.penaltyAmount))} penalty disclosed — factor into refinance/consolidation math.`,
+          sourceDoc: "MORTGAGE_STATEMENT",
+          penaltyPoints: 5,
+        });
+      }
+      return alerts;
+    },
+  },
+  HELOC_STATEMENT: {
+    kind: "HELOC_STATEMENT",
+    label: "HELOC Statement",
+    category: "Liabilities",
+    purpose: "Debt Verification",
+    fields: [
+      ...DEBT_BASE_FIELDS,
+      { name: "creditLimit", label: "Credit Limit", type: "number", sample: 100000 },
+      { name: "interestType", label: "Interest Type", type: "text", sample: "Variable", hint: "Fixed | Variable" },
+    ],
+    extract: (p) => ({
+      ...extractDebtBase(p),
+      creditLimit: num(p.creditLimit ?? p.credit_limit),
+      interestType: str(p.interestType ?? p.interest_type),
+    }),
+    validate: (e) => {
+      const alerts: ComplianceAlert[] = [];
+      if (str(e.accountStatus).toLowerCase() === "arrears") {
+        alerts.push({
+          code: "HELOC-ARREARS",
+          label: "Existing HELOC in arrears",
+          severity: "HIGH",
+          detail: `HELOC at ${str(e.institutionName)} reported in arrears.`,
+          sourceDoc: "HELOC_STATEMENT",
+          penaltyPoints: 20,
+        });
+      }
+      const limit = num(e.creditLimit);
+      const balance = num(e.currentBalance);
+      if (limit > 0 && balance / limit > 0.9) {
+        alerts.push({
+          code: "HELOC-HIGH-UTILIZATION",
+          label: "High utilization on HELOC",
+          severity: "WARNING",
+          detail: `Balance ${fmt(balance)} is ${((balance / limit) * 100).toFixed(0)}% of the ${fmt(limit)} limit.`,
+          sourceDoc: "HELOC_STATEMENT",
+          penaltyPoints: 10,
+        });
+      }
+      return alerts;
+    },
+  },
+  // Merges: Credit Card Statement, Loan Statement, Line of Credit Statement
+  // only (Mortgage/HELOC split out above — see banner comment). These three
+  // share one shape with no mortgage/HELOC-grade underwriting fields of
+  // their own, so a flat `accountType` discriminator loses nothing here.
+  DEBT_ACCOUNT_STATEMENT: {
+    kind: "DEBT_ACCOUNT_STATEMENT",
+    label: "Existing Debt Account Statement (Credit Card / Loan / Line of Credit)",
+    category: "Liabilities",
+    purpose: "Debt Verification",
+    fields: [
+      { name: "accountType", label: "Account Type", type: "text", sample: "Credit Card", hint: "Credit Card | Loan | Line of Credit" },
+      ...DEBT_BASE_FIELDS,
       { name: "creditLimit", label: "Credit Limit (revolving accounts)", type: "number", sample: 20000 },
-      { name: "monthlyPayment", label: "Monthly Payment", type: "number", sample: 450 },
-      { name: "interestRate", label: "Interest Rate (%)", type: "number", sample: 6.5 },
-      { name: "accountStatus", label: "Account Status", type: "text", sample: "Current", hint: "Current | Arrears" },
     ],
     extract: (p) => ({
       accountType: str(p.accountType ?? p.account_type),
-      institutionName: str(p.institutionName ?? p.institution_name),
-      accountNumber: str(p.accountNumber ?? p.account_number),
-      currentBalance: num(p.currentBalance ?? p.current_balance),
+      ...extractDebtBase(p),
       creditLimit: num(p.creditLimit ?? p.credit_limit),
-      monthlyPayment: num(p.monthlyPayment ?? p.monthly_payment),
-      interestRate: num(p.interestRate ?? p.interest_rate),
-      accountStatus: str(p.accountStatus ?? p.account_status),
     }),
     validate: (e) => {
       const alerts: ComplianceAlert[] = [];
@@ -2092,7 +2246,7 @@ export const DocumentRegistry: Record<DocumentKind, RegistryEntry> = {
       }
       const limit = num(e.creditLimit);
       const balance = num(e.currentBalance);
-      const revolving = ["credit card", "line of credit", "heloc"].includes(type.toLowerCase());
+      const revolving = ["credit card", "line of credit"].includes(type.toLowerCase());
       if (revolving && limit > 0 && balance / limit > 0.9) {
         alerts.push({
           code: "DEBT-ACCOUNT-HIGH-UTILIZATION",
@@ -2152,6 +2306,7 @@ export const DocumentRegistry: Record<DocumentKind, RegistryEntry> = {
       { name: "reportDate", label: "Report Date", type: "text", sample: "2026-06-01" },
       { name: "collectionsCount", label: "Collections Count", type: "number", sample: 0 },
       { name: "publicRecordsCount", label: "Public Records Count", type: "number", sample: 0 },
+      { name: "mortgageBalanceReported", label: "Largest Reported Mortgage Balance", type: "number", sample: 412000, hint: "Largest mortgage tradeline balance shown on the report, if any — a v1 proxy pending full itemized tradeline support" },
     ],
     extract: (p) => ({
       bureau: str(p.bureau),
@@ -2160,16 +2315,22 @@ export const DocumentRegistry: Record<DocumentKind, RegistryEntry> = {
       reportDate: str(p.reportDate ?? p.report_date),
       collectionsCount: num(p.collectionsCount ?? p.collections_count),
       publicRecordsCount: num(p.publicRecordsCount ?? p.public_records_count),
+      mortgageBalanceReported: num(p.mortgageBalanceReported ?? p.mortgage_balance_reported),
     }),
     validate: (e) => {
       const alerts: ComplianceAlert[] = [];
       const score = num(e.beaconScore);
+      // Heuristic credit-risk indicator only — deliberately does NOT assert
+      // which lender/insurer stream this qualifies for. Which score range
+      // maps to which lender's program is a lender-specific published
+      // guideline (varies by institution and changes over time) and belongs
+      // in the future Policy Engine (docs/ROADMAP.md Phase 4), not here.
       if (score > 0 && score < 600) {
         alerts.push({
-          code: "CREDIT-BEACON-BELOW-600",
-          label: "Beacon score below 600",
+          code: "CREDIT-BEACON-LOW",
+          label: "Low Beacon score",
           severity: "HIGH",
-          detail: `Beacon score ${score} — confirm B/private lending stream.`,
+          detail: `Beacon score ${score} is a heuristic credit-risk indicator — lender/program eligibility is a Policy Engine decision, not evaluated here.`,
           sourceDoc: "CREDIT_BUREAU_REPORT",
           penaltyPoints: 15,
         });

@@ -4,6 +4,9 @@
  * Aggregates alerts from:
  *  - Document verification store (fields needing review)
  *  - Compliance verdict (document registry engine)
+ *  - Cross-document validation (Phase 1.7 — reconciles values across
+ *    multiple uploaded Master Document Registry documents; see
+ *    src/utils/crossDocumentValidation.ts)
  *  - Tax slip forensic checks (CRA arrears, YoY drop)
  *  - Derived financials (GDS/TDS/LTV breaches)
  *  - Loan/employment completeness
@@ -26,6 +29,7 @@ import { useFundsStore, computeFundsAlerts } from "@/store/fundsStore";
 import { useUnderwritingConfigStore } from "@/store/underwritingConfigStore";
 import { useCreditProfileStore, computeCreditAlerts } from "@/store/creditProfileStore";
 import type { ComplianceVerdict } from "@/utils/documentRegistry";
+import { runCrossDocumentValidation, type CrossDocDoc } from "@/utils/crossDocumentValidation";
 
 export type AlertSeverity = "CRITICAL" | "HIGH" | "WARN";
 
@@ -141,6 +145,32 @@ export function useComplianceAlerts({
           blocking: sev === "CRITICAL" ? !ov : sev === "HIGH" ? !ov : false,
         });
       }
+    }
+
+    // Cross-document validation (Phase 1.7) — reconciles values across every
+    // verified/pending document currently in the verification store.
+    // Reconstructed from VerificationDoc.fields rather than re-running
+    // extract(), since that's already the canonical extracted-value shape
+    // for each uploaded document; this hook only reads verificationStore's
+    // existing public state, it never modifies it.
+    const crossDocInput: CrossDocDoc[] = docs.map((d) => ({
+      kind: d.kind,
+      extracted: Object.fromEntries(d.fields.map((f) => [f.name, f.value])),
+    }));
+    for (const a of runCrossDocumentValidation(crossDocInput)) {
+      const sev: AlertSeverity =
+        a.severity === "CRITICAL" ? "CRITICAL" : a.severity === "HIGH" ? "HIGH" : "WARN";
+      const ov = overrides[a.code];
+      out.push({
+        code: a.code,
+        label: a.label,
+        detail: ov ? `${a.detail} · OVERRIDE: "${ov.note}"` : a.detail,
+        severity: sev,
+        jumpTo: "compliance-intake",
+        overridable: sev !== "WARN",
+        overridden: ov ? { note: ov.note, at: ov.at } : undefined,
+        blocking: sev === "WARN" ? false : !ov,
+      });
     }
 
     // Tax slip forensic flags
