@@ -6,7 +6,9 @@
  *   - Handle JSON uploads (temporary developer/testing path — see note below)
  *   - Convert supported files to base64
  *   - Call the active OCR provider, then the active AI provider, via
- *     getOCRProvider()/getAIProvider() (Phase 1.5 provider abstraction)
+ *     getOCRProvider()/getAIProvider() (Phase 1.5 provider abstraction) — or,
+ *     in "native" ingestion mode, skip the OCR provider and let the AI
+ *     provider read the raw file directly (see below)
  *   - Build prompts (via documentDefinitions/promptBuilder)
  *   - Parse + validate the AI provider's response, aligning field names
  *     exactly with DocumentRegistry[kind].fields[].name (via
@@ -20,11 +22,23 @@
  * providers actually run is decided entirely by getOCRProvider()/
  * getAIProvider(), which read VITE_OCR_PROVIDER/VITE_AI_PROVIDER.
  *
+ * Ingestion mode (VITE_INGESTION_MODE, read by readIngestionMode() below):
+ *   - "pipeline" (default): OCR provider -> AI provider, unchanged from
+ *     Phase 1. Cost-optimized (raw files never reach the LLM) and the only
+ *     mode that works when no AI provider supports native documents.
+ *   - "native": no OCR provider call at all; the raw file goes straight to
+ *     getAIProvider().extract() via fileData/mimeType. Requires the
+ *     selected AI provider's supportsNativeDocument to be true (Claude and
+ *     Gemini both are) — an explicit, actionable error is thrown otherwise,
+ *     never a silent fallback. Exists so OCR (Google Document AI) is not a
+ *     hard dependency for every AI provider — e.g. testing with only
+ *     GEMINI_API_KEY configured, no GOOGLE_DOCUMENT_AI_KEY.
+ *
  * The verification engine (documentRegistry.ts, verificationStore.ts,
  * DocumentVerificationModal, DossierGate) is never imported here and has no
- * awareness that OCR/AI providers exist at all — this module's only
- * contract with them is the plain Record<string, unknown> payload it
- * returns.
+ * awareness that OCR/AI providers or ingestion modes exist at all — this
+ * module's only contract with them is the plain Record<string, unknown>
+ * payload it returns, identical in either mode.
  *
  * TEMPORARY: the JSON-upload path (ingestFromJson) is a developer/testing
  * affordance, not a customer-facing feature. It is intentionally isolated
@@ -39,6 +53,7 @@ import { buildExtractionPrompt } from "@/documentDefinitions/promptBuilder";
 import { validateExtraction } from "@/documentDefinitions/responseValidator";
 import { getOCRProvider } from "@/providers/ocr/factory";
 import { getAIProvider } from "@/providers/ai/factory";
+import type { AiExtractionResult } from "@/providers/ai/types";
 
 export type IngestResult =
   | { ok: true; payload: Record<string, unknown> }
@@ -99,6 +114,16 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+type IngestionMode = "pipeline" | "native";
+
+// VITE_ prefix required for the same reason as VITE_OCR_PROVIDER/
+// VITE_AI_PROVIDER (see docs/ARCHITECTURE.md §9) — this file runs in the
+// browser, and Vite only exposes VITE_-prefixed vars to client code.
+function readIngestionMode(): IngestionMode {
+  const configured = (import.meta.env?.VITE_INGESTION_MODE as string | undefined)?.trim();
+  return configured === "native" ? "native" : "pipeline";
+}
+
 interface TelemetryInput {
   firmId: string | null;
   applicationId?: string | null;
@@ -124,7 +149,9 @@ interface TelemetryInput {
   success: boolean;
   errorCode: string | null;
   errorMessage: string | null;
-  source: "upload" | "json-upload";
+  /** "native-upload" is a code-level addition only — document_extractions.source
+   *  is an unconstrained text column, no migration required to add this value. */
+  source: "upload" | "json-upload" | "native-upload";
   pageCount: number | null;
 }
 
@@ -249,11 +276,18 @@ async function ingestFromJson(params: IngestUploadParams): Promise<IngestResult>
   return { ok: true, payload };
 }
 
-/** Real production path: PDF/image -> [OCR provider] -> [AI provider] -> validated JSON. */
+/**
+ * Real production path: PDF/image -> validated JSON, via one of two modes
+ * (see readIngestionMode() / the module header comment):
+ *   - "pipeline": [OCR provider] -> [AI provider]
+ *   - "native": [AI provider] reads the raw file directly, no OCR provider
+ */
 async function ingestFromDocument(params: IngestUploadParams): Promise<IngestResult> {
   const startedAt = new Date();
   const documentId = params.documentId ?? crypto.randomUUID();
   const def = getIngestionDefinition(params.kind);
+  const mode = readIngestionMode();
+  const source: TelemetryInput["source"] = mode === "native" ? "native-upload" : "upload";
 
   const effectiveMimeType = resolveEffectiveMimeType(params.file, def.upload.acceptedMimeTypes);
   if (!effectiveMimeType) {
@@ -274,23 +308,43 @@ async function ingestFromDocument(params: IngestUploadParams): Promise<IngestRes
 
   try {
     const fileData = await fileToBase64(params.file);
+    const aiProvider = getAIProvider();
+    let aiResult: AiExtractionResult;
 
-    const ocrResult = await getOCRProvider().extractText({
-      fileData,
-      mimeType: effectiveMimeType,
-      processor: def.ocr.processor,
-    });
-    rawOcrText = ocrResult.text;
-    pageCount = ocrResult.pageCount;
-    ocrProviderId = ocrResult.provider;
+    if (mode === "native") {
+      if (!aiProvider.supportsNativeDocument) {
+        throw new Error(
+          `AI provider "${aiProvider.id}" does not support native document mode ` +
+            `(VITE_INGESTION_MODE=native). Set VITE_AI_PROVIDER to a provider with native ` +
+            `document support (claude, gemini), or unset VITE_INGESTION_MODE / set it to "pipeline".`,
+        );
+      }
+      aiResult = await aiProvider.extract({
+        fileData,
+        mimeType: effectiveMimeType,
+        systemPrompt: system,
+        instructionPrompt: extractionPrompt,
+        model: def.ai.model,
+        maxTokens: def.ai.maxTokens,
+      });
+    } else {
+      const ocrResult = await getOCRProvider().extractText({
+        fileData,
+        mimeType: effectiveMimeType,
+        processor: def.ocr.processor,
+      });
+      rawOcrText = ocrResult.text;
+      pageCount = ocrResult.pageCount;
+      ocrProviderId = ocrResult.provider;
 
-    const aiResult = await getAIProvider().extract({
-      documentText: ocrResult.text,
-      systemPrompt: system,
-      instructionPrompt: extractionPrompt,
-      model: def.ai.model,
-      maxTokens: def.ai.maxTokens,
-    });
+      aiResult = await aiProvider.extract({
+        documentText: ocrResult.text,
+        systemPrompt: system,
+        instructionPrompt: extractionPrompt,
+        model: def.ai.model,
+        maxTokens: def.ai.maxTokens,
+      });
+    }
     rawAiResponse = aiResult.raw;
     aiProviderId = aiResult.provider;
     aiModel = aiResult.model;
@@ -306,7 +360,7 @@ async function ingestFromDocument(params: IngestUploadParams): Promise<IngestRes
       definitionVersion: def.version,
       promptVersion: def.version,
       ocrProvider: ocrProviderId,
-      ocrModel: def.ocr.processor ?? null,
+      ocrModel: mode === "native" ? null : (def.ocr.processor ?? null),
       llmProvider: aiProviderId,
       llmModel: aiModel,
       rawOcrText,
@@ -324,7 +378,7 @@ async function ingestFromDocument(params: IngestUploadParams): Promise<IngestRes
       success: validation.ok,
       errorCode: validation.ok ? null : "VALIDATION_FAILED",
       errorMessage: validation.ok ? null : validation.error,
-      source: "upload",
+      source,
       pageCount,
     });
 
@@ -343,7 +397,7 @@ async function ingestFromDocument(params: IngestUploadParams): Promise<IngestRes
       definitionVersion: def.version,
       promptVersion: def.version,
       ocrProvider: ocrProviderId,
-      ocrModel: def.ocr.processor ?? null,
+      ocrModel: mode === "native" ? null : (def.ocr.processor ?? null),
       llmProvider: aiProviderId,
       llmModel: aiModel,
       rawOcrText,
@@ -359,7 +413,7 @@ async function ingestFromDocument(params: IngestUploadParams): Promise<IngestRes
       success: false,
       errorCode: "PIPELINE_ERROR",
       errorMessage: message,
-      source: "upload",
+      source,
       pageCount,
     });
     return { ok: false, error: message };

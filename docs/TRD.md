@@ -84,6 +84,8 @@ Client-exposed config (must be prefixed `VITE_`, safe to expose publicly):
 - `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 - `VITE_OCR_PROVIDER`, `VITE_AI_PROVIDER` (provider selection, defaults documented in
   `docs/ARCHITECTURE.md` §9)
+- `VITE_INGESTION_MODE` (`pipeline` default, or `native` to skip the OCR provider entirely for AI
+  providers with native document support — `docs/ARCHITECTURE.md` §9)
 
 Server-only / Edge Function Vault secrets (never exposed to the client):
 - `ANTHROPIC_API_KEY`, `GOOGLE_DOCUMENT_AI_KEY`, `GEMINI_API_KEY`, `FLINKS_CLIENT_ID`,

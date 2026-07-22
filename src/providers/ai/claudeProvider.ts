@@ -5,6 +5,12 @@
  * relocation behind the AIProvider interface — the Claude-specific
  * response-envelope unwrapping (content[0].text) now lives here instead of
  * in responseValidator.ts, which stays provider-agnostic.
+ *
+ * supportsNativeDocument = true: ai-proxy already accepted image_base64/
+ * image_mime from Phase 1 (Claude's Messages API is multimodal) — it just
+ * never received them, since documentIngestPipeline.ts always ran OCR
+ * first. VITE_INGESTION_MODE=native (see documentIngestPipeline.ts) is what
+ * actually exercises this path now.
  */
 import { aiProxy } from "@/lib/proxyClient";
 import type { AIProvider, AiExtractionRequest, AiExtractionResult, AiUsage } from "./types";
@@ -61,11 +67,14 @@ function estimateCost(usage: AiUsage): number | null {
 
 export class ClaudeProvider implements AIProvider {
   readonly id = "claude" as const;
+  readonly supportsNativeDocument = true;
 
   async extract(request: AiExtractionRequest): Promise<AiExtractionResult> {
     const response = await aiProxy({
       prompt: request.instructionPrompt,
       text: request.documentText,
+      image_base64: request.fileData,
+      image_mime: request.mimeType,
       system: request.systemPrompt,
       model: request.model,
       max_tokens: request.maxTokens,

@@ -1,10 +1,13 @@
 /**
  * Gemini (Google) AI provider — wraps the gemini-proxy edge function.
  *
- * Receives only OCR output text via AiExtractionRequest.documentText — the
- * same contract every AIProvider implementation gets. This provider never
- * sees, and gemini-proxy never forwards, the original PDF/image; only the
- * OCR provider's plain-text output is sent to Gemini.
+ * Two request shapes, matching AiExtractionRequest's two modes (see
+ * src/providers/ai/types.ts):
+ *   - "pipeline" mode: receives OCR output text via `documentText`.
+ *   - "native" mode (VITE_INGESTION_MODE=native): receives the raw file via
+ *     `fileData`/`mimeType` instead — Gemini's multimodal input reads the
+ *     document directly, no separate OCR pass. gemini-proxy forwards this
+ *     as an inline_data part to Gemini's generateContent API.
  *
  * All Gemini-specific response-envelope unwrapping and cost estimation lives
  * in this file only — documentIngestPipeline.ts, responseValidator.ts, and
@@ -73,6 +76,7 @@ function estimateCost(usage: AiUsage): number | null {
 
 export class GeminiProvider implements AIProvider {
   readonly id = "gemini" as const;
+  readonly supportsNativeDocument = true;
 
   async extract(request: AiExtractionRequest): Promise<AiExtractionResult> {
     const requestedModel = request.model ?? DEFAULT_MODEL;
@@ -80,6 +84,8 @@ export class GeminiProvider implements AIProvider {
     const response = await geminiProxy({
       prompt: request.instructionPrompt,
       text: request.documentText,
+      image_base64: request.fileData,
+      image_mime: request.mimeType,
       system: request.systemPrompt,
       model: requestedModel,
       max_tokens: request.maxTokens,

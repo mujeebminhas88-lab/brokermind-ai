@@ -1,14 +1,17 @@
 // gemini-proxy: Google Gemini proxy for document extraction + AI features.
-// Accepts { prompt, text?, system?, model?, max_tokens? } — same request shape
-// as ai-proxy — and forwards to Gemini's generateContent API. Callers pass
-// OCR-extracted text only; this proxy never receives or forwards the
-// original PDF/image.
+// Accepts { prompt, text?, image_base64?, image_mime?, system?, model?,
+// max_tokens? } — same request shape as ai-proxy. Two modes: pass `text`
+// (OCR-extracted, pipeline ingestion mode) or `image_base64`/`image_mime`
+// (raw file, native ingestion mode — see documentIngestPipeline.ts and
+// src/providers/ai/types.ts for the mode split). Never both.
 
 import { guard, jsonResponse } from "../_shared/proxy.ts";
 
 interface GeminiRequest {
   prompt: string;
   text?: string;
+  image_base64?: string;
+  image_mime?: string;
   system?: string;
   model?: string;
   max_tokens?: number;
@@ -34,7 +37,13 @@ Deno.serve(async (req) => {
   const model = body.model ?? DEFAULT_MODEL;
 
   const parts: unknown[] = [];
-  if (body.text) parts.push({ text: `Document text:\n${body.text}` });
+  if (body.image_base64) {
+    parts.push({
+      inline_data: { mime_type: body.image_mime ?? "application/pdf", data: body.image_base64 },
+    });
+  } else if (body.text) {
+    parts.push({ text: `Document text:\n${body.text}` });
+  }
   parts.push({ text: body.prompt });
 
   const requestBody: Record<string, unknown> = {
