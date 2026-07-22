@@ -72,6 +72,48 @@ Validate the complete ingestion pipeline end-to-end without Claude API billing.
 
 ---
 
+# Phase 1.7 ✅
+
+Underwriting Registry & Cross-Document Validation Audit
+
+Completed.
+
+Debt document architecture review
+
+- Split `DEBT_ACCOUNT_STATEMENT` into a shared base (institution/balance/
+  payment/rate/status) plus specialized `MORTGAGE_STATEMENT` and
+  `HELOC_STATEMENT` kinds — the flat merge lost real fields (amortization
+  remaining, maturity/renewal date, interest type, mortgage product, payout
+  penalty) that only mortgages/HELOCs carry. Credit Card/Loan/Line of Credit
+  stay merged under `DEBT_ACCOUNT_STATEMENT`; they share one shape with no
+  analogous fields.
+
+Cross-document validation
+
+- Audited first: `reconcileTaxSlips()` (`src/utils/taxSlipParser.ts`) already
+  reconciles the 5 legacy CRA tax-slip kinds, but only via a separate,
+  manually-entered data model (`TaxSlipSuite.tsx`) disconnected from the
+  Master Document Registry / AI ingestion path — it doesn't cover any of the
+  Phase 1.6 document kinds.
+- Added `src/utils/crossDocumentValidation.ts` — a standalone, provider-
+  agnostic layer reconciling values across uploaded documents (borrower
+  name, property address, corporate name consistency; income cross-checks;
+  bureau vs. mortgage balance; APS vs. appraisal; gift vs. deposit; lease vs.
+  T776; corporate directors vs. applicant identity).
+- Wired into `src/hooks/useComplianceAlerts.ts` (already the hook
+  `DossierGate` consumes) — no protected files modified.
+
+Policy-hardcoding audit
+
+- Reviewed every `validate()` for lender/insurer-specific thresholds
+  asserted as fact; found and fixed one (Beacon-score alert asserting a
+  "B/private lending stream" conclusion). Added a durable scope-boundary
+  comment to `documentRegistry.ts` distinguishing objective facts and
+  provider-agnostic heuristics (allowed) from lender/insurer policy
+  (belongs in Phase 4, not the registry).
+
+---
+
 # Phase 2
 
 Authentication
@@ -117,7 +159,60 @@ Replay becomes a new Processing Job.
 
 ---
 
+# Phase 3.5
+
+File Reasoning Engine
+
+Purpose
+
+Reason across the entire mortgage file after all documents have been
+extracted and individually validated — the layer above per-document
+validation (documentRegistry.ts) and cross-document validation
+(crossDocumentValidation.ts, Phase 1.7): synthesis, not just checking.
+
+Deliverables
+
+- File-level reasoning layer
+- Cross-document evidence synthesis
+- Explainable underwriting findings
+- Missing evidence detection
+- Contradictory evidence detection
+- AI-generated underwriting summary
+- AI-generated broker questions
+- AI-generated submission readiness assessment
+- Evidence graph linking related facts across documents
+- Explainable reasoning for every generated finding
+
+---
+
 # Phase 4
+
+Policy & Recommendation Engine
+
+(Renamed from "Lender Policy Engine".) This is the intelligence behind
+"Recommend Lenders" — and the designated home for anything the Phase 1.7
+audit found that depends on a specific lender's/insurer's published
+guideline rather than an objective fact or provider-agnostic heuristic
+(see the scope-boundary comment in `documentRegistry.ts`).
+
+Deliverables
+
+- Lender policy database
+- Mortgage product rules
+- Insurer overlays (CMHC, Sagen, Canada Guaranty)
+- Compensating factor framework
+- Exception rules
+- Rental income calculation policies
+- Stress-test rules
+- Broker overrides
+- Explainable lender pass/fail decisions
+- Lender recommendation ranking
+- Product recommendation ranking
+- Policy versioning and effective dates
+
+---
+
+# Phase 5
 
 Billing
 
@@ -137,7 +232,7 @@ Internal
 
 ---
 
-# Phase 5
+# Phase 6
 
 Verification Improvements
 
@@ -149,7 +244,7 @@ Verification Improvements
 
 ---
 
-# Phase 6
+# Phase 7
 
 Enterprise
 
@@ -170,6 +265,5 @@ Enterprise
 - AI model comparison
 - Fraud detection
 - Income trend analysis
-- Smart lender recommendations
 - Auto conditions
 - Smart resubmissions

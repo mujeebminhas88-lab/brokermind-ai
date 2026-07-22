@@ -1,6 +1,6 @@
 # BrokerMindAI — Project State
 
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 
 ---
 
@@ -50,6 +50,31 @@ Completed:
 - Removal of mock process-noa pipeline
 - Removal of forensic-parse
 - Documentation
+
+---
+
+## Phase 1.6 — Complete
+
+Gemini AI provider integration (see "Current AI Status" below).
+
+---
+
+## Phase 1.7 — Complete
+
+Underwriting Registry & Cross-Document Validation Audit.
+
+Completed:
+
+- Debt document architecture review: `MORTGAGE_STATEMENT`/`HELOC_STATEMENT` split out from
+  `DEBT_ACCOUNT_STATEMENT` (real underwriting fields the flat merge lost)
+- Cross-document validation layer (`src/utils/crossDocumentValidation.ts`), wired into
+  `useComplianceAlerts.ts` — feeds `DossierGate` automatically
+- Audited and confirmed: the pre-existing `reconcileTaxSlips()` tax-slip reconciliation
+  (`src/utils/taxSlipParser.ts`) is disconnected from the Master Document Registry — still true,
+  tracked as a known gap, not yet resolved
+- Policy-hardcoding audit: registry now carries a scope-boundary comment distinguishing objective
+  facts / provider-agnostic heuristics (allowed) from lender/insurer policy (deferred to the
+  future Phase 4 Policy & Recommendation Engine)
 
 ---
 

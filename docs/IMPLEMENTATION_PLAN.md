@@ -8,10 +8,10 @@ checklist to get to the next snapshot.
 
 ---
 
-## Immediate (before Phase 1.6 begins)
+## Immediate (carried forward, not yet closed out)
 
-Small, high-value fixes surfaced during this documentation pass — not a new phase, just cleanup
-that should land before more code builds on top of the current state.
+Small, high-value fixes surfaced during earlier documentation/audit passes — not a new phase,
+just cleanup that should land before more code builds on top of the current state.
 
 - [x] Fix the `renewals.balance` vs `current_balance` mismatch (`docs/BACKEND_SCHEMA.md` §3,
       `docs/TRD.md` §3) — `src/routes/lender.tsx` now reads `current_balance` throughout,
@@ -40,6 +40,25 @@ provider abstraction built in Phase 1.5.
       `GEMINI_API_KEY` — confirm telemetry lands in `document_extractions` with
       `llm_provider = 'gemini'`. Not yet run in this environment (no deployed Supabase project /
       live API key available here); do this before relying on Gemini in production.
+
+## Phase 1.7 — Underwriting Registry & Cross-Document Validation Audit ✅
+
+- [x] Debt document architecture review: split `DEBT_ACCOUNT_STATEMENT` into a shared base plus
+      specialized `MORTGAGE_STATEMENT`/`HELOC_STATEMENT` kinds (real underwriting fields the flat
+      merge lost); Credit Card/Loan/LOC stay merged (no fidelity loss there).
+- [x] Cross-document validation audit: confirmed `reconcileTaxSlips()` already exists for the 5
+      legacy tax-slip kinds but is disconnected from the Master Document Registry; built
+      `src/utils/crossDocumentValidation.ts` to cover the Phase 1.6 document set, wired into
+      `useComplianceAlerts.ts` (feeds `DossierGate` automatically, no protected files touched).
+- [x] Policy-hardcoding audit: found and fixed one lender-stream assertion in
+      `CREDIT_BUREAU_REPORT`; added a durable scope-boundary comment to `documentRegistry.ts`.
+- [ ] Two example rules from the brief intentionally not implemented (documented as gaps, not
+      silently skipped): down-payment shortfall (needs `applicationStore` loan terms, outside the
+      document set) and per-tradeline HELOC-vs-bureau matching (needs itemized bureau tradeline
+      data the current flat schema doesn't carry — `CREDIT_BUREAU_REPORT.mortgageBalanceReported`
+      is a v1 aggregate proxy only).
+- [ ] End-to-end test against real uploaded documents once live testing begins — cross-document
+      rules are unit-clean (build/typecheck pass) but not yet exercised against real extractions.
 
 ## Phase 2 — Authentication, Workspace, Developer Mode
 
@@ -78,7 +97,32 @@ phase is about the *remaining* gaps, not starting from zero.
   - [ ] Any new edge functions this introduces must independently verify the Super Admin role
         server-side (extend `_shared/proxy.ts`'s `guard()`), not rely on client-side gating alone
 
-## Phase 4 — Billing
+## Phase 3.5 — File Reasoning Engine
+
+Reasons across the whole file after individual (`documentRegistry.ts`) and cross-document
+(`crossDocumentValidation.ts`) validation have already run — synthesis, not checking.
+
+- [ ] File-level reasoning layer + evidence graph linking related facts across documents
+- [ ] Missing-evidence and contradictory-evidence detection
+- [ ] AI-generated underwriting summary, broker questions, submission-readiness assessment
+- [ ] Explainable reasoning attached to every generated finding
+
+## Phase 4 — Policy & Recommendation Engine
+
+(Renamed from "Lender Policy Engine".) The designated home for anything the Phase 1.7 audit
+flagged as lender/insurer-specific rather than an objective fact or provider-agnostic heuristic —
+see the scope-boundary comment in `documentRegistry.ts`. This becomes the intelligence behind
+"Recommend Lenders."
+
+- [ ] Lender policy database, mortgage product rules
+- [ ] Insurer overlays (CMHC, Sagen, Canada Guaranty)
+- [ ] Compensating factor framework, exception rules, broker overrides
+- [ ] Rental income calculation policies, stress-test rules
+- [ ] Explainable lender pass/fail decisions
+- [ ] Lender + product recommendation ranking
+- [ ] Policy versioning and effective dates
+
+## Phase 5 — Billing
 
 Per `docs/DECISIONS.md`: customers are billed per processed file, never by AI credit; internal
 provider costs are tracked separately.
@@ -92,14 +136,14 @@ provider costs are tracked separately.
 - [ ] Internal profitability view: provider cost vs. customer plan price, using
       `document_extractions.estimated_cost`
 
-## Phase 5 — Verification improvements
+## Phase 6 — Verification improvements
 
 - [ ] Better confidence scoring (currently a flat `confidence` numeric on `parsed_documents`)
 - [ ] Manual review UX improvements
 - [ ] Visual document comparison (side-by-side source doc vs. extracted field)
 - [ ] Per-field explainability (why did the AI extract this value)
 
-## Phase 6 — Enterprise
+## Phase 7 — Enterprise
 
 - [ ] Public API + webhooks
 - [ ] LOS/CRM integrations
