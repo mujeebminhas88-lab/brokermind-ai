@@ -1,1 +1,24 @@
 project_id = "kwdusucahpkfomjiyhie"
+
+# These four functions authenticate the caller themselves via
+# _shared/proxy.ts's getUserId() (validates the bearer token against
+# /auth/v1/user) rather than relying on the platform's own JWT gate.
+# verify_jwt = false is required here — otherwise Supabase's edge gateway
+# rejects the CORS preflight (OPTIONS has no Authorization header) before
+# the request ever reaches guard()'s own OPTIONS handling, which surfaces
+# in the browser as a CORS failure indistinguishable from "function not
+# deployed."
+[functions.ocr-proxy]
+verify_jwt = false
+
+[functions.ai-proxy]
+verify_jwt = false
+
+[functions.gemini-proxy]
+verify_jwt = false
+
+[functions.flinks-proxy]
+verify_jwt = false
+
+[functions.plaid-proxy]
+verify_jwt = false
