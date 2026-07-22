@@ -52,7 +52,72 @@ export type DocumentKind =
   // Super-Priority Sources
   | "PD7A"
   | "RC59"
-  | "NET34";
+  | "NET34"
+  // ── Comprehensive residential underwriting expansion (see banner comments
+  //    below in DocumentRegistry for merge rationale on each group) ──
+  // Identity
+  | "GOVT_ID"
+  // Legal
+  | "POA"
+  | "PROPERTY_DEED"
+  | "LIEN_WRIT_DOCUMENTATION"
+  | "ILA_CERTIFICATE"
+  // Corporate
+  | "ARTICLES_OF_INCORPORATION"
+  | "CORP_PROFILE_REPORT"
+  | "CORP_FINANCIAL_STATEMENTS"
+  | "BUSINESS_LICENCE"
+  | "BUSINESS_BANK_STATEMENT"
+  // Income
+  | "LETTER_OF_EMPLOYMENT"
+  | "EMPLOYMENT_CONTRACT"
+  | "PAY_STUB"
+  | "COMMISSION_STATEMENT"
+  | "BONUS_LETTER"
+  | "PROFESSIONAL_LICENCE"
+  // Assets
+  | "PERSONAL_BANK_STATEMENT"
+  | "INVESTMENT_STATEMENT"
+  | "REGISTERED_ACCOUNT_STATEMENT"
+  | "CRYPTO_STATEMENT"
+  | "FOREIGN_ASSET_STATEMENT"
+  | "GIFT_LETTER"
+  | "LARGE_DEPOSIT_DOCUMENTATION"
+  // Property
+  | "AGREEMENT_OF_PURCHASE_SALE"
+  | "BUILDER_PURCHASE_AGREEMENT"
+  | "ASSIGNMENT_AGREEMENT"
+  | "MLS_LISTING"
+  | "APPRAISAL_REPORT"
+  | "CONDO_STATUS_CERTIFICATE"
+  | "PROPERTY_TAX_STATEMENT"
+  | "HOME_INSURANCE_BINDER"
+  | "TITLE_INSURANCE"
+  | "SURVEY_PLAN"
+  // Liabilities
+  | "DEBT_ACCOUNT_STATEMENT"
+  | "CRA_REQUIREMENT_TO_PAY"
+  // Credit
+  | "CREDIT_BUREAU_REPORT"
+  | "INSOLVENCY_RECORD"
+  // Rental
+  | "LEASE_AGREEMENT"
+  | "RENT_ROLL"
+  | "PROPERTY_MANAGEMENT_AGREEMENT"
+  | "T776"
+  // Specialized Lending
+  | "CONSTRUCTION_BUDGET"
+  | "BUILDING_PERMIT"
+  | "NEW_HOME_WARRANTY"
+  | "BLUEPRINTS"
+  | "REVERSE_MORTGAGE_DISCLOSURE"
+  | "EXIT_STRATEGY_LETTER"
+  // Broker Workflow
+  | "BROKER_NOTES"
+  | "MORTGAGE_COMMITMENT_LETTER"
+  | "MORTGAGE_RENEWAL_OFFER"
+  | "EXISTING_APPROVAL_LETTER"
+  | "LENDER_CONDITIONS_LETTER";
 
 export type DocumentCategory =
   | "Core Returns"
@@ -60,7 +125,22 @@ export type DocumentCategory =
   | "Investments"
   | "Specialized"
   | "Sub-Schedules"
-  | "Super-Priority";
+  | "Super-Priority"
+  // Comprehensive residential underwriting expansion. "Specialized Lending" is
+  // deliberately a distinct string from the pre-existing "Specialized" (CRA
+  // specialized tax slips) — the two are unrelated document sets and must not
+  // collide in CATEGORY_ORDER/getRegistryByCategory.
+  | "Identity"
+  | "Legal"
+  | "Corporate"
+  | "Income"
+  | "Assets"
+  | "Property"
+  | "Liabilities"
+  | "Credit"
+  | "Rental"
+  | "Specialized Lending"
+  | "Broker Workflow";
 
 export type ComplianceSeverity = "INFO" | "WARNING" | "HIGH" | "CRITICAL";
 
@@ -107,6 +187,13 @@ interface RegistryEntry {
   kind: DocumentKind;
   label: string;
   category: DocumentCategory;
+  /**
+   * Underwriting purpose this document serves (e.g. "KYC", "Income
+   * Verification", "Debt Verification"). Optional so the original 31
+   * CRA-form entries above (which predate this field) don't require a
+   * mechanical backfill edit; every new entry added below sets it.
+   */
+  purpose?: string;
   fields: FieldSpec[];
   extract: (payload: Record<string, unknown>) => ExtractedFields;
   validate: (extracted: ExtractedFields) => ComplianceAlert[];
@@ -143,10 +230,37 @@ const F = {
   bn: { name: "businessNumber", label: "Business Number", type: "text" as const, sample: "123456789RC0001" },
 };
 
-const arrearsFlag = (kind: DocumentKind, amount: number, code: string, label: string, sev: ComplianceSeverity, pts: number): ComplianceAlert[] =>
+const arrearsFlag = (
+  kind: DocumentKind,
+  amount: number,
+  code: string,
+  label: string,
+  sev: ComplianceSeverity,
+  pts: number,
+  superPriority?: boolean,
+): ComplianceAlert[] =>
   amount > 0
-    ? [{ code, label, severity: sev, detail: `${fmt(amount)} outstanding on ${kind}.`, sourceDoc: kind, penaltyPoints: pts }]
+    ? [{
+        code,
+        label,
+        severity: sev,
+        detail: `${fmt(amount)} outstanding on ${kind}.`,
+        sourceDoc: kind,
+        penaltyPoints: pts,
+        ...(superPriority ? { superPriority } : {}),
+      }]
     : [];
+
+// Days between now and a field's date string; null if missing/unparseable.
+// Used for expiry-driven checks (ID documents, permits, licences, commitment
+// letters) across the comprehensive underwriting expansion below.
+const daysUntil = (dateStr: unknown): number | null => {
+  const s = str(dateStr);
+  if (!s) return null;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.round((d.getTime() - Date.now()) / 86_400_000);
+};
 
 // ────────────────────────────────────────────────────────────────────────────────
 // Registry
@@ -835,6 +949,1702 @@ export const DocumentRegistry: Record<DocumentKind, RegistryEntry> = {
         : [];
     },
   },
+
+  // ════════════════════════════════════════════════════════════════════════
+  // COMPREHENSIVE RESIDENTIAL UNDERWRITING EXPANSION
+  //
+  // Canonical document TYPES, not underwriting checklist items or yearly
+  // instances — chronology (tax year, statement/pay-period date) lives in
+  // extracted fields, never in the registry key. Several proposed checklist
+  // items were merged into one generalized kind with a discriminator field
+  // (e.g. `idType`, `accountType`, `bureau`, `recordType`) rather than one
+  // kind per variant; see the comment above each group below for the
+  // specific merge rationale. Full reasoning also recorded in the chat
+  // summary delivered alongside this change.
+  // ════════════════════════════════════════════════════════════════════════
+
+  // ────────── IDENTITY ──────────
+  // Merges: Driver's Licence, Passport, Provincial Photo ID, Permanent
+  // Resident Card, Work Permit, Study Permit, Citizenship Certificate.
+  // All seven share an identical shape (holder name, DOB, ID/permit number,
+  // issuing authority, issue/expiry date) and an identical primary
+  // underwriting use — KYC identity verification — so a single kind with an
+  // `idType` discriminator loses nothing: validate() still branches on
+  // idType where treatment genuinely differs (temporary-status permits).
+  GOVT_ID: {
+    kind: "GOVT_ID",
+    label: "Government-Issued Identity Document",
+    category: "Identity",
+    purpose: "KYC",
+    fields: [
+      { name: "idType", label: "ID Type", type: "text", sample: "Driver's Licence", hint: "Driver's Licence | Passport | Provincial Photo ID | Permanent Resident Card | Work Permit | Study Permit | Citizenship Certificate" },
+      { name: "fullName", label: "Full Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "dateOfBirth", label: "Date of Birth", type: "text", sample: "1985-03-14" },
+      { name: "idNumber", label: "ID / Permit Number", type: "text", sample: "M1234-56789-01234" },
+      { name: "issuingAuthority", label: "Issuing Authority", type: "text", sample: "Ontario Ministry of Transportation" },
+      { name: "countryOfIssue", label: "Country of Issue", type: "text", sample: "Canada" },
+      { name: "issueDate", label: "Issue Date", type: "text", sample: "2022-05-14" },
+      { name: "expiryDate", label: "Expiry Date", type: "text", sample: "2027-05-14" },
+    ],
+    extract: (p) => ({
+      idType: str(p.idType ?? p.id_type),
+      fullName: str(p.fullName ?? p.full_name ?? p.holderName),
+      dateOfBirth: str(p.dateOfBirth ?? p.date_of_birth ?? p.dob),
+      idNumber: str(p.idNumber ?? p.id_number),
+      issuingAuthority: str(p.issuingAuthority ?? p.issuing_authority),
+      countryOfIssue: str(p.countryOfIssue ?? p.country_of_issue ?? p.country),
+      issueDate: str(p.issueDate ?? p.issue_date),
+      expiryDate: str(p.expiryDate ?? p.expiry_date ?? p.expiration_date),
+    }),
+    validate: (e) => {
+      const alerts: ComplianceAlert[] = [];
+      const days = daysUntil(e.expiryDate);
+      if (days != null && days < 0) {
+        alerts.push({
+          code: "ID-EXPIRED",
+          label: "Identity document expired",
+          severity: "HIGH",
+          detail: `${str(e.idType) || "Identity document"} expired ${Math.abs(days)} day(s) ago.`,
+          sourceDoc: "GOVT_ID",
+          penaltyPoints: 20,
+        });
+      } else if (days != null && days <= 90) {
+        alerts.push({
+          code: "ID-EXPIRING-SOON",
+          label: "Identity document expiring within 90 days",
+          severity: "WARNING",
+          detail: `${str(e.idType) || "Identity document"} expires in ${days} day(s).`,
+          sourceDoc: "GOVT_ID",
+          penaltyPoints: 5,
+        });
+      }
+      const idType = str(e.idType).toLowerCase();
+      if (idType.includes("work permit") || idType.includes("study permit")) {
+        alerts.push({
+          code: "NON-PR-RESIDENCY-STATUS",
+          label: "Temporary residency status disclosed",
+          severity: "WARNING",
+          detail: `Borrower holds a ${str(e.idType)} — confirm lender overlay for non-permanent-resident applicants.`,
+          sourceDoc: "GOVT_ID",
+          penaltyPoints: 5,
+        });
+      }
+      return alerts;
+    },
+  },
+
+  // ────────── LEGAL ──────────
+  POA: {
+    kind: "POA",
+    label: "Power of Attorney",
+    category: "Legal",
+    purpose: "Ownership / Compliance",
+    fields: [
+      { name: "grantorName", label: "Grantor (Principal) Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "granteeName", label: "Attorney (Agent) Name", type: "text", sample: "Sana Minhas" },
+      { name: "poaType", label: "POA Type", type: "text", sample: "General", hint: "General | Specific | Enduring" },
+      { name: "effectiveDate", label: "Effective Date", type: "text", sample: "2025-01-10" },
+      { name: "scope", label: "Scope / Powers Granted", type: "text", sample: "All real estate and financial matters" },
+    ],
+    extract: (p) => ({
+      grantorName: str(p.grantorName ?? p.grantor_name),
+      granteeName: str(p.granteeName ?? p.grantee_name ?? p.attorneyName),
+      poaType: str(p.poaType ?? p.poa_type),
+      effectiveDate: str(p.effectiveDate ?? p.effective_date),
+      scope: str(p.scope),
+    }),
+    validate: (e) => {
+      const scope = str(e.scope).toLowerCase();
+      const isLimited = str(e.poaType).toLowerCase() === "specific";
+      if (isLimited && scope && !scope.includes("real estate") && !scope.includes("mortgage") && !scope.includes("financial")) {
+        return [{
+          code: "POA-SCOPE-UNCONFIRMED",
+          label: "Specific POA scope may not cover mortgage transaction",
+          severity: "WARNING",
+          detail: "POA is limited/specific — confirm the stated scope explicitly authorizes signing mortgage documents.",
+          sourceDoc: "POA",
+          penaltyPoints: 10,
+        }];
+      }
+      return [];
+    },
+  },
+  PROPERTY_DEED: {
+    kind: "PROPERTY_DEED",
+    label: "Property Deed / Transfer",
+    category: "Legal",
+    purpose: "Ownership / Compliance",
+    fields: [
+      { name: "registeredOwner", label: "Registered Owner(s)", type: "text", sample: "Mujeeb Minhas" },
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "123 Bay St, Toronto, ON" },
+      { name: "registrationNumber", label: "Registration Number", type: "text", sample: "AT1234567" },
+      { name: "registrationDate", label: "Registration Date", type: "text", sample: "2022-06-01" },
+      { name: "instrumentType", label: "Instrument Type", type: "text", sample: "Transfer/Deed of Land" },
+    ],
+    extract: (p) => ({
+      registeredOwner: str(p.registeredOwner ?? p.registered_owner),
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      registrationNumber: str(p.registrationNumber ?? p.registration_number),
+      registrationDate: str(p.registrationDate ?? p.registration_date),
+      instrumentType: str(p.instrumentType ?? p.instrument_type),
+    }),
+    validate: () => [],
+  },
+  LIEN_WRIT_DOCUMENTATION: {
+    kind: "LIEN_WRIT_DOCUMENTATION",
+    label: "Lien / Writ Documentation",
+    category: "Legal",
+    purpose: "Ownership / Compliance",
+    fields: [
+      { name: "lienType", label: "Lien / Writ Type", type: "text", sample: "Construction Lien", hint: "Construction Lien | Writ of Seizure and Sale | Judgment" },
+      { name: "amount", label: "Registered Amount", type: "number", sample: 18500 },
+      { name: "registrationDate", label: "Registration Date", type: "text", sample: "2026-02-10" },
+      { name: "creditorName", label: "Creditor / Claimant Name", type: "text", sample: "ABC Contracting Ltd." },
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "123 Bay St, Toronto, ON" },
+    ],
+    extract: (p) => ({
+      lienType: str(p.lienType ?? p.lien_type),
+      amount: num(p.amount),
+      registrationDate: str(p.registrationDate ?? p.registration_date),
+      creditorName: str(p.creditorName ?? p.creditor_name),
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+    }),
+    validate: (e) =>
+      arrearsFlag(
+        "LIEN_WRIT_DOCUMENTATION",
+        num(e.amount),
+        "TITLE-LIEN-REGISTERED",
+        "Registered lien/writ against title — must be discharged prior to funding",
+        "HIGH",
+        25,
+        str(e.lienType).toLowerCase().includes("construction"),
+      ),
+  },
+  ILA_CERTIFICATE: {
+    kind: "ILA_CERTIFICATE",
+    label: "Independent Legal Advice Certificate",
+    category: "Legal",
+    purpose: "Ownership / Compliance",
+    fields: [
+      { name: "clientName", label: "Client Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "lawyerName", label: "Lawyer Name", type: "text", sample: "Jordan Lee" },
+      { name: "lawFirm", label: "Law Firm", type: "text", sample: "Lee & Associates LLP" },
+      { name: "dateOfAdvice", label: "Date of Advice", type: "text", sample: "2026-03-01" },
+      { name: "matterDescription", label: "Matter", type: "text", sample: "Guarantor obligations on mortgage" },
+    ],
+    extract: (p) => ({
+      clientName: str(p.clientName ?? p.client_name),
+      lawyerName: str(p.lawyerName ?? p.lawyer_name),
+      lawFirm: str(p.lawFirm ?? p.law_firm),
+      dateOfAdvice: str(p.dateOfAdvice ?? p.date_of_advice),
+      matterDescription: str(p.matterDescription ?? p.matter_description),
+    }),
+    validate: () => [],
+  },
+
+  // ────────── CORPORATE ──────────
+  ARTICLES_OF_INCORPORATION: {
+    kind: "ARTICLES_OF_INCORPORATION",
+    label: "Articles of Incorporation",
+    category: "Corporate",
+    purpose: "Self-Employed Income",
+    fields: [
+      { name: "corporationName", label: "Corporation Name", type: "text", sample: "Acme Holdings Ltd." },
+      { name: "incorporationNumber", label: "Incorporation Number", type: "text", sample: "1234567" },
+      { name: "jurisdiction", label: "Jurisdiction", type: "text", sample: "Ontario", hint: "Provincial jurisdiction or \"Federal\"" },
+      { name: "incorporationDate", label: "Incorporation Date", type: "text", sample: "2018-04-12" },
+    ],
+    extract: (p) => ({
+      corporationName: str(p.corporationName ?? p.corporation_name),
+      incorporationNumber: str(p.incorporationNumber ?? p.incorporation_number),
+      jurisdiction: str(p.jurisdiction),
+      incorporationDate: str(p.incorporationDate ?? p.incorporation_date),
+    }),
+    validate: () => [],
+  },
+  CORP_PROFILE_REPORT: {
+    kind: "CORP_PROFILE_REPORT",
+    label: "Corporate Profile Report",
+    category: "Corporate",
+    purpose: "Self-Employed Income",
+    fields: [
+      { name: "corporationName", label: "Corporation Name", type: "text", sample: "Acme Holdings Ltd." },
+      { name: "corporationStatus", label: "Corporation Status", type: "text", sample: "Active" },
+      { name: "registeredOfficeAddress", label: "Registered Office Address", type: "text", sample: "100 King St W, Toronto, ON" },
+      { name: "directors", label: "Directors", type: "text", sample: "Mujeeb Minhas" },
+      { name: "lastAnnualReturnDate", label: "Last Annual Return Date", type: "text", sample: "2025-06-01" },
+    ],
+    extract: (p) => ({
+      corporationName: str(p.corporationName ?? p.corporation_name),
+      corporationStatus: str(p.corporationStatus ?? p.corporation_status ?? p.status),
+      registeredOfficeAddress: str(p.registeredOfficeAddress ?? p.registered_office_address),
+      directors: str(p.directors),
+      lastAnnualReturnDate: str(p.lastAnnualReturnDate ?? p.last_annual_return_date),
+    }),
+    validate: (e) => {
+      const status = str(e.corporationStatus).toLowerCase();
+      if (status && status !== "active") {
+        return [{
+          code: "CORP-NOT-ACTIVE",
+          label: "Corporation not in active/good standing",
+          severity: "HIGH",
+          detail: `Corporate profile report shows status "${str(e.corporationStatus)}" — verify before proceeding.`,
+          sourceDoc: "CORP_PROFILE_REPORT",
+          penaltyPoints: 20,
+        }];
+      }
+      return [];
+    },
+  },
+  CORP_FINANCIAL_STATEMENTS: {
+    kind: "CORP_FINANCIAL_STATEMENTS",
+    label: "Corporate Financial Statements",
+    category: "Corporate",
+    purpose: "Self-Employed Income",
+    fields: [
+      { name: "corporationName", label: "Corporation Name", type: "text", sample: "Acme Holdings Ltd." },
+      { name: "fiscalYearEnd", label: "Fiscal Year End", type: "text", sample: "2025-12-31" },
+      { name: "statementType", label: "Statement Type", type: "text", sample: "Notice to Reader", hint: "Audited | Review Engagement | Notice to Reader" },
+      { name: "totalRevenue", label: "Total Revenue", type: "number", sample: 1_850_000 },
+      { name: "netIncome", label: "Net Income", type: "number", sample: 84200 },
+    ],
+    extract: (p) => ({
+      corporationName: str(p.corporationName ?? p.corporation_name),
+      fiscalYearEnd: str(p.fiscalYearEnd ?? p.fiscal_year_end),
+      statementType: str(p.statementType ?? p.statement_type),
+      totalRevenue: num(p.totalRevenue ?? p.total_revenue),
+      netIncome: num(p.netIncome ?? p.net_income),
+    }),
+    validate: (e) =>
+      num(e.netIncome) < 0
+        ? [{
+            code: "CORP-FIN-STMT-NET-LOSS",
+            label: "Corporate financial statements report a net loss",
+            severity: "WARNING",
+            detail: `Net income = ${fmt(num(e.netIncome))}.`,
+            sourceDoc: "CORP_FINANCIAL_STATEMENTS",
+            penaltyPoints: 5,
+          }]
+        : [],
+  },
+  BUSINESS_LICENCE: {
+    kind: "BUSINESS_LICENCE",
+    label: "Business Licence",
+    category: "Corporate",
+    purpose: "Self-Employed Income",
+    fields: [
+      { name: "businessName", label: "Business Name", type: "text", sample: "Minhas Consulting" },
+      { name: "licenceNumber", label: "Licence Number", type: "text", sample: "BL-2025-4471" },
+      { name: "issuingMunicipality", label: "Issuing Municipality", type: "text", sample: "City of Toronto" },
+      { name: "issueDate", label: "Issue Date", type: "text", sample: "2025-01-01" },
+      { name: "expiryDate", label: "Expiry Date", type: "text", sample: "2026-12-31" },
+    ],
+    extract: (p) => ({
+      businessName: str(p.businessName ?? p.business_name),
+      licenceNumber: str(p.licenceNumber ?? p.licence_number),
+      issuingMunicipality: str(p.issuingMunicipality ?? p.issuing_municipality),
+      issueDate: str(p.issueDate ?? p.issue_date),
+      expiryDate: str(p.expiryDate ?? p.expiry_date),
+    }),
+    validate: (e) => {
+      const days = daysUntil(e.expiryDate);
+      return days != null && days < 0
+        ? [{
+            code: "BUSINESS-LICENCE-EXPIRED",
+            label: "Business licence expired",
+            severity: "WARNING",
+            detail: `Licence expired ${Math.abs(days)} day(s) ago — confirm renewal.`,
+            sourceDoc: "BUSINESS_LICENCE",
+            penaltyPoints: 5,
+          }]
+        : [];
+    },
+  },
+  // Down-payment/reserves (Personal Bank Statement) is a separate kind, below
+  // under Assets — same statement shape, different underwriting purpose.
+  BUSINESS_BANK_STATEMENT: {
+    kind: "BUSINESS_BANK_STATEMENT",
+    label: "Business Bank Statement",
+    category: "Corporate",
+    purpose: "Self-Employed Income",
+    fields: [
+      { name: "businessName", label: "Business Name", type: "text", sample: "Minhas Consulting" },
+      { name: "institutionName", label: "Financial Institution", type: "text", sample: "RBC Royal Bank" },
+      { name: "accountNumber", label: "Account Number", type: "text", sample: "****4821" },
+      { name: "statementPeriodEnd", label: "Statement Period End", type: "text", sample: "2026-06-30" },
+      { name: "openingBalance", label: "Opening Balance", type: "number", sample: 42000 },
+      { name: "closingBalance", label: "Closing Balance", type: "number", sample: 51500 },
+      { name: "nsfCount", label: "NSF Count", type: "number", sample: 0 },
+    ],
+    extract: (p) => ({
+      businessName: str(p.businessName ?? p.business_name),
+      institutionName: str(p.institutionName ?? p.institution_name),
+      accountNumber: str(p.accountNumber ?? p.account_number),
+      statementPeriodEnd: str(p.statementPeriodEnd ?? p.statement_period_end),
+      openingBalance: num(p.openingBalance ?? p.opening_balance),
+      closingBalance: num(p.closingBalance ?? p.closing_balance),
+      nsfCount: num(p.nsfCount ?? p.nsf_count),
+    }),
+    validate: (e) => {
+      const alerts: ComplianceAlert[] = [];
+      const nsf = num(e.nsfCount);
+      if (nsf > 0) {
+        alerts.push({
+          code: "BIZ-BANK-NSF",
+          label: "NSF activity on business bank statement",
+          severity: "WARNING",
+          detail: `${nsf} NSF event(s) reported.`,
+          sourceDoc: "BUSINESS_BANK_STATEMENT",
+          penaltyPoints: 5 * Math.min(nsf, 3),
+        });
+      }
+      if (num(e.closingBalance) < 0) {
+        alerts.push({
+          code: "BIZ-BANK-NEGATIVE-BALANCE",
+          label: "Negative business account balance",
+          severity: "HIGH",
+          detail: `Closing balance = ${fmt(num(e.closingBalance))}.`,
+          sourceDoc: "BUSINESS_BANK_STATEMENT",
+          penaltyPoints: 15,
+        });
+      }
+      return alerts;
+    },
+  },
+
+  // ────────── INCOME ──────────
+  LETTER_OF_EMPLOYMENT: {
+    kind: "LETTER_OF_EMPLOYMENT",
+    label: "Letter of Employment",
+    category: "Income",
+    purpose: "Income Verification",
+    fields: [
+      { name: "employerName", label: "Employer Name", type: "text", sample: "Crown Holdings" },
+      { name: "employeeName", label: "Employee Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "position", label: "Position / Title", type: "text", sample: "Senior Analyst" },
+      { name: "employmentStartDate", label: "Employment Start Date", type: "text", sample: "2021-09-01" },
+      { name: "employmentStatus", label: "Employment Status", type: "text", sample: "Full-Time", hint: "Full-Time | Part-Time | Casual | Probationary" },
+      { name: "annualSalary", label: "Annual Salary", type: "number", sample: 95000 },
+      { name: "letterDate", label: "Letter Date", type: "text", sample: "2026-06-01" },
+    ],
+    extract: (p) => ({
+      employerName: str(p.employerName ?? p.employer_name),
+      employeeName: str(p.employeeName ?? p.employee_name),
+      position: str(p.position),
+      employmentStartDate: str(p.employmentStartDate ?? p.employment_start_date),
+      employmentStatus: str(p.employmentStatus ?? p.employment_status),
+      annualSalary: num(p.annualSalary ?? p.annual_salary),
+      letterDate: str(p.letterDate ?? p.letter_date),
+    }),
+    validate: (e) =>
+      str(e.employmentStatus).toLowerCase() === "probationary"
+        ? [{
+            code: "EMPLOYMENT-PROBATIONARY",
+            label: "Borrower on probation",
+            severity: "WARNING",
+            detail: "Letter of employment discloses probationary status — confirm lender overlay for probationary employees.",
+            sourceDoc: "LETTER_OF_EMPLOYMENT",
+            penaltyPoints: 10,
+          }]
+        : [],
+  },
+  EMPLOYMENT_CONTRACT: {
+    kind: "EMPLOYMENT_CONTRACT",
+    label: "Employment Contract",
+    category: "Income",
+    purpose: "Income Verification",
+    fields: [
+      { name: "employerName", label: "Employer Name", type: "text", sample: "Crown Holdings" },
+      { name: "employeeName", label: "Employee Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "position", label: "Position / Title", type: "text", sample: "Senior Analyst" },
+      { name: "contractType", label: "Contract Type", type: "text", sample: "Permanent", hint: "Permanent | Fixed-Term | Contract" },
+      { name: "contractEndDate", label: "Contract End Date (if fixed-term)", type: "text", sample: "" },
+      { name: "baseSalary", label: "Base Salary", type: "number", sample: 95000 },
+    ],
+    extract: (p) => ({
+      employerName: str(p.employerName ?? p.employer_name),
+      employeeName: str(p.employeeName ?? p.employee_name),
+      position: str(p.position),
+      contractType: str(p.contractType ?? p.contract_type),
+      contractEndDate: str(p.contractEndDate ?? p.contract_end_date),
+      baseSalary: num(p.baseSalary ?? p.base_salary),
+    }),
+    validate: (e) => {
+      const type = str(e.contractType).toLowerCase();
+      const days = daysUntil(e.contractEndDate);
+      if ((type === "fixed-term" || type === "contract") && days != null && days >= 0 && days < 365) {
+        return [{
+          code: "CONTRACT-EXPIRING-SOON",
+          label: "Fixed-term contract expiring within 12 months",
+          severity: "WARNING",
+          detail: `Contract ends in ${days} day(s) — verify income continuity.`,
+          sourceDoc: "EMPLOYMENT_CONTRACT",
+          penaltyPoints: 10,
+        }];
+      }
+      return [];
+    },
+  },
+  // Chronology (pay period) is an extracted field, not the registry key —
+  // one PAY_STUB kind, never "Pay Stub 1"/"Pay Stub 2".
+  PAY_STUB: {
+    kind: "PAY_STUB",
+    label: "Pay Stub",
+    category: "Income",
+    purpose: "Income Verification",
+    fields: [
+      { name: "employerName", label: "Employer Name", type: "text", sample: "Crown Holdings" },
+      { name: "employeeName", label: "Employee Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "payPeriodEndDate", label: "Pay Period End Date", type: "text", sample: "2026-06-15" },
+      { name: "grossPay", label: "Gross Pay (period)", type: "number", sample: 3800 },
+      { name: "netPay", label: "Net Pay (period)", type: "number", sample: 2850 },
+      { name: "ytdGross", label: "Year-to-Date Gross", type: "number", sample: 45600 },
+    ],
+    extract: (p) => ({
+      employerName: str(p.employerName ?? p.employer_name),
+      employeeName: str(p.employeeName ?? p.employee_name),
+      payPeriodEndDate: str(p.payPeriodEndDate ?? p.pay_period_end_date),
+      grossPay: num(p.grossPay ?? p.gross_pay),
+      netPay: num(p.netPay ?? p.net_pay),
+      ytdGross: num(p.ytdGross ?? p.ytd_gross),
+    }),
+    validate: () => [],
+  },
+  COMMISSION_STATEMENT: {
+    kind: "COMMISSION_STATEMENT",
+    label: "Commission Statement",
+    category: "Income",
+    purpose: "Income Verification",
+    fields: [
+      { name: "payerName", label: "Employer / Brokerage Name", type: "text", sample: "Crown Realty Inc." },
+      { name: "statementPeriod", label: "Statement Period", type: "text", sample: "2026-Q2" },
+      { name: "commissionEarned", label: "Commission Earned (period)", type: "number", sample: 12400 },
+      { name: "ytdCommission", label: "Year-to-Date Commission", type: "number", sample: 58200 },
+    ],
+    extract: (p) => ({
+      payerName: str(p.payerName ?? p.payer_name),
+      statementPeriod: str(p.statementPeriod ?? p.statement_period),
+      commissionEarned: num(p.commissionEarned ?? p.commission_earned),
+      ytdCommission: num(p.ytdCommission ?? p.ytd_commission),
+    }),
+    validate: () => [],
+  },
+  BONUS_LETTER: {
+    kind: "BONUS_LETTER",
+    label: "Bonus Letter",
+    category: "Income",
+    purpose: "Income Verification",
+    fields: [
+      { name: "employerName", label: "Employer Name", type: "text", sample: "Crown Holdings" },
+      { name: "employeeName", label: "Employee Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "bonusAmount", label: "Bonus Amount", type: "number", sample: 8000 },
+      { name: "bonusType", label: "Bonus Type", type: "text", sample: "Discretionary", hint: "Guaranteed | Discretionary" },
+      { name: "letterDate", label: "Letter Date", type: "text", sample: "2026-01-15" },
+    ],
+    extract: (p) => ({
+      employerName: str(p.employerName ?? p.employer_name),
+      employeeName: str(p.employeeName ?? p.employee_name),
+      bonusAmount: num(p.bonusAmount ?? p.bonus_amount),
+      bonusType: str(p.bonusType ?? p.bonus_type),
+      letterDate: str(p.letterDate ?? p.letter_date),
+    }),
+    validate: (e) =>
+      str(e.bonusType).toLowerCase() === "discretionary"
+        ? [{
+            code: "BONUS-DISCRETIONARY",
+            label: "Discretionary bonus disclosed",
+            severity: "WARNING",
+            detail: "Confirm 2-year averaging and continuance per lender policy for discretionary bonus income.",
+            sourceDoc: "BONUS_LETTER",
+            penaltyPoints: 5,
+          }]
+        : [],
+  },
+  PROFESSIONAL_LICENCE: {
+    kind: "PROFESSIONAL_LICENCE",
+    label: "Professional Licence",
+    category: "Income",
+    purpose: "Income Verification",
+    fields: [
+      { name: "holderName", label: "Holder Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "profession", label: "Profession", type: "text", sample: "Physician" },
+      { name: "licenceNumber", label: "Licence Number", type: "text", sample: "PL-88213" },
+      { name: "issuingBody", label: "Issuing Body", type: "text", sample: "College of Physicians and Surgeons of Ontario" },
+      { name: "expiryDate", label: "Expiry Date", type: "text", sample: "2027-03-31" },
+    ],
+    extract: (p) => ({
+      holderName: str(p.holderName ?? p.holder_name),
+      profession: str(p.profession),
+      licenceNumber: str(p.licenceNumber ?? p.licence_number),
+      issuingBody: str(p.issuingBody ?? p.issuing_body),
+      expiryDate: str(p.expiryDate ?? p.expiry_date),
+    }),
+    validate: (e) => {
+      const days = daysUntil(e.expiryDate);
+      return days != null && days < 0
+        ? [{
+            code: "PROF-LICENCE-EXPIRED",
+            label: "Professional licence expired",
+            severity: "WARNING",
+            detail: `Licence expired ${Math.abs(days)} day(s) ago — confirm renewal before relying on this income.`,
+            sourceDoc: "PROFESSIONAL_LICENCE",
+            penaltyPoints: 10,
+          }]
+        : [];
+    },
+  },
+
+  // ────────── ASSETS ──────────
+  PERSONAL_BANK_STATEMENT: {
+    kind: "PERSONAL_BANK_STATEMENT",
+    label: "Personal Bank Statement",
+    category: "Assets",
+    purpose: "Down Payment",
+    fields: [
+      { name: "accountHolderName", label: "Account Holder Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "institutionName", label: "Financial Institution", type: "text", sample: "RBC Royal Bank" },
+      { name: "accountNumber", label: "Account Number", type: "text", sample: "****1029" },
+      { name: "statementPeriodEnd", label: "Statement Period End", type: "text", sample: "2026-06-30" },
+      { name: "openingBalance", label: "Opening Balance", type: "number", sample: 18000 },
+      { name: "closingBalance", label: "Closing Balance", type: "number", sample: 22500 },
+      { name: "nsfCount", label: "NSF Count", type: "number", sample: 0 },
+    ],
+    extract: (p) => ({
+      accountHolderName: str(p.accountHolderName ?? p.account_holder_name),
+      institutionName: str(p.institutionName ?? p.institution_name),
+      accountNumber: str(p.accountNumber ?? p.account_number),
+      statementPeriodEnd: str(p.statementPeriodEnd ?? p.statement_period_end),
+      openingBalance: num(p.openingBalance ?? p.opening_balance),
+      closingBalance: num(p.closingBalance ?? p.closing_balance),
+      nsfCount: num(p.nsfCount ?? p.nsf_count),
+    }),
+    validate: (e) => {
+      const alerts: ComplianceAlert[] = [];
+      const nsf = num(e.nsfCount);
+      if (nsf > 0) {
+        alerts.push({
+          code: "PERSONAL-BANK-NSF",
+          label: "NSF activity on personal bank statement",
+          severity: "WARNING",
+          detail: `${nsf} NSF event(s) reported.`,
+          sourceDoc: "PERSONAL_BANK_STATEMENT",
+          penaltyPoints: 5 * Math.min(nsf, 3),
+        });
+      }
+      if (num(e.closingBalance) < 0) {
+        alerts.push({
+          code: "PERSONAL-BANK-NEGATIVE-BALANCE",
+          label: "Negative personal account balance",
+          severity: "HIGH",
+          detail: `Closing balance = ${fmt(num(e.closingBalance))}.`,
+          sourceDoc: "PERSONAL_BANK_STATEMENT",
+          penaltyPoints: 15,
+        });
+      }
+      return alerts;
+    },
+  },
+  INVESTMENT_STATEMENT: {
+    kind: "INVESTMENT_STATEMENT",
+    label: "Investment Statement (Non-Registered)",
+    category: "Assets",
+    purpose: "Down Payment",
+    fields: [
+      { name: "accountHolderName", label: "Account Holder Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "institutionName", label: "Financial Institution", type: "text", sample: "RBC Dominion Securities" },
+      { name: "accountNumber", label: "Account Number", type: "text", sample: "****7734" },
+      { name: "statementDate", label: "Statement Date", type: "text", sample: "2026-06-30" },
+      { name: "marketValue", label: "Market Value", type: "number", sample: 65000 },
+    ],
+    extract: (p) => ({
+      accountHolderName: str(p.accountHolderName ?? p.account_holder_name),
+      institutionName: str(p.institutionName ?? p.institution_name),
+      accountNumber: str(p.accountNumber ?? p.account_number),
+      statementDate: str(p.statementDate ?? p.statement_date),
+      marketValue: num(p.marketValue ?? p.market_value),
+    }),
+    validate: () => [],
+  },
+  // Merges: RRSP Statement, TFSA Statement, FHSA Statement. All three are a
+  // "current balance as of a statement date" document with identical shape;
+  // the underwriting nuance (HBP repayment for RRSP, FHSA qualifying-
+  // withdrawal rules, no special rule for TFSA) is captured by branching
+  // validate() on `accountType` rather than by three separate kinds. Distinct
+  // from the existing T4RSP/T4FHSA tax slips, which report a *withdrawal
+  // reported in a tax year* — a different fact (income/tax reporting) from
+  // this document's *current balance* (asset/down-payment verification).
+  REGISTERED_ACCOUNT_STATEMENT: {
+    kind: "REGISTERED_ACCOUNT_STATEMENT",
+    label: "Registered Account Statement (RRSP / TFSA / FHSA)",
+    category: "Assets",
+    purpose: "Down Payment",
+    fields: [
+      { name: "accountType", label: "Account Type", type: "text", sample: "RRSP", hint: "RRSP | TFSA | FHSA" },
+      { name: "accountHolderName", label: "Account Holder Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "institutionName", label: "Financial Institution", type: "text", sample: "RBC Royal Bank" },
+      { name: "statementDate", label: "Statement Date", type: "text", sample: "2026-06-30" },
+      { name: "balance", label: "Balance", type: "number", sample: 34000 },
+    ],
+    extract: (p) => ({
+      accountType: str(p.accountType ?? p.account_type),
+      accountHolderName: str(p.accountHolderName ?? p.account_holder_name),
+      institutionName: str(p.institutionName ?? p.institution_name),
+      statementDate: str(p.statementDate ?? p.statement_date),
+      balance: num(p.balance),
+    }),
+    validate: (e) => {
+      const type = str(e.accountType).toUpperCase();
+      if (type === "RRSP") {
+        return [{
+          code: "RRSP-HBP-REMINDER",
+          label: "RRSP source — confirm Home Buyers' Plan treatment",
+          severity: "INFO",
+          detail: "If any portion of this balance is withdrawn for the down payment, confirm HBP withdrawal limits and the repayment schedule.",
+          sourceDoc: "REGISTERED_ACCOUNT_STATEMENT",
+          penaltyPoints: 0,
+        }];
+      }
+      if (type === "FHSA") {
+        return [{
+          code: "FHSA-QUALIFYING-WITHDRAWAL-REMINDER",
+          label: "FHSA source — confirm qualifying withdrawal",
+          severity: "INFO",
+          detail: "Confirm the withdrawal qualifies as a first-time home buyer qualifying withdrawal under FHSA rules.",
+          sourceDoc: "REGISTERED_ACCOUNT_STATEMENT",
+          penaltyPoints: 0,
+        }];
+      }
+      return [];
+    },
+  },
+  CRYPTO_STATEMENT: {
+    kind: "CRYPTO_STATEMENT",
+    label: "Cryptocurrency Statement",
+    category: "Assets",
+    purpose: "Down Payment",
+    fields: [
+      { name: "accountHolderName", label: "Account Holder Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "exchangeName", label: "Exchange / Custodian", type: "text", sample: "Coinbase" },
+      { name: "statementDate", label: "Statement Date", type: "text", sample: "2026-06-30" },
+      { name: "portfolioValueCAD", label: "Portfolio Value (CAD)", type: "number", sample: 22000 },
+      { name: "primaryAsset", label: "Primary Asset", type: "text", sample: "BTC" },
+    ],
+    extract: (p) => ({
+      accountHolderName: str(p.accountHolderName ?? p.account_holder_name),
+      exchangeName: str(p.exchangeName ?? p.exchange_name),
+      statementDate: str(p.statementDate ?? p.statement_date),
+      portfolioValueCAD: num(p.portfolioValueCAD ?? p.portfolio_value_cad),
+      primaryAsset: str(p.primaryAsset ?? p.primary_asset),
+    }),
+    validate: () => [{
+      code: "CRYPTO-SOURCE-OF-FUNDS",
+      label: "Cryptocurrency asset disclosed",
+      severity: "WARNING",
+      detail: "Verify source of funds and confirm the conversion-to-CAD timeline before counting this balance toward the down payment.",
+      sourceDoc: "CRYPTO_STATEMENT",
+      penaltyPoints: 10,
+    }],
+  },
+  FOREIGN_ASSET_STATEMENT: {
+    kind: "FOREIGN_ASSET_STATEMENT",
+    label: "Foreign Asset Statement",
+    category: "Assets",
+    purpose: "Down Payment",
+    fields: [
+      { name: "accountHolderName", label: "Account Holder Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "institutionName", label: "Financial Institution", type: "text", sample: "HSBC UK" },
+      { name: "country", label: "Country", type: "text", sample: "United Kingdom" },
+      { name: "statementDate", label: "Statement Date", type: "text", sample: "2026-06-30" },
+      { name: "currencyCode", label: "Currency", type: "text", sample: "GBP" },
+      { name: "balanceLocalCurrency", label: "Balance (Local Currency)", type: "number", sample: 15000 },
+      { name: "balanceCAD", label: "Balance (CAD, if converted)", type: "number", sample: 25500 },
+    ],
+    extract: (p) => ({
+      accountHolderName: str(p.accountHolderName ?? p.account_holder_name),
+      institutionName: str(p.institutionName ?? p.institution_name),
+      country: str(p.country),
+      statementDate: str(p.statementDate ?? p.statement_date),
+      currencyCode: str(p.currencyCode ?? p.currency_code),
+      balanceLocalCurrency: num(p.balanceLocalCurrency ?? p.balance_local_currency),
+      balanceCAD: num(p.balanceCAD ?? p.balance_cad),
+    }),
+    validate: () => [{
+      code: "FOREIGN-ASSET-SOURCE-OF-FUNDS",
+      label: "Foreign asset disclosed",
+      severity: "WARNING",
+      detail: "Confirm source-of-funds documentation and currency conversion supporting the CAD figure used for down payment verification.",
+      sourceDoc: "FOREIGN_ASSET_STATEMENT",
+      penaltyPoints: 10,
+    }],
+  },
+  GIFT_LETTER: {
+    kind: "GIFT_LETTER",
+    label: "Gift Letter",
+    category: "Assets",
+    purpose: "Down Payment",
+    fields: [
+      { name: "donorName", label: "Donor Name", type: "text", sample: "Sana Minhas" },
+      { name: "donorRelationship", label: "Donor Relationship", type: "text", sample: "Parent" },
+      { name: "recipientName", label: "Recipient Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "giftAmount", label: "Gift Amount", type: "number", sample: 25000 },
+      { name: "giftDate", label: "Gift Date", type: "text", sample: "2026-05-01" },
+      { name: "repaymentExpected", label: "Repayment Expected?", type: "boolean", sample: false },
+    ],
+    extract: (p) => ({
+      donorName: str(p.donorName ?? p.donor_name),
+      donorRelationship: str(p.donorRelationship ?? p.donor_relationship),
+      recipientName: str(p.recipientName ?? p.recipient_name),
+      giftAmount: num(p.giftAmount ?? p.gift_amount),
+      giftDate: str(p.giftDate ?? p.gift_date),
+      repaymentExpected: bool(p.repaymentExpected ?? p.repayment_expected),
+    }),
+    validate: (e) =>
+      bool(e.repaymentExpected)
+        ? [{
+            code: "GIFT-REPAYMENT-DISCLOSED",
+            label: "Gift letter indicates repayment expected",
+            severity: "CRITICAL",
+            detail: "A bona fide gift must be non-repayable. Repayment expectation disqualifies this as a down payment gift.",
+            sourceDoc: "GIFT_LETTER",
+            penaltyPoints: 40,
+          }]
+        : [],
+  },
+  LARGE_DEPOSIT_DOCUMENTATION: {
+    kind: "LARGE_DEPOSIT_DOCUMENTATION",
+    label: "Large Deposit Documentation",
+    category: "Assets",
+    purpose: "Down Payment",
+    fields: [
+      { name: "accountHolderName", label: "Account Holder Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "depositAmount", label: "Deposit Amount", type: "number", sample: 12000 },
+      { name: "depositDate", label: "Deposit Date", type: "text", sample: "2026-05-20" },
+      { name: "sourceDescription", label: "Source Description", type: "text", sample: "Sale of vehicle" },
+      { name: "supportingDocumentReference", label: "Supporting Document Reference", type: "text", sample: "Bill of sale attached" },
+    ],
+    extract: (p) => ({
+      accountHolderName: str(p.accountHolderName ?? p.account_holder_name),
+      depositAmount: num(p.depositAmount ?? p.deposit_amount),
+      depositDate: str(p.depositDate ?? p.deposit_date),
+      sourceDescription: str(p.sourceDescription ?? p.source_description),
+      supportingDocumentReference: str(p.supportingDocumentReference ?? p.supporting_document_reference),
+    }),
+    validate: (e) =>
+      !str(e.sourceDescription)
+        ? [{
+            code: "LARGE-DEPOSIT-UNEXPLAINED",
+            label: "Large deposit lacks source explanation",
+            severity: "HIGH",
+            detail: `${fmt(num(e.depositAmount))} deposit has no documented source — required for AML / source-of-funds verification.`,
+            sourceDoc: "LARGE_DEPOSIT_DOCUMENTATION",
+            penaltyPoints: 20,
+          }]
+        : [],
+  },
+
+  // ────────── PROPERTY ──────────
+  AGREEMENT_OF_PURCHASE_SALE: {
+    kind: "AGREEMENT_OF_PURCHASE_SALE",
+    label: "Agreement of Purchase and Sale",
+    category: "Property",
+    purpose: "Property Verification",
+    fields: [
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "123 Bay St, Toronto, ON" },
+      { name: "buyerName", label: "Buyer Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "sellerName", label: "Seller Name", type: "text", sample: "Jordan Lee" },
+      { name: "purchasePrice", label: "Purchase Price", type: "number", sample: 850000 },
+      { name: "depositAmount", label: "Deposit Amount", type: "number", sample: 42500 },
+      { name: "closingDate", label: "Closing Date", type: "text", sample: "2026-09-15" },
+      { name: "conditionsWaived", label: "Conditions Waived?", type: "boolean", sample: true },
+    ],
+    extract: (p) => ({
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      buyerName: str(p.buyerName ?? p.buyer_name),
+      sellerName: str(p.sellerName ?? p.seller_name),
+      purchasePrice: num(p.purchasePrice ?? p.purchase_price),
+      depositAmount: num(p.depositAmount ?? p.deposit_amount),
+      closingDate: str(p.closingDate ?? p.closing_date),
+      conditionsWaived: bool(p.conditionsWaived ?? p.conditions_waived),
+    }),
+    validate: (e) =>
+      bool(e.conditionsWaived)
+        ? []
+        : [{
+            code: "APS-CONDITIONAL",
+            label: "Purchase agreement still conditional",
+            severity: "WARNING",
+            detail: "Confirm firm/unconditional status of the Agreement of Purchase and Sale before funding.",
+            sourceDoc: "AGREEMENT_OF_PURCHASE_SALE",
+            penaltyPoints: 10,
+          }],
+  },
+  BUILDER_PURCHASE_AGREEMENT: {
+    kind: "BUILDER_PURCHASE_AGREEMENT",
+    label: "Builder Purchase Agreement",
+    category: "Property",
+    purpose: "Property Verification",
+    fields: [
+      { name: "builderName", label: "Builder Name", type: "text", sample: "Mattamy Homes" },
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "45 New Estate Dr, Milton, ON" },
+      { name: "purchasePrice", label: "Purchase Price", type: "number", sample: 950000 },
+      { name: "depositAmount", label: "Deposit Amount", type: "number", sample: 95000 },
+      { name: "estimatedClosingDate", label: "Estimated Closing Date", type: "text", sample: "2027-03-01" },
+      { name: "occupancyDate", label: "Occupancy Date", type: "text", sample: "" },
+    ],
+    extract: (p) => ({
+      builderName: str(p.builderName ?? p.builder_name),
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      purchasePrice: num(p.purchasePrice ?? p.purchase_price),
+      depositAmount: num(p.depositAmount ?? p.deposit_amount),
+      estimatedClosingDate: str(p.estimatedClosingDate ?? p.estimated_closing_date),
+      occupancyDate: str(p.occupancyDate ?? p.occupancy_date),
+    }),
+    validate: () => [],
+  },
+  ASSIGNMENT_AGREEMENT: {
+    kind: "ASSIGNMENT_AGREEMENT",
+    label: "Assignment Agreement",
+    category: "Property",
+    purpose: "Property Verification",
+    fields: [
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "45 New Estate Dr, Milton, ON" },
+      { name: "assignor", label: "Assignor", type: "text", sample: "Jordan Lee" },
+      { name: "assignee", label: "Assignee", type: "text", sample: "Mujeeb Minhas" },
+      { name: "originalPurchasePrice", label: "Original Purchase Price", type: "number", sample: 850000 },
+      { name: "assignmentPrice", label: "Assignment Price", type: "number", sample: 920000 },
+      { name: "assignmentDate", label: "Assignment Date", type: "text", sample: "2026-04-01" },
+    ],
+    extract: (p) => ({
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      assignor: str(p.assignor),
+      assignee: str(p.assignee),
+      originalPurchasePrice: num(p.originalPurchasePrice ?? p.original_purchase_price),
+      assignmentPrice: num(p.assignmentPrice ?? p.assignment_price),
+      assignmentDate: str(p.assignmentDate ?? p.assignment_date),
+    }),
+    validate: (e) => {
+      const orig = num(e.originalPurchasePrice);
+      const assign = num(e.assignmentPrice);
+      if (orig > 0 && assign > 0 && assign / orig - 1 > 0.15) {
+        return [{
+          code: "ASSIGNMENT-LARGE-UPLIFT",
+          label: "Significant assignment price uplift",
+          severity: "WARNING",
+          detail: `Assignment price ${fmt(assign)} is ${(((assign / orig) - 1) * 100).toFixed(1)}% above the original purchase price ${fmt(orig)} — confirm lender policy on assignment sales.`,
+          sourceDoc: "ASSIGNMENT_AGREEMENT",
+          penaltyPoints: 10,
+        }];
+      }
+      return [];
+    },
+  },
+  MLS_LISTING: {
+    kind: "MLS_LISTING",
+    label: "MLS Listing",
+    category: "Property",
+    purpose: "Property Verification",
+    fields: [
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "123 Bay St, Toronto, ON" },
+      { name: "mlsNumber", label: "MLS Number", type: "text", sample: "C5678901" },
+      { name: "listPrice", label: "List Price", type: "number", sample: 875000 },
+      { name: "listingDate", label: "Listing Date", type: "text", sample: "2026-06-01" },
+    ],
+    extract: (p) => ({
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      mlsNumber: str(p.mlsNumber ?? p.mls_number),
+      listPrice: num(p.listPrice ?? p.list_price),
+      listingDate: str(p.listingDate ?? p.listing_date),
+    }),
+    validate: () => [],
+  },
+  APPRAISAL_REPORT: {
+    kind: "APPRAISAL_REPORT",
+    label: "Appraisal Report",
+    category: "Property",
+    purpose: "Property Verification",
+    fields: [
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "123 Bay St, Toronto, ON" },
+      { name: "appraisedValue", label: "Appraised Value", type: "number", sample: 865000 },
+      { name: "appraisalDate", label: "Appraisal Date", type: "text", sample: "2026-07-01" },
+      { name: "appraiserName", label: "Appraiser Name", type: "text", sample: "Jordan Lee, AACI" },
+      { name: "appraisalType", label: "Appraisal Type", type: "text", sample: "Full", hint: "Full | Drive-by | Desktop | AVM" },
+    ],
+    extract: (p) => ({
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      appraisedValue: num(p.appraisedValue ?? p.appraised_value),
+      appraisalDate: str(p.appraisalDate ?? p.appraisal_date),
+      appraiserName: str(p.appraiserName ?? p.appraiser_name),
+      appraisalType: str(p.appraisalType ?? p.appraisal_type),
+    }),
+    validate: () => [],
+  },
+  CONDO_STATUS_CERTIFICATE: {
+    kind: "CONDO_STATUS_CERTIFICATE",
+    label: "Condo Status Certificate",
+    category: "Property",
+    purpose: "Property Verification",
+    fields: [
+      { name: "corporationName", label: "Condo Corporation Name", type: "text", sample: "TSCC 2201" },
+      { name: "reserveFundBalance", label: "Reserve Fund Balance", type: "number", sample: 1_200_000 },
+      { name: "monthlyMaintenanceFee", label: "Monthly Maintenance Fee", type: "number", sample: 620 },
+      { name: "specialAssessment", label: "Special Assessment Disclosed?", type: "boolean", sample: false },
+      { name: "litigationPending", label: "Litigation Pending?", type: "boolean", sample: false },
+      { name: "certificateDate", label: "Certificate Date", type: "text", sample: "2026-06-15" },
+    ],
+    extract: (p) => ({
+      corporationName: str(p.corporationName ?? p.corporation_name),
+      reserveFundBalance: num(p.reserveFundBalance ?? p.reserve_fund_balance),
+      monthlyMaintenanceFee: num(p.monthlyMaintenanceFee ?? p.monthly_maintenance_fee),
+      specialAssessment: bool(p.specialAssessment ?? p.special_assessment),
+      litigationPending: bool(p.litigationPending ?? p.litigation_pending),
+      certificateDate: str(p.certificateDate ?? p.certificate_date),
+    }),
+    validate: (e) => {
+      const alerts: ComplianceAlert[] = [];
+      if (bool(e.specialAssessment)) {
+        alerts.push({
+          code: "CONDO-SPECIAL-ASSESSMENT",
+          label: "Special assessment disclosed on condo status certificate",
+          severity: "HIGH",
+          detail: "Confirm the special assessment amount and payment terms before funding.",
+          sourceDoc: "CONDO_STATUS_CERTIFICATE",
+          penaltyPoints: 20,
+        });
+      }
+      if (bool(e.litigationPending)) {
+        alerts.push({
+          code: "CONDO-LITIGATION-PENDING",
+          label: "Active litigation disclosed on condo status certificate",
+          severity: "CRITICAL",
+          detail: "Review litigation details with legal counsel before proceeding.",
+          sourceDoc: "CONDO_STATUS_CERTIFICATE",
+          penaltyPoints: 35,
+        });
+      }
+      return alerts;
+    },
+  },
+  // Merges: Property Tax Bill, Property Tax Arrears Notice. Same underlying
+  // document (a municipal tax statement); "arrears" is a state derived from
+  // the extracted `arrearsAmount`, exactly like the existing PD7A/NET34
+  // pattern of deriving a lien flag from an amount rather than a separate
+  // document kind — not a workflow-stage variant that needs its own kind.
+  PROPERTY_TAX_STATEMENT: {
+    kind: "PROPERTY_TAX_STATEMENT",
+    label: "Property Tax Statement",
+    category: "Property",
+    purpose: "Property Verification",
+    fields: [
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "123 Bay St, Toronto, ON" },
+      { name: "taxYear", label: "Tax Year", type: "number", sample: 2026 },
+      { name: "annualTaxAmount", label: "Annual Tax Amount", type: "number", sample: 5200 },
+      { name: "arrearsAmount", label: "Arrears Amount", type: "number", sample: 0 },
+      { name: "dueDate", label: "Due Date", type: "text", sample: "2026-07-31" },
+    ],
+    extract: (p) => ({
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      taxYear: num(p.taxYear ?? p.tax_year),
+      annualTaxAmount: num(p.annualTaxAmount ?? p.annual_tax_amount),
+      arrearsAmount: num(p.arrearsAmount ?? p.arrears_amount ?? p.amountOwing ?? p.amount_owing),
+      dueDate: str(p.dueDate ?? p.due_date),
+    }),
+    validate: (e) =>
+      arrearsFlag(
+        "PROPERTY_TAX_STATEMENT",
+        num(e.arrearsAmount),
+        "PROPERTY-TAX-ARREARS",
+        "Property tax arrears outstanding",
+        "HIGH",
+        25,
+        true,
+      ),
+  },
+  HOME_INSURANCE_BINDER: {
+    kind: "HOME_INSURANCE_BINDER",
+    label: "Home Insurance Binder",
+    category: "Property",
+    purpose: "Property Verification",
+    fields: [
+      { name: "insurerName", label: "Insurer Name", type: "text", sample: "Aviva Canada" },
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "123 Bay St, Toronto, ON" },
+      { name: "policyNumber", label: "Policy Number", type: "text", sample: "HP-9982134" },
+      { name: "coverageAmount", label: "Coverage Amount", type: "number", sample: 850000 },
+      { name: "effectiveDate", label: "Effective Date", type: "text", sample: "2026-09-15" },
+      { name: "expiryDate", label: "Expiry Date", type: "text", sample: "2027-09-15" },
+      { name: "mortgageeClause", label: "Mortgagee Clause Naming Lender?", type: "boolean", sample: true },
+    ],
+    extract: (p) => ({
+      insurerName: str(p.insurerName ?? p.insurer_name),
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      policyNumber: str(p.policyNumber ?? p.policy_number),
+      coverageAmount: num(p.coverageAmount ?? p.coverage_amount),
+      effectiveDate: str(p.effectiveDate ?? p.effective_date),
+      expiryDate: str(p.expiryDate ?? p.expiry_date),
+      mortgageeClause: bool(p.mortgageeClause ?? p.mortgagee_clause),
+    }),
+    validate: (e) =>
+      bool(e.mortgageeClause)
+        ? []
+        : [{
+            code: "INSURANCE-MISSING-MORTGAGEE-CLAUSE",
+            label: "Insurance binder missing mortgagee clause",
+            severity: "HIGH",
+            detail: "Binder does not confirm a mortgagee clause naming the lender — required prior to funding.",
+            sourceDoc: "HOME_INSURANCE_BINDER",
+            penaltyPoints: 20,
+          }],
+  },
+  TITLE_INSURANCE: {
+    kind: "TITLE_INSURANCE",
+    label: "Title Insurance Policy",
+    category: "Property",
+    purpose: "Ownership / Compliance",
+    fields: [
+      { name: "insurerName", label: "Insurer Name", type: "text", sample: "FCT Insurance Company Ltd." },
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "123 Bay St, Toronto, ON" },
+      { name: "policyNumber", label: "Policy Number", type: "text", sample: "TI-4471203" },
+      { name: "coverageAmount", label: "Coverage Amount", type: "number", sample: 850000 },
+      { name: "effectiveDate", label: "Effective Date", type: "text", sample: "2026-09-15" },
+    ],
+    extract: (p) => ({
+      insurerName: str(p.insurerName ?? p.insurer_name),
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      policyNumber: str(p.policyNumber ?? p.policy_number),
+      coverageAmount: num(p.coverageAmount ?? p.coverage_amount),
+      effectiveDate: str(p.effectiveDate ?? p.effective_date),
+    }),
+    validate: () => [],
+  },
+  SURVEY_PLAN: {
+    kind: "SURVEY_PLAN",
+    label: "Survey Plan",
+    category: "Property",
+    purpose: "Property Verification",
+    fields: [
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "123 Bay St, Toronto, ON" },
+      { name: "surveyDate", label: "Survey Date", type: "text", sample: "2025-11-01" },
+      { name: "surveyorName", label: "Surveyor Name", type: "text", sample: "Jordan Lee, OLS" },
+      { name: "encroachmentsNoted", label: "Encroachments Noted?", type: "boolean", sample: false },
+    ],
+    extract: (p) => ({
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      surveyDate: str(p.surveyDate ?? p.survey_date),
+      surveyorName: str(p.surveyorName ?? p.surveyor_name),
+      encroachmentsNoted: bool(p.encroachmentsNoted ?? p.encroachments_noted),
+    }),
+    validate: (e) =>
+      bool(e.encroachmentsNoted)
+        ? [{
+            code: "SURVEY-ENCROACHMENT",
+            label: "Survey discloses encroachment",
+            severity: "WARNING",
+            detail: "Confirm title insurance coverage or resolution of the disclosed encroachment.",
+            sourceDoc: "SURVEY_PLAN",
+            penaltyPoints: 15,
+          }]
+        : [],
+  },
+
+  // ────────── LIABILITIES ──────────
+  // Merges: Mortgage Statement, HELOC Statement, Credit Card Statement, Loan
+  // Statement, Line of Credit Statement. All five are the same shape
+  // (institution, account/balance/payment/rate, status) that the app's own
+  // liabilities UI already treats generically, one row per account
+  // regardless of product type — the registry now mirrors that, with
+  // `accountType` as the discriminator instead of five parallel kinds.
+  DEBT_ACCOUNT_STATEMENT: {
+    kind: "DEBT_ACCOUNT_STATEMENT",
+    label: "Existing Debt Account Statement",
+    category: "Liabilities",
+    purpose: "Debt Verification",
+    fields: [
+      { name: "accountType", label: "Account Type", type: "text", sample: "Mortgage", hint: "Mortgage | HELOC | Line of Credit | Credit Card | Loan" },
+      { name: "institutionName", label: "Financial Institution", type: "text", sample: "TD Canada Trust" },
+      { name: "accountNumber", label: "Account Number", type: "text", sample: "****5502" },
+      { name: "currentBalance", label: "Current Balance", type: "number", sample: 18500 },
+      { name: "creditLimit", label: "Credit Limit (revolving accounts)", type: "number", sample: 20000 },
+      { name: "monthlyPayment", label: "Monthly Payment", type: "number", sample: 450 },
+      { name: "interestRate", label: "Interest Rate (%)", type: "number", sample: 6.5 },
+      { name: "accountStatus", label: "Account Status", type: "text", sample: "Current", hint: "Current | Arrears" },
+    ],
+    extract: (p) => ({
+      accountType: str(p.accountType ?? p.account_type),
+      institutionName: str(p.institutionName ?? p.institution_name),
+      accountNumber: str(p.accountNumber ?? p.account_number),
+      currentBalance: num(p.currentBalance ?? p.current_balance),
+      creditLimit: num(p.creditLimit ?? p.credit_limit),
+      monthlyPayment: num(p.monthlyPayment ?? p.monthly_payment),
+      interestRate: num(p.interestRate ?? p.interest_rate),
+      accountStatus: str(p.accountStatus ?? p.account_status),
+    }),
+    validate: (e) => {
+      const alerts: ComplianceAlert[] = [];
+      const type = str(e.accountType);
+      if (str(e.accountStatus).toLowerCase() === "arrears") {
+        alerts.push({
+          code: "DEBT-ACCOUNT-ARREARS",
+          label: `Existing ${type || "debt"} account in arrears`,
+          severity: "HIGH",
+          detail: `${type || "Account"} at ${str(e.institutionName)} reported in arrears.`,
+          sourceDoc: "DEBT_ACCOUNT_STATEMENT",
+          penaltyPoints: 20,
+        });
+      }
+      const limit = num(e.creditLimit);
+      const balance = num(e.currentBalance);
+      const revolving = ["credit card", "line of credit", "heloc"].includes(type.toLowerCase());
+      if (revolving && limit > 0 && balance / limit > 0.9) {
+        alerts.push({
+          code: "DEBT-ACCOUNT-HIGH-UTILIZATION",
+          label: "High utilization on revolving credit account",
+          severity: "WARNING",
+          detail: `Balance ${fmt(balance)} is ${((balance / limit) * 100).toFixed(0)}% of the ${fmt(limit)} limit.`,
+          sourceDoc: "DEBT_ACCOUNT_STATEMENT",
+          penaltyPoints: 10,
+        });
+      }
+      return alerts;
+    },
+  },
+  CRA_REQUIREMENT_TO_PAY: {
+    kind: "CRA_REQUIREMENT_TO_PAY",
+    label: "CRA Requirement to Pay",
+    category: "Liabilities",
+    purpose: "Debt Verification",
+    fields: [
+      { name: "businessNumberOrSin", label: "Business Number / SIN", type: "text", sample: "123456789" },
+      { name: "recipientName", label: "Recipient Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "amountDemanded", label: "Amount Demanded", type: "number", sample: 14200 },
+      { name: "issueDate", label: "Issue Date", type: "text", sample: "2026-04-01" },
+    ],
+    extract: (p) => ({
+      businessNumberOrSin: str(p.businessNumberOrSin ?? p.business_number_or_sin ?? p.businessNumber ?? p.sin),
+      recipientName: str(p.recipientName ?? p.recipient_name),
+      amountDemanded: num(p.amountDemanded ?? p.amount_demanded),
+      issueDate: str(p.issueDate ?? p.issue_date),
+    }),
+    validate: (e) =>
+      arrearsFlag(
+        "CRA_REQUIREMENT_TO_PAY",
+        num(e.amountDemanded),
+        "CRA-REQUIREMENT-TO-PAY",
+        "CRA Requirement to Pay issued — statutory garnishment",
+        "CRITICAL",
+        50,
+        true,
+      ),
+  },
+
+  // ────────── CREDIT ──────────
+  // Merges: Equifax Mortgage Credit Report, TransUnion Mortgage Credit
+  // Report. The bureau is metadata (`bureau`), not a different document —
+  // CreditProfilePanel/creditProfileStore already treat "Beacon score"
+  // generically regardless of which bureau produced it.
+  CREDIT_BUREAU_REPORT: {
+    kind: "CREDIT_BUREAU_REPORT",
+    label: "Credit Bureau Report",
+    category: "Credit",
+    purpose: "Credit Assessment",
+    fields: [
+      { name: "bureau", label: "Bureau", type: "text", sample: "Equifax", hint: "Equifax | TransUnion" },
+      { name: "subjectName", label: "Subject Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "beaconScore", label: "Beacon Score", type: "number", sample: 712 },
+      { name: "reportDate", label: "Report Date", type: "text", sample: "2026-06-01" },
+      { name: "collectionsCount", label: "Collections Count", type: "number", sample: 0 },
+      { name: "publicRecordsCount", label: "Public Records Count", type: "number", sample: 0 },
+    ],
+    extract: (p) => ({
+      bureau: str(p.bureau),
+      subjectName: str(p.subjectName ?? p.subject_name),
+      beaconScore: num(p.beaconScore ?? p.beacon_score),
+      reportDate: str(p.reportDate ?? p.report_date),
+      collectionsCount: num(p.collectionsCount ?? p.collections_count),
+      publicRecordsCount: num(p.publicRecordsCount ?? p.public_records_count),
+    }),
+    validate: (e) => {
+      const alerts: ComplianceAlert[] = [];
+      const score = num(e.beaconScore);
+      if (score > 0 && score < 600) {
+        alerts.push({
+          code: "CREDIT-BEACON-BELOW-600",
+          label: "Beacon score below 600",
+          severity: "HIGH",
+          detail: `Beacon score ${score} — confirm B/private lending stream.`,
+          sourceDoc: "CREDIT_BUREAU_REPORT",
+          penaltyPoints: 15,
+        });
+      }
+      if (num(e.collectionsCount) > 0) {
+        alerts.push({
+          code: "CREDIT-COLLECTIONS-REPORTED",
+          label: "Collections reported on credit bureau file",
+          severity: "WARNING",
+          detail: `${num(e.collectionsCount)} collection(s) reported.`,
+          sourceDoc: "CREDIT_BUREAU_REPORT",
+          penaltyPoints: 10,
+        });
+      }
+      if (num(e.publicRecordsCount) > 0) {
+        alerts.push({
+          code: "CREDIT-PUBLIC-RECORDS-REPORTED",
+          label: "Public records reported on credit bureau file",
+          severity: "HIGH",
+          detail: `${num(e.publicRecordsCount)} public record(s) (judgment/lien) reported.`,
+          sourceDoc: "CREDIT_BUREAU_REPORT",
+          penaltyPoints: 20,
+        });
+      }
+      return alerts;
+    },
+  },
+  // Merges: Bankruptcy Documents, Consumer Proposal Documents. Both are an
+  // insolvency-proceeding record with the same shape (filing date, discharge/
+  // completion date, trustee, discharged status); `recordType` distinguishes
+  // them where treatment genuinely differs (discharge vs. completion
+  // terminology) without needing two parallel kinds.
+  INSOLVENCY_RECORD: {
+    kind: "INSOLVENCY_RECORD",
+    label: "Insolvency Record (Bankruptcy / Consumer Proposal)",
+    category: "Credit",
+    purpose: "Credit Assessment",
+    fields: [
+      { name: "recordType", label: "Record Type", type: "text", sample: "Bankruptcy", hint: "Bankruptcy | Consumer Proposal" },
+      { name: "filingDate", label: "Filing Date", type: "text", sample: "2022-01-15" },
+      { name: "dischargeOrCompletionDate", label: "Discharge / Completion Date", type: "text", sample: "2023-01-15" },
+      { name: "isDischarged", label: "Discharged / Completed?", type: "boolean", sample: true },
+      { name: "trusteeName", label: "Trustee Name", type: "text", sample: "BDO Canada" },
+    ],
+    extract: (p) => ({
+      recordType: str(p.recordType ?? p.record_type),
+      filingDate: str(p.filingDate ?? p.filing_date),
+      dischargeOrCompletionDate: str(p.dischargeOrCompletionDate ?? p.discharge_or_completion_date),
+      isDischarged: bool(p.isDischarged ?? p.is_discharged),
+      trusteeName: str(p.trusteeName ?? p.trustee_name),
+    }),
+    validate: (e) => {
+      const type = str(e.recordType) || "Insolvency record";
+      if (!bool(e.isDischarged)) {
+        return [{
+          code: "INSOLVENCY-NOT-DISCHARGED",
+          label: `${type} not yet discharged/completed`,
+          severity: "CRITICAL",
+          detail: "Active insolvency proceeding — not eligible for conventional financing until discharged/completed.",
+          sourceDoc: "INSOLVENCY_RECORD",
+          penaltyPoints: 40,
+        }];
+      }
+      return [{
+        code: "INSOLVENCY-DISCHARGED-SEASONING",
+        label: `${type} discharged — confirm seasoning`,
+        severity: "WARNING",
+        detail: "Confirm lender-specific post-discharge seasoning and re-established credit requirements.",
+        sourceDoc: "INSOLVENCY_RECORD",
+        penaltyPoints: 10,
+      }];
+    },
+  },
+
+  // ────────── RENTAL ──────────
+  LEASE_AGREEMENT: {
+    kind: "LEASE_AGREEMENT",
+    label: "Lease Agreement",
+    category: "Rental",
+    purpose: "Rental Income",
+    fields: [
+      { name: "tenantName", label: "Tenant Name", type: "text", sample: "Jordan Lee" },
+      { name: "landlordName", label: "Landlord Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "45 Rental Ave, Unit 3, Toronto, ON" },
+      { name: "monthlyRent", label: "Monthly Rent", type: "number", sample: 2400 },
+      { name: "leaseStartDate", label: "Lease Start Date", type: "text", sample: "2026-01-01" },
+      { name: "leaseEndDate", label: "Lease End Date", type: "text", sample: "2026-12-31" },
+      { name: "leaseType", label: "Lease Type", type: "text", sample: "Fixed-Term", hint: "Fixed-Term | Month-to-Month" },
+    ],
+    extract: (p) => ({
+      tenantName: str(p.tenantName ?? p.tenant_name),
+      landlordName: str(p.landlordName ?? p.landlord_name),
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      monthlyRent: num(p.monthlyRent ?? p.monthly_rent),
+      leaseStartDate: str(p.leaseStartDate ?? p.lease_start_date),
+      leaseEndDate: str(p.leaseEndDate ?? p.lease_end_date),
+      leaseType: str(p.leaseType ?? p.lease_type),
+    }),
+    validate: () => [],
+  },
+  RENT_ROLL: {
+    kind: "RENT_ROLL",
+    label: "Rent Roll",
+    category: "Rental",
+    purpose: "Rental Income",
+    fields: [
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "45 Rental Ave, Toronto, ON" },
+      { name: "numberOfUnits", label: "Number of Units", type: "number", sample: 6 },
+      { name: "vacantUnits", label: "Vacant Units", type: "number", sample: 0 },
+      { name: "totalMonthlyRent", label: "Total Monthly Rent", type: "number", sample: 13200 },
+      { name: "asOfDate", label: "As-Of Date", type: "text", sample: "2026-06-01" },
+    ],
+    extract: (p) => ({
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      numberOfUnits: num(p.numberOfUnits ?? p.number_of_units),
+      vacantUnits: num(p.vacantUnits ?? p.vacant_units),
+      totalMonthlyRent: num(p.totalMonthlyRent ?? p.total_monthly_rent),
+      asOfDate: str(p.asOfDate ?? p.as_of_date),
+    }),
+    validate: (e) => {
+      const units = num(e.numberOfUnits);
+      const vacant = num(e.vacantUnits);
+      return units > 0 && vacant / units > 0.2
+        ? [{
+            code: "RENT-ROLL-HIGH-VACANCY",
+            label: "Vacancy rate exceeds 20% on rent roll",
+            severity: "WARNING",
+            detail: `${vacant} of ${units} units vacant — confirm rental income sustainability.`,
+            sourceDoc: "RENT_ROLL",
+            penaltyPoints: 10,
+          }]
+        : [];
+    },
+  },
+  PROPERTY_MANAGEMENT_AGREEMENT: {
+    kind: "PROPERTY_MANAGEMENT_AGREEMENT",
+    label: "Property Management Agreement",
+    category: "Rental",
+    purpose: "Rental Income",
+    fields: [
+      { name: "managementCompany", label: "Management Company", type: "text", sample: "GTA Property Management Inc." },
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "45 Rental Ave, Toronto, ON" },
+      { name: "managementFeePercent", label: "Management Fee (%)", type: "number", sample: 8 },
+      { name: "agreementStartDate", label: "Agreement Start Date", type: "text", sample: "2026-01-01" },
+    ],
+    extract: (p) => ({
+      managementCompany: str(p.managementCompany ?? p.management_company),
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      managementFeePercent: num(p.managementFeePercent ?? p.management_fee_percent),
+      agreementStartDate: str(p.agreementStartDate ?? p.agreement_start_date),
+    }),
+    validate: () => [],
+  },
+  // NOTE: not previously present despite being requested as "(retain)" —
+  // T776 does not appear anywhere in the prior 31-kind registry. Added here
+  // as new, not retained; flagged in the delivery summary.
+  T776: {
+    kind: "T776",
+    label: "T776 — Statement of Real Estate Rentals",
+    category: "Rental",
+    purpose: "Rental Income",
+    fields: [
+      F.taxpayer,
+      F.taxYear,
+      { name: "propertyAddress", label: "Rental Property Address", type: "text", sample: "45 Rental Ave, Toronto, ON" },
+      { name: "grossRentalIncome", label: "Gross Rental Income", type: "number", sample: 28800 },
+      { name: "netRentalIncome", label: "Net Rental Income", type: "number", sample: 9200 },
+    ],
+    extract: (p) => ({
+      taxpayerName: str(p.taxpayerName ?? p.taxpayer_name),
+      taxYear: num(p.taxYear ?? p.tax_year),
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      grossRentalIncome: num(p.grossRentalIncome ?? p.gross_rental_income),
+      netRentalIncome: num(p.netRentalIncome ?? p.net_rental_income),
+    }),
+    validate: (e) =>
+      num(e.netRentalIncome) < 0
+        ? [{
+            code: "T776-NET-RENTAL-LOSS",
+            label: "T776 reports a net rental loss",
+            severity: "WARNING",
+            detail: `Net rental income = ${fmt(num(e.netRentalIncome))}.`,
+            sourceDoc: "T776",
+            penaltyPoints: 5,
+          }]
+        : [],
+  },
+
+  // ────────── SPECIALIZED LENDING ──────────
+  CONSTRUCTION_BUDGET: {
+    kind: "CONSTRUCTION_BUDGET",
+    label: "Construction Budget",
+    category: "Specialized Lending",
+    purpose: "Construction Verification",
+    fields: [
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "12 Build Ln, Caledon, ON" },
+      { name: "totalBudget", label: "Total Budget", type: "number", sample: 620000 },
+      { name: "hardCosts", label: "Hard Costs", type: "number", sample: 480000 },
+      { name: "softCosts", label: "Soft Costs", type: "number", sample: 90000 },
+      { name: "contingencyPercent", label: "Contingency (%)", type: "number", sample: 8 },
+    ],
+    extract: (p) => ({
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      totalBudget: num(p.totalBudget ?? p.total_budget),
+      hardCosts: num(p.hardCosts ?? p.hard_costs),
+      softCosts: num(p.softCosts ?? p.soft_costs),
+      contingencyPercent: num(p.contingencyPercent ?? p.contingency_percent),
+    }),
+    validate: (e) =>
+      num(e.contingencyPercent) < 5
+        ? [{
+            code: "CONSTRUCTION-LOW-CONTINGENCY",
+            label: "Construction budget contingency below 5%",
+            severity: "WARNING",
+            detail: `Contingency of ${num(e.contingencyPercent)}% — confirm cost-overrun risk.`,
+            sourceDoc: "CONSTRUCTION_BUDGET",
+            penaltyPoints: 10,
+          }]
+        : [],
+  },
+  BUILDING_PERMIT: {
+    kind: "BUILDING_PERMIT",
+    label: "Building Permit",
+    category: "Specialized Lending",
+    purpose: "Construction Verification",
+    fields: [
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "12 Build Ln, Caledon, ON" },
+      { name: "permitNumber", label: "Permit Number", type: "text", sample: "BP-2026-0451" },
+      { name: "issuingMunicipality", label: "Issuing Municipality", type: "text", sample: "Town of Caledon" },
+      { name: "issueDate", label: "Issue Date", type: "text", sample: "2026-02-01" },
+      { name: "permitType", label: "Permit Type", type: "text", sample: "New Construction" },
+      { name: "status", label: "Status", type: "text", sample: "Issued", hint: "Issued | Closed | Expired" },
+    ],
+    extract: (p) => ({
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      permitNumber: str(p.permitNumber ?? p.permit_number),
+      issuingMunicipality: str(p.issuingMunicipality ?? p.issuing_municipality),
+      issueDate: str(p.issueDate ?? p.issue_date),
+      permitType: str(p.permitType ?? p.permit_type),
+      status: str(p.status),
+    }),
+    validate: (e) =>
+      str(e.status).toLowerCase() === "expired"
+        ? [{
+            code: "BUILDING-PERMIT-EXPIRED",
+            label: "Building permit expired",
+            severity: "WARNING",
+            detail: "Confirm renewal or closure status of the building permit.",
+            sourceDoc: "BUILDING_PERMIT",
+            penaltyPoints: 10,
+          }]
+        : [],
+  },
+  NEW_HOME_WARRANTY: {
+    kind: "NEW_HOME_WARRANTY",
+    label: "New Home Warranty Enrollment",
+    category: "Specialized Lending",
+    purpose: "Construction Verification",
+    fields: [
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "45 New Estate Dr, Milton, ON" },
+      { name: "warrantyProvider", label: "Warranty Provider", type: "text", sample: "Tarion" },
+      { name: "enrollmentNumber", label: "Enrollment Number", type: "text", sample: "TAR-889213" },
+      { name: "builderName", label: "Builder Name", type: "text", sample: "Mattamy Homes" },
+      { name: "coverageStartDate", label: "Coverage Start Date", type: "text", sample: "2027-03-01" },
+    ],
+    extract: (p) => ({
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      warrantyProvider: str(p.warrantyProvider ?? p.warranty_provider),
+      enrollmentNumber: str(p.enrollmentNumber ?? p.enrollment_number),
+      builderName: str(p.builderName ?? p.builder_name),
+      coverageStartDate: str(p.coverageStartDate ?? p.coverage_start_date),
+    }),
+    validate: () => [],
+  },
+  BLUEPRINTS: {
+    kind: "BLUEPRINTS",
+    label: "Blueprints / Architectural Plans",
+    category: "Specialized Lending",
+    purpose: "Construction Verification",
+    fields: [
+      { name: "propertyAddress", label: "Property Address", type: "text", sample: "12 Build Ln, Caledon, ON" },
+      { name: "architectName", label: "Architect Name", type: "text", sample: "Jordan Lee Architects" },
+      { name: "planDate", label: "Plan Date", type: "text", sample: "2025-11-15" },
+      { name: "squareFootage", label: "Square Footage", type: "number", sample: 3200 },
+    ],
+    extract: (p) => ({
+      propertyAddress: str(p.propertyAddress ?? p.property_address),
+      architectName: str(p.architectName ?? p.architect_name),
+      planDate: str(p.planDate ?? p.plan_date),
+      squareFootage: num(p.squareFootage ?? p.square_footage),
+    }),
+    validate: () => [],
+  },
+  REVERSE_MORTGAGE_DISCLOSURE: {
+    kind: "REVERSE_MORTGAGE_DISCLOSURE",
+    label: "Reverse Mortgage Client Disclosure",
+    category: "Specialized Lending",
+    purpose: "Compliance",
+    fields: [
+      { name: "borrowerName", label: "Borrower Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "lenderName", label: "Lender Name", type: "text", sample: "HomeEquity Bank" },
+      { name: "principalAmount", label: "Principal Amount", type: "number", sample: 180000 },
+      { name: "interestRate", label: "Interest Rate (%)", type: "number", sample: 7.5 },
+      { name: "disclosureDate", label: "Disclosure Date", type: "text", sample: "2026-05-01" },
+      { name: "independentAdviceConfirmed", label: "Independent Advice Confirmed?", type: "boolean", sample: true },
+    ],
+    extract: (p) => ({
+      borrowerName: str(p.borrowerName ?? p.borrower_name),
+      lenderName: str(p.lenderName ?? p.lender_name),
+      principalAmount: num(p.principalAmount ?? p.principal_amount),
+      interestRate: num(p.interestRate ?? p.interest_rate),
+      disclosureDate: str(p.disclosureDate ?? p.disclosure_date),
+      independentAdviceConfirmed: bool(p.independentAdviceConfirmed ?? p.independent_advice_confirmed),
+    }),
+    validate: (e) =>
+      bool(e.independentAdviceConfirmed)
+        ? []
+        : [{
+            code: "REVERSE-MORTGAGE-NO-ILA",
+            label: "Reverse mortgage disclosure missing independent advice confirmation",
+            severity: "CRITICAL",
+            detail: "Confirmation of independent legal/financial advice is required by regulation before proceeding.",
+            sourceDoc: "REVERSE_MORTGAGE_DISCLOSURE",
+            penaltyPoints: 30,
+          }],
+  },
+  EXIT_STRATEGY_LETTER: {
+    kind: "EXIT_STRATEGY_LETTER",
+    label: "Exit Strategy Letter",
+    category: "Specialized Lending",
+    purpose: "Compliance",
+    fields: [
+      { name: "borrowerName", label: "Borrower Name", type: "text", sample: "Mujeeb Minhas" },
+      { name: "exitRoute", label: "Exit Route", type: "text", sample: "Sale", hint: "Sale | Refinance | Income Improvement" },
+      { name: "targetDate", label: "Target Date", type: "text", sample: "2027-06-01" },
+      { name: "narrative", label: "Narrative", type: "text", sample: "Property to be listed for sale within 12 months." },
+    ],
+    extract: (p) => ({
+      borrowerName: str(p.borrowerName ?? p.borrower_name),
+      exitRoute: str(p.exitRoute ?? p.exit_route),
+      targetDate: str(p.targetDate ?? p.target_date),
+      narrative: str(p.narrative),
+    }),
+    validate: (e) =>
+      !str(e.targetDate)
+        ? [{
+            code: "EXIT-STRATEGY-NO-TARGET-DATE",
+            label: "Exit strategy letter missing target date",
+            severity: "WARNING",
+            detail: "Confirm a specific target date for the exit route with the borrower.",
+            sourceDoc: "EXIT_STRATEGY_LETTER",
+            penaltyPoints: 5,
+          }]
+        : [],
+  },
+
+  // ────────── BROKER WORKFLOW ──────────
+  // BROKER_NOTES is a minimal stub — see delivery summary "needs discussion":
+  // the app already has a native, structured file_notes feature
+  // (FileNotesPanel) for broker note-taking; this kind exists only to cover
+  // an uploaded/scanned notes document, and its long-term value vs. simply
+  // using file_notes is worth revisiting before relying on it.
+  BROKER_NOTES: {
+    kind: "BROKER_NOTES",
+    label: "Broker Notes",
+    category: "Broker Workflow",
+    purpose: "Supporting Information",
+    fields: [
+      { name: "noteDate", label: "Note Date", type: "text", sample: "2026-06-01" },
+      { name: "authorName", label: "Author", type: "text", sample: "Jordan Lee" },
+      { name: "summary", label: "Summary", type: "text", sample: "Client confirmed down payment source by phone." },
+    ],
+    extract: (p) => ({
+      noteDate: str(p.noteDate ?? p.note_date),
+      authorName: str(p.authorName ?? p.author_name),
+      summary: str(p.summary),
+    }),
+    validate: () => [],
+  },
+  MORTGAGE_COMMITMENT_LETTER: {
+    kind: "MORTGAGE_COMMITMENT_LETTER",
+    label: "Mortgage Commitment Letter",
+    category: "Broker Workflow",
+    purpose: "Supporting Information",
+    fields: [
+      { name: "lenderName", label: "Lender Name", type: "text", sample: "TD Canada Trust" },
+      { name: "loanAmount", label: "Loan Amount", type: "number", sample: 680000 },
+      { name: "rate", label: "Rate (%)", type: "number", sample: 4.89 },
+      { name: "term", label: "Term (months)", type: "number", sample: 60 },
+      { name: "commitmentExpiryDate", label: "Commitment Expiry Date", type: "text", sample: "2026-09-01" },
+      { name: "conditions", label: "Conditions", type: "text", sample: "Subject to satisfactory appraisal" },
+    ],
+    extract: (p) => ({
+      lenderName: str(p.lenderName ?? p.lender_name),
+      loanAmount: num(p.loanAmount ?? p.loan_amount),
+      rate: num(p.rate),
+      term: num(p.term),
+      commitmentExpiryDate: str(p.commitmentExpiryDate ?? p.commitment_expiry_date),
+      conditions: str(p.conditions),
+    }),
+    validate: (e) => {
+      const days = daysUntil(e.commitmentExpiryDate);
+      return days != null && days < 0
+        ? [{
+            code: "COMMITMENT-LETTER-EXPIRED",
+            label: "Commitment letter has expired",
+            severity: "WARNING",
+            detail: `Commitment expired ${Math.abs(days)} day(s) ago.`,
+            sourceDoc: "MORTGAGE_COMMITMENT_LETTER",
+            penaltyPoints: 10,
+          }]
+        : [];
+    },
+  },
+  MORTGAGE_RENEWAL_OFFER: {
+    kind: "MORTGAGE_RENEWAL_OFFER",
+    label: "Mortgage Renewal Offer",
+    category: "Broker Workflow",
+    purpose: "Supporting Information",
+    fields: [
+      { name: "lenderName", label: "Lender Name", type: "text", sample: "TD Canada Trust" },
+      { name: "currentBalance", label: "Current Balance", type: "number", sample: 412000 },
+      { name: "offeredRate", label: "Offered Rate (%)", type: "number", sample: 4.49 },
+      { name: "offeredTerm", label: "Offered Term (months)", type: "number", sample: 60 },
+      { name: "maturityDate", label: "Maturity Date", type: "text", sample: "2026-10-01" },
+    ],
+    extract: (p) => ({
+      lenderName: str(p.lenderName ?? p.lender_name),
+      currentBalance: num(p.currentBalance ?? p.current_balance),
+      offeredRate: num(p.offeredRate ?? p.offered_rate),
+      offeredTerm: num(p.offeredTerm ?? p.offered_term),
+      maturityDate: str(p.maturityDate ?? p.maturity_date),
+    }),
+    validate: () => [],
+  },
+  EXISTING_APPROVAL_LETTER: {
+    kind: "EXISTING_APPROVAL_LETTER",
+    label: "Existing Approval Letter",
+    category: "Broker Workflow",
+    purpose: "Supporting Information",
+    fields: [
+      { name: "lenderName", label: "Lender Name", type: "text", sample: "Scotiabank" },
+      { name: "approvedAmount", label: "Approved Amount", type: "number", sample: 675000 },
+      { name: "rate", label: "Rate (%)", type: "number", sample: 4.94 },
+      { name: "approvalDate", label: "Approval Date", type: "text", sample: "2026-06-10" },
+      { name: "expiryDate", label: "Expiry Date", type: "text", sample: "2026-09-10" },
+    ],
+    extract: (p) => ({
+      lenderName: str(p.lenderName ?? p.lender_name),
+      approvedAmount: num(p.approvedAmount ?? p.approved_amount),
+      rate: num(p.rate),
+      approvalDate: str(p.approvalDate ?? p.approval_date),
+      expiryDate: str(p.expiryDate ?? p.expiry_date),
+    }),
+    validate: () => [],
+  },
+  LENDER_CONDITIONS_LETTER: {
+    kind: "LENDER_CONDITIONS_LETTER",
+    label: "Lender Conditions Letter",
+    category: "Broker Workflow",
+    purpose: "Supporting Information",
+    fields: [
+      { name: "lenderName", label: "Lender Name", type: "text", sample: "TD Canada Trust" },
+      { name: "dealReferenceNumber", label: "Deal Reference Number", type: "text", sample: "DL-8827341" },
+      { name: "conditionsList", label: "Conditions", type: "text", sample: "Confirm source of down payment; provide updated pay stub" },
+      { name: "conditionsDueDate", label: "Conditions Due Date", type: "text", sample: "2026-08-01" },
+    ],
+    extract: (p) => ({
+      lenderName: str(p.lenderName ?? p.lender_name),
+      dealReferenceNumber: str(p.dealReferenceNumber ?? p.deal_reference_number),
+      conditionsList: str(p.conditionsList ?? p.conditions_list ?? p.conditions),
+      conditionsDueDate: str(p.conditionsDueDate ?? p.conditions_due_date),
+    }),
+    validate: () => [],
+  },
 };
 
 // ────────────────────────────────────────────────────────────────────────────────
@@ -848,6 +2658,17 @@ export const CATEGORY_ORDER: DocumentCategory[] = [
   "Specialized",
   "Super-Priority",
   "Sub-Schedules",
+  "Identity",
+  "Legal",
+  "Corporate",
+  "Income",
+  "Assets",
+  "Property",
+  "Liabilities",
+  "Credit",
+  "Rental",
+  "Specialized Lending",
+  "Broker Workflow",
 ];
 
 export function getRegistryByCategory(): Record<DocumentCategory, DocumentKind[]> {
