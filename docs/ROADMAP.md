@@ -1,5 +1,9 @@
 # BrokerMindAI Roadmap
 
+Every phase from here forward is governed by `docs/ENGINEERING_STANDARDS.md` (mandatory,
+adopted 2026-07-22) — a phase is not complete at "the build passes," only at Production Verified.
+See that document's six-stage lifecycle and Completion Checklist before reporting any phase done.
+
 ---
 
 # Phase 0 ✅

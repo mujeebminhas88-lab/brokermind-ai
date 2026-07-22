@@ -2,6 +2,11 @@
 
 This document describes the production architecture of the BrokerMindAI underwriting workspace, with a focus on the AI document ingestion pipeline introduced in Phase 1 and the provider abstraction layer introduced in Phase 1.5. See `docs/ROADMAP.md` for what's shipped versus planned.
 
+**Before implementing any change described or implied by this document, see
+`docs/ENGINEERING_STANDARDS.md`** — it defines the mandatory lifecycle (Architecture →
+Implementation → Build → Infrastructure → Deployment → Production Verified) every feature must
+pass through, and the infrastructure audit that must run before code is written.
+
 ## 1. Overall system architecture
 
 ```mermaid

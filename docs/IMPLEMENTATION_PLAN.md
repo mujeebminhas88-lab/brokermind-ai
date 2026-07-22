@@ -6,6 +6,11 @@ actionable checklists, and folds in gaps found while writing `docs/TRD.md` and
 `PROJECT_STATE.md` stays the single "what's true right now" snapshot; this file is the working
 checklist to get to the next snapshot.
 
+**Every phase below is governed by `docs/ENGINEERING_STANDARDS.md` (mandatory, adopted
+2026-07-22).** A phase's checkboxes above are not "done" at Build Complete — each phase's
+completion must include an Infrastructure Audit and a Completion Checklist per that document
+before it's reported as finished, not just implemented.
+
 ---
 
 ## Immediate (carried forward, not yet closed out)
@@ -163,5 +168,8 @@ against before merging (see `docs/DECISIONS.md` and `docs/TRD.md` §4):
       production edit.
 - [ ] Every AI-derived value that could affect a lending decision passes through a human
       verification step before being treated as authoritative.
+- [ ] Every phase's infrastructure footprint (Edge Functions, migrations, secrets, env vars,
+      storage, CORS/auth config) is audited and actually deployed/verified before the phase is
+      reported complete — per `docs/ENGINEERING_STANDARDS.md` §4–§6. A green build is not this.
 - [ ] Update `docs/PROJECT_STATE.md` and this file's checkboxes at the end of each completed
       phase — stale status docs are worse than no status docs.
