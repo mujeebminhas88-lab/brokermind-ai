@@ -118,6 +118,29 @@ Policy-hardcoding audit
 
 ---
 
+# Phase 1.8 ✅
+
+Gemini OCR Provider
+
+Implemented
+
+- `GeminiOcrProvider` (`src/providers/ocr/geminiOcrProvider.ts`) — implements the
+  existing `OCRProvider` interface, calling `gemini-proxy` with an OCR-only system
+  prompt (verbatim transcription, no interpretation)
+- Registered in the OCR `ProviderFactory` — `VITE_OCR_PROVIDER=gemini` is a drop-in
+  swap for `google-document-ai`
+
+Purpose
+
+Let the two-stage pipeline (`OCR provider → AI provider`, unchanged since Phase 1) run
+on `GEMINI_API_KEY` alone, no `GOOGLE_DOCUMENT_AI_KEY` needed while testing — without
+merging OCR and AI into one call the way `VITE_INGESTION_MODE=native` (Phase 1.7) does.
+Gemini can staff both stages, but each stage is still its own independent request,
+prompt, and telemetry row — same architecture as Google Document AI + Claude, just a
+different OCR implementation.
+
+---
+
 # Phase 2
 
 Authentication

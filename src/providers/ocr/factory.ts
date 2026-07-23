@@ -1,7 +1,7 @@
 /**
  * OCR Provider Factory — selects the active OCR provider from configuration
- * (VITE_OCR_PROVIDER), never hardcoded. Only "google-document-ai" is
- * implemented today; the rest are recognized so the type system and the
+ * (VITE_OCR_PROVIDER), never hardcoded. "google-document-ai" and "gemini"
+ * are implemented today; the rest are recognized so the type system and the
  * factory already know about them, but selecting one throws a clear error
  * rather than silently doing nothing.
  *
@@ -12,6 +12,7 @@
  */
 import type { OCRProvider, OcrProviderId } from "./types";
 import { GoogleDocumentAIProvider } from "./googleDocumentAIProvider";
+import { GeminiOcrProvider } from "./geminiOcrProvider";
 
 const DEFAULT_PROVIDER: OcrProviderId = "google-document-ai";
 
@@ -39,15 +40,20 @@ export function getOCRProvider(): OCRProvider {
     return cached;
   }
 
+  if (id === "gemini") {
+    cached = new GeminiOcrProvider();
+    return cached;
+  }
+
   if (RECOGNIZED_FUTURE_PROVIDERS.includes(id)) {
     throw new Error(
       `OCR provider "${id}" is a recognized future provider but is not implemented yet. ` +
-        `Set VITE_OCR_PROVIDER=google-document-ai or leave it unset.`,
+        `Set VITE_OCR_PROVIDER=google-document-ai or gemini, or leave it unset.`,
     );
   }
 
   throw new Error(
-    `Unknown VITE_OCR_PROVIDER "${id}". Supported: google-document-ai. ` +
+    `Unknown VITE_OCR_PROVIDER "${id}". Supported: google-document-ai, gemini. ` +
       `Recognized but not yet implemented: ${RECOGNIZED_FUTURE_PROVIDERS.join(", ")}.`,
   );
 }

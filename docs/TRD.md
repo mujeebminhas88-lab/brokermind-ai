@@ -83,13 +83,15 @@ rationale, see `docs/DECISIONS.md`. For the full schema, see `docs/BACKEND_SCHEM
 Client-exposed config (must be prefixed `VITE_`, safe to expose publicly):
 - `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 - `VITE_OCR_PROVIDER`, `VITE_AI_PROVIDER` (provider selection, defaults documented in
-  `docs/ARCHITECTURE.md` §9)
+  `docs/ARCHITECTURE.md` §9) — `VITE_OCR_PROVIDER=gemini` (instead of the default
+  `google-document-ai`) lets the pipeline run entirely on `GEMINI_API_KEY`, no
+  `GOOGLE_DOCUMENT_AI_KEY` required, while keeping the OCR and AI stages independent
 - `VITE_INGESTION_MODE` (`pipeline` default, or `native` to skip the OCR provider entirely for AI
   providers with native document support — `docs/ARCHITECTURE.md` §9)
 
 Server-only / Edge Function Vault secrets (never exposed to the client):
-- `ANTHROPIC_API_KEY`, `GOOGLE_DOCUMENT_AI_KEY`, `GEMINI_API_KEY`, `FLINKS_CLIENT_ID`,
-  `PLAID_SECRET` / `PLAID_CLIENT_ID`
+- `ANTHROPIC_API_KEY`, `GOOGLE_DOCUMENT_AI_KEY` (only needed if `VITE_OCR_PROVIDER` stays at its
+  default), `GEMINI_API_KEY`, `FLINKS_CLIENT_ID`, `PLAID_SECRET` / `PLAID_CLIENT_ID`
 
 Deployment: GitHub → Vercel, same pattern as the Launchpad repo but a separate Vercel project.
 Database changes require a migration under `supabase/migrations/` — never a manual production

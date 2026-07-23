@@ -1,6 +1,6 @@
 # BrokerMindAI — Project State
 
-Last Updated: 2026-07-22
+Last Updated: 2026-07-23
 
 ---
 
@@ -78,6 +78,15 @@ Completed:
 
 ---
 
+## Phase 1.8 — Complete
+
+Gemini OCR provider (see "Current AI Status" below) — lets pipeline mode run OCR via Gemini
+instead of Google Document AI, so testing needs only `GEMINI_API_KEY`, not
+`GOOGLE_DOCUMENT_AI_KEY`. Distinct from `VITE_INGESTION_MODE=native` (Phase 1.7): OCR and AI
+stay two separate calls/prompts/telemetry rows even when both are Gemini.
+
+---
+
 # Current Architecture
 
 ```
@@ -136,15 +145,23 @@ Future
 
 # Current AI Status
 
-Architecture completed. Provider abstraction (Phase 1.5) and Gemini integration (Phase 1.6)
-complete.
+Architecture completed. Provider abstraction (Phase 1.5), Gemini AI integration (Phase 1.6), and
+Gemini OCR integration (Phase 1.8) complete.
 
 Implemented providers
 
-- OCR: Google Document AI (`ocr-proxy`, vault secret `GOOGLE_DOCUMENT_AI_KEY`)
+- OCR: Google Document AI (`ocr-proxy`, vault secret `GOOGLE_DOCUMENT_AI_KEY`) — default
+  (`VITE_OCR_PROVIDER` unset or `google-document-ai`)
+- OCR: Gemini (`gemini-proxy` with an OCR-only prompt, vault secret `GEMINI_API_KEY`) — swap via
+  `VITE_OCR_PROVIDER=gemini`; lets pipeline mode run without a `GOOGLE_DOCUMENT_AI_KEY`
 - AI: Claude (`ai-proxy`, vault secret `ANTHROPIC_API_KEY`)
 - AI: Gemini (`gemini-proxy`, vault secret `GEMINI_API_KEY`, model `gemini-flash-latest`) —
   validates the full pipeline without Claude billing; swap via `VITE_AI_PROVIDER=gemini`
+
+Recommended all-Gemini test configuration (no Google Document AI, no Claude billing):
+`VITE_OCR_PROVIDER=gemini`, `VITE_AI_PROVIDER=gemini`, `VITE_INGESTION_MODE=pipeline` (or unset —
+it's the default). OCR and AI remain two independent Gemini calls, not one merged call — that
+merged single-call path is what `VITE_INGESTION_MODE=native` does instead (Phase 1.7).
 
 Recognized, not yet implemented
 

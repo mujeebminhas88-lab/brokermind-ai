@@ -162,15 +162,16 @@ What's missing, and scoped to Phase 2: a real role **hierarchy** (today there is
 
 Customer/Processor/Admin are tenant-side roles scoped by `firm_id`; Super Admin is a platform-side role, not tenant-scoped. Implementation: extend `user_roles.role` from its current boolean-admin usage to an enum (`customer | processor | admin | super_admin`), and extend `useUserRole()` additively (`{ role, isAdmin, isSuperAdmin, isProcessor, loading }`) so `AuditLogViewer`'s existing `isAdmin` check keeps working unchanged.
 
-## 9. Provider abstraction (implemented, Phase 1.5; Gemini added Phase 1.6)
+## 9. Provider abstraction (implemented, Phase 1.5; Gemini AI added Phase 1.6; Gemini OCR added Phase 1.8)
 
-The pipeline depends only on two interfaces — `OCRProvider` and `AIProvider` — never on a concrete provider class. One OCR implementation (Google Document AI) and two AI implementations (Claude, Gemini) exist today; everything else is a recognized-but-unimplemented identifier, not new API integration.
+The pipeline depends only on two interfaces — `OCRProvider` and `AIProvider` — never on a concrete provider class. Two OCR implementations (Google Document AI, Gemini) and two AI implementations (Claude, Gemini) exist today; everything else is a recognized-but-unimplemented identifier, not new API integration.
 
 ```
 src/providers/
   ocr/
     types.ts                     OCRProvider, OcrRequest, OcrResult, OcrProviderId
-    googleDocumentAIProvider.ts   wraps ocr-proxy — only implementation today
+    googleDocumentAIProvider.ts   wraps ocr-proxy
+    geminiOcrProvider.ts          wraps gemini-proxy with an OCR-only system prompt — Phase 1.8
     factory.ts                    getOCRProvider() — reads VITE_OCR_PROVIDER
   ai/
     types.ts                     AIProvider, AiExtractionRequest, AiExtractionResult, AiProviderId
@@ -182,7 +183,7 @@ src/providers/
 **Configuration, not hardcoding.** `getOCRProvider()`/`getAIProvider()` each read a client-exposed env var and instantiate the matching class:
 
 ```
-VITE_OCR_PROVIDER=google-document-ai   (default if unset)
+VITE_OCR_PROVIDER=google-document-ai   (default if unset; gemini also available)
 VITE_AI_PROVIDER=claude                (default if unset; gemini also available)
 ```
 
@@ -192,10 +193,12 @@ The `VITE_` prefix is required, not cosmetic — `documentIngestPipeline.ts` run
 
 | Layer | Implemented | Recognized, not yet implemented |
 |---|---|---|
-| OCR (`OcrProviderId`) | `google-document-ai` | `azure-document-intelligence`, `aws-textract`, `tesseract`, `native-pdf-parser` |
+| OCR (`OcrProviderId`) | `google-document-ai`, `gemini` | `azure-document-intelligence`, `aws-textract`, `tesseract`, `native-pdf-parser` |
 | AI (`AiProviderId`) | `claude`, `gemini` | `openai`, `azure-openai`, `aws-bedrock`, `vertex-ai` |
 
-**Gemini specifics (`geminiProvider.ts`):** wraps a new `gemini-proxy` edge function (`supabase/functions/gemini-proxy`, vault secret `GEMINI_API_KEY`) calling `gemini-flash-latest` by default. Owns its own response-envelope unwrapping (`candidates[0].content.parts[].text`), usage-metadata mapping (`usageMetadata.promptTokenCount`/`candidatesTokenCount`), and per-token cost estimate. Adding it required zero changes to `documentIngestPipeline.ts`, `responseValidator.ts`, or any protected verification component — only a new provider file, a new edge function, and one addition to `factory.ts`, exactly per the pattern below.
+**Gemini AI specifics (`ai/geminiProvider.ts`):** wraps the `gemini-proxy` edge function (`supabase/functions/gemini-proxy`, vault secret `GEMINI_API_KEY`) calling `gemini-flash-latest` by default. Owns its own response-envelope unwrapping (`candidates[0].content.parts[].text`), usage-metadata mapping (`usageMetadata.promptTokenCount`/`candidatesTokenCount`), and per-token cost estimate. Adding it required zero changes to `documentIngestPipeline.ts`, `responseValidator.ts`, or any protected verification component — only a new provider file, a new edge function, and one addition to `factory.ts`, exactly per the pattern below.
+
+**Gemini OCR specifics (`ocr/geminiOcrProvider.ts`, Phase 1.8):** exists so `pipeline` mode (OCR stage → AI stage, both independent — see below) works with only `GEMINI_API_KEY` configured, no `GOOGLE_DOCUMENT_AI_KEY`. Calls the *same* `gemini-proxy` edge function as `ai/geminiProvider.ts` — it's the same underlying Gemini API — but with a distinct system prompt instructing Gemini to act as a plain OCR engine (verbatim transcription only, explicitly told not to interpret, correct, or extract fields) and its own, separate response parsing. This is deliberate: OCR and AI stay two independent calls with independent prompts and telemetry — Gemini running both stages is a configuration choice, not a merge of the two roles into one call. That distinction is what `native` mode (below) intentionally gives up in exchange for a single round-trip; `pipeline` mode with `VITE_OCR_PROVIDER=gemini` keeps both stages while avoiding the Google Document AI dependency.
 
 **Ingestion mode — pipeline vs. native (`VITE_INGESTION_MODE`, Phase 1.7):** `AiExtractionRequest` carries either `documentText` (OCR output) or `fileData`/`mimeType` (the raw file), never both — which one depends on `documentIngestPipeline.ts`'s ingestion mode, not on which AI provider is selected:
 

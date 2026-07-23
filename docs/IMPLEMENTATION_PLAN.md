@@ -65,6 +65,20 @@ provider abstraction built in Phase 1.5.
 - [ ] End-to-end test against real uploaded documents once live testing begins — cross-document
       rules are unit-clean (build/typecheck pass) but not yet exercised against real extractions.
 
+## Phase 1.8 — Gemini OCR Provider ✅
+
+- [x] Implement `GeminiOcrProvider` in `src/providers/ocr/geminiOcrProvider.ts`, matching the
+      `OCRProvider` interface — calls `gemini-proxy` with a dedicated OCR-only system prompt
+      (verbatim transcription, explicitly instructed not to interpret or extract fields), separate
+      from `ai/geminiProvider.ts`'s prompt and response parsing.
+- [x] Wired into `src/providers/ocr/factory.ts` behind `VITE_OCR_PROVIDER=gemini`.
+- [x] No changes to `documentIngestPipeline.ts`, `responseValidator.ts`, `promptBuilder.ts`, the
+      `gemini-proxy` edge function, or any protected verification component.
+- [ ] End-to-end test with `VITE_OCR_PROVIDER=gemini` + `VITE_AI_PROVIDER=gemini` (pipeline mode,
+      not native) against a real document upload — confirm `document_extractions.ocr_provider =
+      'gemini'` and `llm_provider = 'gemini'` both land, and OCR/AI remain two distinct rows'
+      worth of independent telemetry. Not yet run in this environment.
+
 ## Phase 2 — Authentication, Workspace, Developer Mode
 
 Note: per `docs/ARCHITECTURE.md` §7, real auth infrastructure already exists (Supabase Auth

@@ -45,11 +45,27 @@ Read **`docs/README.md`** first — it's the documentation index. In particular:
   are `VITE_`-prefixed Vercel env vars — they're baked in at **build time**, so changing them in
   the Vercel dashboard requires a redeploy to actually take effect, not just a save.
 
-## As of 2026-07-22 — in progress
+## As of 2026-07-23 — in progress
 
-Just shipped native-document ingestion mode (`VITE_INGESTION_MODE=native`, lets Gemini or Claude
-read a raw file directly, skipping the Google Document AI OCR step — see `docs/ARCHITECTURE.md`
-§9). User was mid-verification: confirming `GEMINI_API_KEY` is set in Supabase (not just Vercel),
-Vercel env vars (`VITE_INGESTION_MODE=native`, `VITE_AI_PROVIDER=gemini`) added and redeployed,
-and a real document upload not yet confirmed working end-to-end. **Next step when resuming:** ask
-the user whether the upload test succeeded, and if not, get the exact error message.
+Timeline: shipped native-document ingestion mode (`VITE_INGESTION_MODE=native`) first, then hit a
+dead Gemini model string (`gemini-2.5-flash` → 404 for new API keys; fixed to the maintained alias
+`gemini-flash-latest` in both `ai/geminiProvider.ts` and `gemini-proxy`, confirmed deployed via
+GitHub Actions run `30001647945`, `conclusion: success`). The user then clarified their actual
+intent: they explicitly do **not** want native mode — they want the original two-stage pipeline
+(OCR → AI, both independent) preserved, just with **Gemini standing in for Google Document AI at
+the OCR stage** (no `GOOGLE_DOCUMENT_AI_KEY` yet, still testing). Built accordingly: `GeminiOcrProvider`
+(`src/providers/ocr/geminiOcrProvider.ts`, Phase 1.8) implements the existing `OCRProvider`
+interface, calling `gemini-proxy` with a dedicated OCR-only system prompt (verbatim transcription,
+explicitly told not to interpret/extract) — a separate call/prompt from `ai/geminiProvider.ts`,
+even though both hit the same Gemini API. Registered behind `VITE_OCR_PROVIDER=gemini` in
+`src/providers/ocr/factory.ts`. No edge function changes needed (`gemini-proxy` already accepted
+either `image_base64` or `text`).
+
+**Target Vercel config for this setup:** `VITE_OCR_PROVIDER=gemini`, `VITE_AI_PROVIDER=gemini`,
+`VITE_INGESTION_MODE=pipeline` (or unset it entirely — pipeline is the default; unsetting is
+simpler than setting it explicitly if `native` was previously added). Remember `VITE_` vars are
+baked in at build time — changing them requires a redeploy, not just a save.
+
+**Next step when resuming:** confirm the user has updated Vercel's env vars to the above and
+redeployed, then ask them to retry a real upload and report the exact result (success, or the
+exact error message) — this has not yet been confirmed working end-to-end in production.

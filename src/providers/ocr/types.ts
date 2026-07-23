@@ -11,6 +11,7 @@
 
 export type OcrProviderId =
   | "google-document-ai"
+  | "gemini"
   | "azure-document-intelligence"
   | "aws-textract"
   | "tesseract"
