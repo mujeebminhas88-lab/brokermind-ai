@@ -29,7 +29,13 @@ const DEFAULT_EXTRACTION_INSTRUCTION =
 function fieldTable(kind: DocumentKind): string {
   const entry = DocumentRegistry[kind];
   return entry.fields
-    .map((f) => `- ${f.name} (${f.type}): ${f.label}${f.hint ? ` — ${f.hint}` : ""}`)
+    .map((f) => {
+      // `hint` is human-facing too (rendered in ComplianceIntakePanel) — kept short by
+      // convention. `aiHint` is AI-extraction guidance only, never shown in the UI; it
+      // can be as verbose as the extraction task needs. Both reach the prompt here.
+      const guidance = [f.hint, f.aiHint].filter(Boolean).join(" — ");
+      return `- ${f.name} (${f.type}): ${f.label}${guidance ? ` — ${guidance}` : ""}`;
+    })
     .join("\n");
 }
 

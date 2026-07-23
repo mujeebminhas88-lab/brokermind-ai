@@ -200,7 +200,10 @@ export interface FieldSpec {
   label: string;
   type: FieldType;
   sample?: string | number | boolean;
+  /** Short, human-readable — rendered in ComplianceIntakePanel under the field (e.g. an enum list). Also reaches the AI prompt. */
   hint?: string;
+  /** AI-extraction guidance only (e.g. how to handle an edge case in the source document) — reaches promptBuilder.ts but is never rendered in the UI. Keep human-facing "valid values" guidance in `hint` instead. */
+  aiHint?: string;
 }
 
 interface RegistryEntry {
@@ -1313,10 +1316,10 @@ export const DocumentRegistry: Record<DocumentKind, RegistryEntry> = {
       { name: "businessName", label: "Business Name", type: "text", sample: "Minhas Consulting" },
       { name: "institutionName", label: "Financial Institution", type: "text", sample: "RBC Royal Bank" },
       { name: "accountNumber", label: "Account Number", type: "text", sample: "****4821" },
-      { name: "statementPeriodEnd", label: "Statement Period End", type: "text", sample: "2026-06-30", hint: "This upload may contain multiple monthly statements concatenated into one file — if so, use the END date of the LATEST (most recent) statement period, not the first one in the document" },
-      { name: "openingBalance", label: "Opening Balance", type: "number", sample: 42000, hint: "If multiple monthly statements are concatenated into one file, use the opening balance of the EARLIEST statement period" },
-      { name: "closingBalance", label: "Closing Balance", type: "number", sample: 51500, hint: "If multiple monthly statements are concatenated into one file, use the closing balance of the LATEST statement period, not the first one" },
-      { name: "nsfCount", label: "NSF Count", type: "number", sample: 0, hint: "Scan every page/month in the document, not just the first — count every NSF, non-sufficient-funds, overdraft, or returned-item fee line item across the entire file" },
+      { name: "statementPeriodEnd", label: "Statement Period End", type: "text", sample: "2026-06-30", aiHint: "This upload may contain multiple monthly statements concatenated into one file — if so, use the END date of the LATEST (most recent) statement period, not the first one in the document" },
+      { name: "openingBalance", label: "Opening Balance", type: "number", sample: 42000, aiHint: "If multiple monthly statements are concatenated into one file, use the opening balance of the EARLIEST statement period" },
+      { name: "closingBalance", label: "Closing Balance", type: "number", sample: 51500, aiHint: "If multiple monthly statements are concatenated into one file, use the closing balance of the LATEST statement period, not the first one" },
+      { name: "nsfCount", label: "NSF Count", type: "number", sample: 0, aiHint: "Scan every page/month in the document, not just the first — count every NSF, non-sufficient-funds, overdraft, or returned-item fee line item across the entire file" },
     ],
     extract: (p) => ({
       businessName: str(p.businessName ?? p.business_name),
@@ -1548,10 +1551,10 @@ export const DocumentRegistry: Record<DocumentKind, RegistryEntry> = {
       { name: "accountHolderName", label: "Account Holder Name", type: "text", sample: "Mujeeb Minhas" },
       { name: "institutionName", label: "Financial Institution", type: "text", sample: "RBC Royal Bank" },
       { name: "accountNumber", label: "Account Number", type: "text", sample: "****1029" },
-      { name: "statementPeriodEnd", label: "Statement Period End", type: "text", sample: "2026-06-30", hint: "This upload may contain multiple monthly statements concatenated into one file — if so, use the END date of the LATEST (most recent) statement period, not the first one in the document" },
-      { name: "openingBalance", label: "Opening Balance", type: "number", sample: 18000, hint: "If multiple monthly statements are concatenated into one file, use the opening balance of the EARLIEST statement period" },
-      { name: "closingBalance", label: "Closing Balance", type: "number", sample: 22500, hint: "If multiple monthly statements are concatenated into one file, use the closing balance of the LATEST statement period, not the first one" },
-      { name: "nsfCount", label: "NSF Count", type: "number", sample: 0, hint: "Scan every page/month in the document, not just the first — count every NSF, non-sufficient-funds, overdraft, or returned-item fee line item across the entire file" },
+      { name: "statementPeriodEnd", label: "Statement Period End", type: "text", sample: "2026-06-30", aiHint: "This upload may contain multiple monthly statements concatenated into one file — if so, use the END date of the LATEST (most recent) statement period, not the first one in the document" },
+      { name: "openingBalance", label: "Opening Balance", type: "number", sample: 18000, aiHint: "If multiple monthly statements are concatenated into one file, use the opening balance of the EARLIEST statement period" },
+      { name: "closingBalance", label: "Closing Balance", type: "number", sample: 22500, aiHint: "If multiple monthly statements are concatenated into one file, use the closing balance of the LATEST statement period, not the first one" },
+      { name: "nsfCount", label: "NSF Count", type: "number", sample: 0, aiHint: "Scan every page/month in the document, not just the first — count every NSF, non-sufficient-funds, overdraft, or returned-item fee line item across the entire file" },
     ],
     extract: (p) => ({
       accountHolderName: str(p.accountHolderName ?? p.account_holder_name),
