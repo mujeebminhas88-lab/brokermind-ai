@@ -143,7 +143,7 @@ Implemented providers
 
 - OCR: Google Document AI (`ocr-proxy`, vault secret `GOOGLE_DOCUMENT_AI_KEY`)
 - AI: Claude (`ai-proxy`, vault secret `ANTHROPIC_API_KEY`)
-- AI: Gemini (`gemini-proxy`, vault secret `GEMINI_API_KEY`, model `gemini-2.5-flash`) —
+- AI: Gemini (`gemini-proxy`, vault secret `GEMINI_API_KEY`, model `gemini-flash-latest`) —
   validates the full pipeline without Claude billing; swap via `VITE_AI_PROVIDER=gemini`
 
 Recognized, not yet implemented

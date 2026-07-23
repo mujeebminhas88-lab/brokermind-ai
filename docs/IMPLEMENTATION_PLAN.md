@@ -35,7 +35,7 @@ provider abstraction built in Phase 1.5.
 
 - [x] Implement `GeminiProvider` in `src/providers/ai/geminiProvider.ts`, matching the
       `AIProvider` interface (`docs/ARCHITECTURE.md` §9) — including its own cost-estimate
-      formula, calling `gemini-2.5-flash` by default.
+      formula, calling `gemini-flash-latest` by default.
 - [x] New `gemini-proxy` edge function (`GEMINI_API_KEY` vault secret), same request shape as
       `ai-proxy`.
 - [x] Wired into `src/providers/ai/factory.ts` behind `VITE_AI_PROVIDER=gemini`.

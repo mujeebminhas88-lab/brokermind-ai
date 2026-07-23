@@ -17,7 +17,12 @@ interface GeminiRequest {
   max_tokens?: number;
 }
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+// Kept in sync with src/providers/ai/geminiProvider.ts's DEFAULT_MODEL.
+// "gemini-flash-latest" is Google's maintained alias for the current
+// flash-tier model — a dated string like "gemini-2.5-flash" is what caused
+// this proxy to start returning 404s once Google stopped granting new API
+// keys access to it ahead of its announced shutdown.
+const DEFAULT_MODEL = "gemini-flash-latest";
 
 Deno.serve(async (req) => {
   const g = await guard(req, "gemini-proxy", ["GEMINI_API_KEY"]);

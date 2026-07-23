@@ -65,7 +65,7 @@ Temporary provider.
 
 Implemented
 
-- `GeminiProvider` (`src/providers/ai/geminiProvider.ts`), calling `gemini-2.5-flash`
+- `GeminiProvider` (`src/providers/ai/geminiProvider.ts`), calling `gemini-flash-latest`
 - New `gemini-proxy` edge function (vault secret `GEMINI_API_KEY`)
 - Registered in `ProviderFactory` — `VITE_AI_PROVIDER=gemini` is a drop-in swap for `claude`
 - Structured JSON extraction via the existing `responseValidator.ts`, unchanged

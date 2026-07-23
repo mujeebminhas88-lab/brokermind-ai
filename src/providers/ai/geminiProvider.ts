@@ -16,7 +16,13 @@
 import { geminiProxy } from "@/lib/proxyClient";
 import type { AIProvider, AiExtractionRequest, AiExtractionResult, AiUsage } from "./types";
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+// "gemini-flash-latest" is Google's maintained alias for the current
+// recommended flash-tier model (hot-swapped by Google as models rotate, with
+// advance notice on breaking changes) — deliberately not a dated model
+// string like "gemini-2.5-flash", which Google began rejecting for new API
+// keys ahead of its own announced deprecation date. Using the alias avoids
+// re-hitting this exact class of failure the next time a dated model retires.
+const DEFAULT_MODEL = "gemini-flash-latest";
 
 interface GeminiPart {
   text?: unknown;

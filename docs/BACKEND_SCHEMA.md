@@ -228,7 +228,7 @@ for edge functions).
 | Function | Purpose |
 |---|---|
 | `ai-proxy` | Proxies Anthropic Claude (Messages API) for document extraction / AI features, using vault-stored `ANTHROPIC_API_KEY`. |
-| `gemini-proxy` | Proxies Google Gemini (`generateContent`, default model `gemini-2.5-flash`) for document extraction, using vault-stored `GEMINI_API_KEY`. Same request shape as `ai-proxy` (`prompt`/`text`/`system`/`model`/`max_tokens`); receives OCR output text only, never the original file. Added Phase 1.6. |
+| `gemini-proxy` | Proxies Google Gemini (`generateContent`, default model `gemini-flash-latest`) for document extraction, using vault-stored `GEMINI_API_KEY`. Same request shape as `ai-proxy` (`prompt`/`text`/`system`/`model`/`max_tokens`); receives OCR output text only, never the original file. Added Phase 1.6. |
 | `ocr-proxy` | Proxies Google Document AI for raw OCR text extraction, using `GOOGLE_DOCUMENT_AI_KEY`. |
 | `flinks-proxy` | Proxies the Flinks Canadian bank-data aggregator API, using `FLINKS_CLIENT_ID`. |
 | `plaid-proxy` | Proxies the Plaid API (secondary/fallback to Flinks), using `PLAID_SECRET`/`PLAID_CLIENT_ID`. |
