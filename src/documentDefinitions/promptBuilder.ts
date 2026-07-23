@@ -28,7 +28,9 @@ const DEFAULT_EXTRACTION_INSTRUCTION =
 
 function fieldTable(kind: DocumentKind): string {
   const entry = DocumentRegistry[kind];
-  return entry.fields.map((f) => `- ${f.name} (${f.type}): ${f.label}`).join("\n");
+  return entry.fields
+    .map((f) => `- ${f.name} (${f.type}): ${f.label}${f.hint ? ` — ${f.hint}` : ""}`)
+    .join("\n");
 }
 
 export interface ExtractionPrompt {
