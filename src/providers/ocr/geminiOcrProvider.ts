@@ -35,9 +35,17 @@ const OCR_INSTRUCTION_PROMPT =
 
 const PAGE_BREAK_MARKER = "---PAGE BREAK---";
 
-// Generous relative to the AI-stage default (2048) — a verbatim multi-page
-// transcription is often longer than a structured JSON extraction of it.
-const OCR_MAX_TOKENS = 8192;
+// A verbatim multi-page transcription (e.g. a 12-month combined bank
+// statement) can easily exceed several thousand tokens — an undersized
+// budget here silently truncates the OCR text mid-document, so any field
+// value that only appears later in the file (or only once, near the end)
+// never reaches the AI-interpretation stage at all and comes back blank
+// with no error. Set close to gemini-flash-latest's actual ~64-65k output
+// ceiling (confirmed via Google's docs as of 2026-07), not an arbitrary
+// smaller number — a bigger budget than needed costs nothing since Gemini
+// stops generating once the transcription is complete regardless of the
+// cap.
+const OCR_MAX_TOKENS = 60000;
 
 interface GeminiPart {
   text?: unknown;
